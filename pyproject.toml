@@ -1,6 +1,6 @@
 [project]
 name = "mistral-vibe"
-version = "1.0.4"
+version = "1.0.5-dev"
 description = "Minimal CLI coding agent by Mistral"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -43,6 +43,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "watchfiles>=1.1.1",
     "pyperclip>=1.11.0",
+    "prompt_toolkit>=3.0.0",
 ]
 
 [project.urls]
