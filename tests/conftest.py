@@ -11,6 +11,14 @@ sys.modules["tomli_w"] = MagicMock()
 sys.modules["aiofiles"] = MagicMock()
 sys.modules["aiofiles.os"] = MagicMock()
 
+# Mock mistralai for tests environment
+sys.modules["mistralai"] = MagicMock()
+sys.modules["mistralai.models"] = MagicMock()
+sys.modules["mistralai.client"] = MagicMock()
+
+# Mock UI to avoid Python 3.12 syntax in vibe/core/tools/ui.py
+sys.modules["vibe.core.tools.ui"] = MagicMock()
+
 import enum
 
 if not hasattr(enum, "StrEnum"):

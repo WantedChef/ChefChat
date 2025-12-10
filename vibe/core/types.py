@@ -276,3 +276,13 @@ SyncApprovalCallback: TypeAlias = Callable[
 ]
 
 ApprovalCallback: TypeAlias = AsyncApprovalCallback | SyncApprovalCallback
+
+
+class ToolExecutionResponse(StrEnum):
+    SKIP = auto()
+    EXECUTE = auto()
+
+
+class ToolDecision(BaseModel):
+    verdict: ToolExecutionResponse
+    feedback: str | None = None

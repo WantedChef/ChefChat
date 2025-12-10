@@ -170,7 +170,16 @@ def _is_retryable_http_error(e: Exception) -> bool:
     return False
 
 
-def async_retry[T, **P](
+try:
+    from typing import ParamSpec, TypeVar
+except ImportError:
+    from typing_extensions import ParamSpec, TypeVar
+
+T = TypeVar("T")
+P = ParamSpec("P")
+
+
+def async_retry(
     tries: int = 3,
     delay_seconds: float = 0.5,
     backoff_factor: float = 2.0,
@@ -212,7 +221,7 @@ def async_retry[T, **P](
     return decorator
 
 
-def async_generator_retry[T, **P](
+def async_generator_retry(
     tries: int = 3,
     delay_seconds: float = 0.5,
     backoff_factor: float = 2.0,
@@ -264,7 +273,7 @@ class ConversationLimitException(Exception):
     pass
 
 
-def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
+def run_sync(coro: Coroutine[Any, Any, T]) -> T:
     """Run an async coroutine synchronously, handling nested event loops.
 
     If called from within an async context (running event loop), runs the

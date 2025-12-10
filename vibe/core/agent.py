@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 from collections import OrderedDict
 from collections.abc import AsyncGenerator, Callable
 
 try:
     from enum import StrEnum, auto
 except ImportError:
-    from enum import Enum, auto
+    from enum import Enum
 
     class StrEnum(str, Enum):
         pass
@@ -16,10 +15,8 @@ except ImportError:
 import time
 
 # Import ModeManager for type checking only to avoid circular imports
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 from uuid import uuid4
-
-from pydantic import BaseModel
 
 from vibe.core.config import VibeConfig
 from vibe.core.interaction_logger import InteractionLogger
@@ -39,12 +36,6 @@ from vibe.core.middleware import (
 )
 from vibe.core.prompts import UtilityPrompt
 from vibe.core.system_prompt import get_universal_system_prompt
-from vibe.core.tools.base import (
-    BaseTool,
-    ToolError,
-    ToolPermission,
-    ToolPermissionError,
-)
 from vibe.core.tools.manager import ToolManager
 from vibe.core.types import (
     AgentStats,
@@ -55,34 +46,20 @@ from vibe.core.types import (
     CompactStartEvent,
     LLMChunk,
     LLMMessage,
+    LLMUsage,
     Role,
-    SyncApprovalCallback,
     ToolCall,
     ToolCallEvent,
     ToolResultEvent,
 )
 from vibe.core.utils import (
-    TOOL_ERROR_TAG,
     VIBE_STOP_EVENT_TAG,
-    ApprovalResponse,
-    CancellationReason,
     get_user_agent,
-    get_user_cancellation_message,
     is_user_cancellation_event,
 )
 
 if TYPE_CHECKING:
     from vibe.cli.mode_manager import ModeManager
-
-
-class ToolExecutionResponse(StrEnum):
-    SKIP = auto()
-    EXECUTE = auto()
-
-
-class ToolDecision(BaseModel):
-    verdict: ToolExecutionResponse
-    feedback: str | None = None
 
 
 class AgentError(Exception):
@@ -128,6 +105,13 @@ class Agent:
             config, self.tool_manager, mode_manager, message_observer
         )
 
+        # Initialize AgentToolExecutor (Refactor B.1 Part 2)
+        from vibe.core.agent_tool_executor import AgentToolExecutor
+
+        self.tool_executor = AgentToolExecutor(
+            config, self.tool_manager, self.format_handler, mode_manager, auto_approve
+        )
+
         self.stats = AgentStats()
         try:
             active_model = config.get_active_model()
@@ -135,9 +119,6 @@ class Agent:
             self.stats.output_price_per_million = active_model.output_price
         except ValueError:
             pass
-
-        self.auto_approve = auto_approve
-        self.approval_callback: ApprovalCallback | None = None
 
         # Store mode_manager for mode-aware tool execution
         self.mode_manager: ModeManager | None = mode_manager
@@ -152,6 +133,14 @@ class Agent:
         )
 
         self._last_chunk: LLMChunk | None = None
+
+    @property
+    def auto_approve(self) -> bool:
+        return self.tool_executor.auto_approve
+
+    @auto_approve.setter
+    def auto_approve(self, value: bool) -> None:
+        self.tool_executor.auto_approve = value
 
     @property
     def messages(self) -> list[LLMMessage]:
@@ -426,211 +415,58 @@ class Agent:
             message=last_message, usage=chunks[-1].usage, finish_reason=finish_reason
         )
 
-    async def _get_assistant_event(self) -> AssistantEvent:
-        llm_result = await self._chat()
-        if llm_result.usage is None:
-            raise LLMResponseError(
-                "Usage data missing in non-streaming completion response"
-            )
-        self._last_chunk = llm_result
-        assistant_msg = llm_result.message
-        self.messages.append(assistant_msg)
-
+    def _create_assistant_event(
+        self, content: str, chunk: LLMChunk | None
+    ) -> AssistantEvent:
         return AssistantEvent(
-            content=assistant_msg.content or "",
-            prompt_tokens=llm_result.usage.prompt_tokens,
-            completion_tokens=llm_result.usage.completion_tokens,
+            content=content,
+            prompt_tokens=chunk.usage.prompt_tokens if chunk and chunk.usage else 0,
+            completion_tokens=chunk.usage.completion_tokens
+            if chunk and chunk.usage
+            else 0,
             session_total_tokens=self.stats.session_total_llm_tokens,
             last_turn_duration=self.stats.last_turn_duration,
             tokens_per_second=self.stats.tokens_per_second,
         )
 
-    async def _handle_tool_calls(  # noqa: PLR0915
+    async def _handle_tool_calls(
         self, resolved: ResolvedMessage
     ) -> AsyncGenerator[ToolCallEvent | ToolResultEvent]:
-        for failed in resolved.failed_calls:
-            error_msg = f"<{TOOL_ERROR_TAG}>{failed.tool_name}: {failed.error}</{TOOL_ERROR_TAG}>"
+        async for event in self.tool_executor.handle_tool_calls(
+            resolved, self.messages, self.stats, self.interaction_logger
+        ):
+            yield event
 
-            yield ToolResultEvent(
-                tool_name=failed.tool_name,
-                tool_class=None,
-                error=error_msg,
-                tool_call_id=failed.call_id,
-            )
-
-            self.stats.tool_calls_failed += 1
-            self.messages.append(
-                self.format_handler.create_failed_tool_response_message(
-                    failed, error_msg
-                )
-            )
-
-        for tool_call in resolved.tool_calls:
-            tool_call_id = tool_call.call_id
-
-            yield ToolCallEvent(
-                tool_name=tool_call.tool_name,
-                tool_class=tool_call.tool_class,
-                args=tool_call.validated_args,
-                tool_call_id=tool_call_id,
-            )
-
-            try:
-                tool_instance = self.tool_manager.get(tool_call.tool_name)
-            except Exception as exc:
-                error_msg = f"Error getting tool '{tool_call.tool_name}': {exc}"
-                yield ToolResultEvent(
-                    tool_name=tool_call.tool_name,
-                    tool_class=tool_call.tool_class,
-                    error=error_msg,
-                    tool_call_id=tool_call_id,
-                )
-                self.messages.append(
-                    LLMMessage.model_validate(
-                        self.format_handler.create_tool_response_message(
-                            tool_call, error_msg
-                        )
-                    )
-                )
-                continue
-
-            decision = await self._should_execute_tool(
-                tool_instance, tool_call.args_dict, tool_call_id
-            )
-
-            if decision.verdict == ToolExecutionResponse.SKIP:
-                self.stats.tool_calls_rejected += 1
-                skip_reason = decision.feedback or str(
-                    get_user_cancellation_message(
-                        CancellationReason.TOOL_SKIPPED, tool_call.tool_name
-                    )
-                )
-
-                yield ToolResultEvent(
-                    tool_name=tool_call.tool_name,
-                    tool_class=tool_call.tool_class,
-                    skipped=True,
-                    skip_reason=skip_reason,
-                    tool_call_id=tool_call_id,
-                )
-
-                self.messages.append(
-                    LLMMessage.model_validate(
-                        self.format_handler.create_tool_response_message(
-                            tool_call, skip_reason
-                        )
-                    )
-                )
-                continue
-
-            self.stats.tool_calls_agreed += 1
-
-            try:
-                start_time = time.perf_counter()
-                result_model = await tool_instance.invoke(**tool_call.args_dict)
-                duration = time.perf_counter() - start_time
-
-                text = "\n".join(
-                    f"{k}: {v}" for k, v in result_model.model_dump().items()
-                )
-
-                self.messages.append(
-                    LLMMessage.model_validate(
-                        self.format_handler.create_tool_response_message(
-                            tool_call, text
-                        )
-                    )
-                )
-
-                yield ToolResultEvent(
-                    tool_name=tool_call.tool_name,
-                    tool_class=tool_call.tool_class,
-                    result=result_model,
-                    duration=duration,
-                    tool_call_id=tool_call_id,
-                )
-
-                self.stats.tool_calls_succeeded += 1
-
-            except asyncio.CancelledError:
-                cancel = str(
-                    get_user_cancellation_message(CancellationReason.TOOL_INTERRUPTED)
-                )
-                yield ToolResultEvent(
-                    tool_name=tool_call.tool_name,
-                    tool_class=tool_call.tool_class,
-                    error=cancel,
-                    tool_call_id=tool_call_id,
-                )
-                self.messages.append(
-                    LLMMessage.model_validate(
-                        self.format_handler.create_tool_response_message(
-                            tool_call, cancel
-                        )
-                    )
-                )
-                await self.interaction_logger.save_interaction(
-                    self.messages, self.stats, self.config, self.tool_manager
-                )
-                raise
-
-            except KeyboardInterrupt:
-                cancel = str(
-                    get_user_cancellation_message(CancellationReason.TOOL_INTERRUPTED)
-                )
-                yield ToolResultEvent(
-                    tool_name=tool_call.tool_name,
-                    tool_class=tool_call.tool_class,
-                    error=cancel,
-                    tool_call_id=tool_call_id,
-                )
-                self.messages.append(
-                    LLMMessage.model_validate(
-                        self.format_handler.create_tool_response_message(
-                            tool_call, cancel
-                        )
-                    )
-                )
-                await self.interaction_logger.save_interaction(
-                    self.messages, self.stats, self.config, self.tool_manager
-                )
-                raise
-
-            except (ToolError, ToolPermissionError) as exc:
-                error_msg = f"<{TOOL_ERROR_TAG}>{tool_instance.get_name()} failed: {exc}</{TOOL_ERROR_TAG}>"
-
-                yield ToolResultEvent(
-                    tool_name=tool_call.tool_name,
-                    tool_class=tool_call.tool_class,
-                    error=error_msg,
-                    tool_call_id=tool_call_id,
-                )
-
-                if isinstance(exc, ToolPermissionError):
-                    self.stats.tool_calls_agreed -= 1
-                    self.stats.tool_calls_rejected += 1
-                else:
-                    self.stats.tool_calls_failed += 1
-                self.messages.append(
-                    LLMMessage.model_validate(
-                        self.format_handler.create_tool_response_message(
-                            tool_call, error_msg
-                        )
-                    )
-                )
-                continue
+    async def _get_assistant_event(self) -> AssistantEvent:
+        result = await self._chat()
+        self.add_message(result.message)
+        self._last_chunk = result
+        return self._create_assistant_event(result.message.content or "", result)
 
     async def _chat(self, max_tokens: int | None = None) -> LLMChunk:
         active_model = self.config.get_active_model()
         provider = self.config.get_provider_for_model(active_model)
 
-        available_tools = self.format_handler.get_available_tools(
-            self.tool_manager, self.config
-        )
-        tool_choice = self.format_handler.get_tool_choice()
+        # Before middleware
+        for middleware in self.middleware_pipeline.middlewares:
+            before_result = await middleware.before_chat_completion(
+                self.messages, self.tool_manager, self.config
+            )
+            if before_result.action == MiddlewareAction.STOP:
+                return LLMChunk(
+                    message=LLMMessage(
+                        role=Role.assistant, content=before_result.message
+                    ),
+                    finish_reason="stop",
+                    usage=LLMUsage(prompt_tokens=0, completion_tokens=0),
+                )
 
         try:
             start_time = time.perf_counter()
+            available_tools = self.format_handler.get_available_tools(
+                self.tool_manager, self.config
+            )
+            tool_choice = self.format_handler.get_tool_choice()
 
             async with self.backend as backend:
                 result = await backend.complete(
@@ -647,10 +483,6 @@ class Agent:
                 )
 
             end_time = time.perf_counter()
-            if result.usage is None:
-                raise LLMResponseError(
-                    "Usage data missing in non-streaming completion response"
-                )
 
             self.stats.last_turn_duration = end_time - start_time
             self.stats.last_turn_prompt_tokens = result.usage.prompt_tokens
@@ -661,15 +493,7 @@ class Agent:
                 result.usage.prompt_tokens + result.usage.completion_tokens
             )
 
-            processed_message = self.format_handler.process_api_response_message(
-                result.message
-            )
-
-            return LLMChunk(
-                message=processed_message,
-                usage=result.usage,
-                finish_reason=result.finish_reason,
-            )
+            return result
 
         except Exception as e:
             raise RuntimeError(
@@ -734,106 +558,6 @@ class Agent:
                 f"API error from {provider.name} (model: {active_model.name}): {e}"
             ) from e
 
-    async def _should_execute_tool(
-        self, tool: BaseTool, args: dict[str, Any], tool_call_id: str
-    ) -> ToolDecision:
-        # Check mode-based blocking first (for read-only modes like PLAN, ARCHITECT)
-        if self.mode_manager is not None:
-            blocked, reason = self.mode_manager.should_block_tool(tool.get_name(), args)
-            if blocked:
-                # ═══════════════════════════════════════════════════════════════
-                # FIX A.5: Educational feedback to prevent LLM from retrying
-                # The LLM was ignoring simple block messages and retrying 10+ times
-                # This stronger message teaches it to adapt its strategy
-                # ═══════════════════════════════════════════════════════════════
-                mode_name = self.mode_manager.current_mode.value.upper()
-                educational_feedback = f"""⛔ BLOCKED: Tool '{tool.get_name()}' is a WRITE operation.
-
-Current mode: 📋 {mode_name} (READ-ONLY)
-
-🚫 CRITICAL INSTRUCTION:
-You are FORBIDDEN from executing write operations in this mode.
-This tool call has been BLOCKED and will NOT be executed.
-
-❌ DO NOT:
-- Retry this tool or similar write tools (write_file, search_replace, bash with >, rm, mv, etc.)
-- Attempt workarounds or alternative write methods
-- Keep trying the same operation
-
-✅ INSTEAD, YOU MUST:
-1. Use ONLY read-only tools: read_file, grep, bash (ls/cat/find/git status)
-2. Analyze the codebase thoroughly
-3. Create a detailed PLAN describing what changes you WOULD make
-4. Tell the user: "I've created a plan. Switch to NORMAL or AUTO mode to execute."
-
-⚠️ This is your instruction. Acknowledge and adapt your strategy NOW.
-Original block reason: {reason}"""
-                return ToolDecision(
-                    verdict=ToolExecutionResponse.SKIP, feedback=educational_feedback
-                )
-
-        # Auto-approve if enabled (AUTO or YOLO mode)
-        if self.auto_approve:
-            return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
-
-        args_model, _ = tool._get_args_and_result_models()
-        validated_args = args_model.model_validate(args)
-
-        allowlist_denylist_result = tool.check_allowlist_denylist(validated_args)
-        if allowlist_denylist_result == ToolPermission.ALWAYS:
-            return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
-        elif allowlist_denylist_result == ToolPermission.NEVER:
-            denylist_patterns = tool.config.denylist
-            denylist_str = ", ".join(repr(pattern) for pattern in denylist_patterns)
-            return ToolDecision(
-                verdict=ToolExecutionResponse.SKIP,
-                feedback=f"Tool '{tool.get_name()}' blocked by denylist: [{denylist_str}]",
-            )
-
-        tool_name = tool.get_name()
-        perm = self.tool_manager.get_tool_config(tool_name).permission
-
-        if perm is ToolPermission.ALWAYS:
-            return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
-        if perm is ToolPermission.NEVER:
-            return ToolDecision(
-                verdict=ToolExecutionResponse.SKIP,
-                feedback=f"Tool '{tool_name}' is permanently disabled",
-            )
-
-        return await self._ask_approval(tool_name, args, tool_call_id)
-
-    async def _ask_approval(
-        self, tool_name: str, args: dict[str, Any], tool_call_id: str
-    ) -> ToolDecision:
-        if not self.approval_callback:
-            return ToolDecision(
-                verdict=ToolExecutionResponse.SKIP,
-                feedback="Tool execution not permitted.",
-            )
-        if asyncio.iscoroutinefunction(self.approval_callback):
-            response, feedback = await self.approval_callback(
-                tool_name, args, tool_call_id
-            )
-        else:
-            sync_callback = cast(SyncApprovalCallback, self.approval_callback)
-            response, feedback = sync_callback(tool_name, args, tool_call_id)
-
-        match response:
-            case ApprovalResponse.ALWAYS:
-                self.auto_approve = True
-                return ToolDecision(
-                    verdict=ToolExecutionResponse.EXECUTE, feedback=feedback
-                )
-            case ApprovalResponse.YES:
-                return ToolDecision(
-                    verdict=ToolExecutionResponse.EXECUTE, feedback=feedback
-                )
-            case _:
-                return ToolDecision(
-                    verdict=ToolExecutionResponse.SKIP, feedback=feedback
-                )
-
     def _clean_message_history(self) -> None:
         self.message_manager.clean_history()
 
@@ -842,7 +566,7 @@ Original block reason: {reason}"""
         self.interaction_logger.reset_session(self.session_id)
 
     def set_approval_callback(self, callback: ApprovalCallback) -> None:
-        self.approval_callback = callback
+        self.tool_executor.set_approval_callback(callback)
 
     async def clear_history(self) -> None:
         await self.interaction_logger.save_interaction(

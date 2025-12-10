@@ -7,20 +7,23 @@ from typing import TYPE_CHECKING, Any, cast
 
 from vibe.core.config import VibeConfig
 from vibe.core.llm.format import APIToolFormatHandler, ResolvedMessage
-from vibe.core.tool_manager import ToolManager
+from vibe.core.tools.base import ToolPermission
+from vibe.core.tools.manager import ToolManager
 from vibe.core.types import (
     AgentStats,
     ApprovalCallback,
-    ApprovalResponse,
     LLMMessage,
     SyncApprovalCallback,
     ToolCallEvent,
     ToolDecision,
     ToolExecutionResponse,
-    ToolPermission,
     ToolResultEvent,
 )
-from vibe.core.utils import CancellationReason, get_user_cancellation_message
+from vibe.core.utils import (
+    ApprovalResponse,
+    CancellationReason,
+    get_user_cancellation_message,
+)
 
 if TYPE_CHECKING:
     from vibe.cli.mode_manager import ModeManager
