@@ -1,8 +1,14 @@
-"""ChefChat Classic REPL
-=====================
+"""ChefChat Classic REPL — The Grand Service
+=============================================
 
-A lightweight, terminal-native REPL alternative to the Textual UI.
-Michelin-star elegance with Mistral Vibe aesthetics.
+A premium, terminal-native REPL with full ChefChat integration.
+Michelin-star elegance meets developer productivity.
+
+Features:
+    - Mode cycling with Shift+Tab
+    - Easter egg commands (/chef, /wisdom, /roast)
+    - Interactive tool approval (Waitor logic)
+    - Beautiful Rich-powered UI
 """
 
 from __future__ import annotations
@@ -10,31 +16,52 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import time
 from typing import TYPE_CHECKING, Any, NoReturn
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
+from rich import box
+from rich.align import Align
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.syntax import Syntax
 
+# Easter Eggs Integration
+from vibe.cli.easter_eggs import (
+    get_kitchen_status,
+    get_modes_display,
+    get_random_roast,
+    get_random_wisdom,
+)
+
+# =============================================================================
+# CHEFCHAT INTEGRATIONS - The "Loose Wires" Now Connected
+# =============================================================================
 from vibe.cli.mode_manager import MODE_TIPS, ModeManager, VibeMode
+
+# Plating Integration (visual formatting)
+from vibe.cli.plating import generate_plating
+
+# UI Components (the new elegant system)
 from vibe.cli.ui_components import (
     COLORS,
     ApprovalDialog,
-    HelpDisplay,
     ModeTransitionDisplay,
     ResponseDisplay,
     StatusBar,
     create_header,
 )
+
+# Core imports
 from vibe.core.agent import Agent
 from vibe.core.config import VibeConfig
+from vibe.core.error_handler import ChefErrorHandler
 from vibe.core.types import AssistantEvent, ToolCallEvent, ToolResultEvent
 from vibe.core.utils import (
     ApprovalResponse,
@@ -46,8 +73,13 @@ if TYPE_CHECKING:
     pass
 
 
+# =============================================================================
+# REPL CLASS
+# =============================================================================
+
+
 class ChefChatREPL:
-    """Classic REPL interface for ChefChat with elegant UI."""
+    """Premium REPL interface for ChefChat — The Full Kitchen Experience."""
 
     def __init__(
         self, config: VibeConfig, initial_mode: VibeMode = VibeMode.NORMAL
@@ -63,9 +95,9 @@ class ChefChatREPL:
         self.kb = KeyBindings()
         self._setup_keybindings()
 
-        # Prompt styling matching our color palette
+        # Prompt styling with ChefChat colors
         self.style = Style.from_dict({
-            "mode": f"bg:{COLORS['primary']} fg:white bold",
+            "mode": f"bg:{COLORS['primary']} #ffffff bold",
             "arrow": COLORS["primary"],
             "prompt": COLORS["muted"],
         })
@@ -74,8 +106,16 @@ class ChefChatREPL:
             key_bindings=self.kb, style=self.style
         )
 
+        # Session tracking for /stats
+        self.session_start_time = time.time()
+        self.tools_executed = 0
+
+    # =========================================================================
+    # KEYBINDINGS
+    # =========================================================================
+
     def _setup_keybindings(self) -> None:
-        """Setup keyboard bindings with elegant mode transition display."""
+        """Setup keyboard bindings with elegant mode transitions."""
         from prompt_toolkit.keys import Keys
 
         @self.kb.add(Keys.BackTab)
@@ -83,7 +123,7 @@ class ChefChatREPL:
             old_mode, new_mode = self.mode_manager.cycle_mode()
             self._last_mode = new_mode
 
-            # Update agent
+            # Update agent's approval state
             if self.agent:
                 self.agent.auto_approve = self.mode_manager.auto_approve
                 if self.mode_manager.auto_approve:
@@ -94,26 +134,93 @@ class ChefChatREPL:
             # Get tips for the new mode
             tips = MODE_TIPS.get(new_mode, [])
 
-            # Print elegant transition panel
+            # Get mode info
+            new_emoji = self.mode_manager.config.emoji
+            description = self.mode_manager.config.description
+
+            # Use prompt_toolkit's native output (no Rich - avoids ANSI corruption)
             output = event.app.output
             output.write("\n\n")
-
-            # Create transition display using Rich via console
-            # Note: We print directly since we're in prompt_toolkit context
-            console = Console(file=sys.stdout, force_terminal=True)
-            panel = ModeTransitionDisplay.render(
-                old_mode=old_mode.value.upper(),
-                new_mode=new_mode.value.upper(),
-                new_emoji=self.mode_manager.config.emoji,
-                description=self.mode_manager.config.description,
-                tips=tips,
+            output.write(f"╭{'─' * 56}╮\n")
+            output.write(
+                f"│ 🔄 {old_mode.value.upper()} → {new_mode.value.upper():<47}│\n"
             )
-            console.print(panel)
-            output.write("\n")
+            output.write(f"│ {new_emoji} {description:<53}│\n")
+            output.write(f"├{'─' * 56}┤\n")
+
+            for tip in tips[:3]:
+                # Strip Rich markup for plain text output
+                clean_tip = tip.replace("[", "").replace("]", "")
+                output.write(f"│   {clean_tip:<53}│\n")
+
+            output.write(f"╰{'─' * 56}╯\n\n")
             output.flush()
 
+            # Force the prompt to refresh with new mode
+            event.app.invalidate()
+
+    # =========================================================================
+    # STARTUP BANNER
+    # =========================================================================
+
+    def _show_startup_banner(self) -> None:
+        """Display the ChefChat startup banner."""
+        from vibe.core import __version__
+
+        banner_text = f"""
+[bold #FF7000]👨‍🍳 ChefChat[/bold #FF7000] [dim]v{__version__}[/dim]
+[dim]The Tastiest AI Agent CLI[/dim]
+"""
+        panel = Panel(
+            Align.center(banner_text.strip()),
+            box=box.DOUBLE,
+            border_style="#FF7000",
+            subtitle="[dim]Type /chef for help · Shift+Tab to switch modes[/dim]",
+            subtitle_align="center",
+            padding=(1, 2),
+        )
+        self.console.print()
+        self.console.print(panel)
+
+    def _show_stats(self) -> None:
+        """Display session statistics - Menu du Jour."""
+        from rich.table import Table
+
+        uptime_seconds = int(time.time() - self.session_start_time)
+        hours, remainder = divmod(uptime_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        if hours > 0:
+            uptime_str = f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+            uptime_str = f"{minutes}m {seconds}s"
+        else:
+            uptime_str = f"{seconds}s"
+
+        # Get token count from agent if available
+        token_count = 0
+        if self.agent and hasattr(self.agent, "stats"):
+            token_count = getattr(self.agent.stats, "total_tokens", 0)
+
+        table = Table(title="📊 Menu du Jour", box=box.SIMPLE)
+        table.add_column("Metric", style=f"bold {COLORS['primary']}")
+        table.add_column("Value", style=COLORS["success"])
+
+        table.add_row("⏱️  Uptime", uptime_str)
+        table.add_row("🔤 Tokens Used", f"{token_count:,}")
+        table.add_row("🔧 Tools Executed", str(self.tools_executed))
+        table.add_row("🎯 Current Mode", self.mode_manager.current_mode.value.upper())
+
+        self.console.print()
+        self.console.print(table)
+        self.console.print()
+
+    # =========================================================================
+    # AGENT INITIALIZATION
+    # =========================================================================
+
     async def _initialize_agent(self) -> None:
-        """Initialize the Agent."""
+        """Initialize the Agent with approval callback."""
         self.agent = Agent(
             self.config,
             auto_approve=self.mode_manager.auto_approve,
@@ -124,10 +231,14 @@ class ChefChatREPL:
         if not self.mode_manager.auto_approve:
             self.agent.approval_callback = self.ask_user_approval
 
+    # =========================================================================
+    # WAITOR LOGIC - Tool Approval
+    # =========================================================================
+
     async def ask_user_approval(
         self, tool_name: str, args: dict[str, Any], tool_call_id: str
     ) -> tuple[str, str | None]:
-        """Elegant Order Confirmation dialog."""
+        """Display Order Confirmation dialog — the Waitor logic."""
         # Format arguments
         args_json = json.dumps(args, indent=2, default=str)
         if len(args_json) > 400:
@@ -183,6 +294,10 @@ class ChefChatREPL:
             else:
                 self.agent.approval_callback = self.ask_user_approval
 
+    # =========================================================================
+    # AGENT RESPONSE HANDLING
+    # =========================================================================
+
     async def _handle_agent_response(self, user_input: str) -> None:
         """Process user input through the Agent."""
         if not self.agent:
@@ -226,6 +341,7 @@ class ChefChatREPL:
                                 )
                             )
                         else:
+                            self.tools_executed += 1
                             self.console.print(ResponseDisplay.render_tool_result(True))
 
             except KeyboardInterrupt:
@@ -239,39 +355,46 @@ class ChefChatREPL:
                 )
                 return
 
-        # Display response
+        # Display response with plating
         if response_text.strip():
             self.console.print()
             self.console.print(ResponseDisplay.render_response(Markdown(response_text)))
         self.console.print()
 
+    # =========================================================================
+    # MAIN LOOP
+    # =========================================================================
+
     async def run_async(self) -> NoReturn:
         """Run the main REPL loop."""
         await self._initialize_agent()
+
+        # Show startup banner
+        self._show_startup_banner()
 
         # Print elegant header
         self.console.print()
         self.console.print(create_header(self.config, self.mode_manager))
 
-        # Print status bar
+        # Print status bar with shortcuts
         self.console.print(StatusBar.render(self.mode_manager.auto_approve))
         self.console.print()
 
         while True:
             try:
-                # Build elegant prompt
-                indicator = self.mode_manager.get_mode_indicator()
-                emoji = self.mode_manager.config.emoji
-                mode_name = self.mode_manager.current_mode.value.upper()
-
-                prompt_html = HTML(
-                    f"<mode> {emoji} {mode_name} </mode>"
-                    f"<arrow> </arrow>"
-                    f"<prompt>›</prompt> "
-                )
+                # Use a callable prompt that re-evaluates on each render
+                # This ensures the mode updates immediately after Shift+Tab
+                def get_prompt() -> list[tuple[str, str]]:
+                    emoji = self.mode_manager.config.emoji
+                    mode_name = self.mode_manager.current_mode.value.upper()
+                    return [
+                        ("class:mode", f" {emoji} {mode_name} "),
+                        ("class:arrow", " "),
+                        ("class:prompt", "› "),
+                    ]
 
                 with patch_stdout():
-                    user_input = await self.session.prompt_async(prompt_html)
+                    user_input = await self.session.prompt_async(get_prompt)
 
                 # Handle exit
                 if user_input.strip().lower() in {"exit", "quit", "/exit", "/quit"}:
@@ -283,7 +406,7 @@ class ChefChatREPL:
                 if not user_input.strip():
                     continue
 
-                # Handle commands
+                # Handle commands (including easter eggs!)
                 if user_input.strip().startswith("/"):
                     await self._handle_command(user_input.strip())
                     continue
@@ -300,57 +423,101 @@ class ChefChatREPL:
                 )
                 sys.exit(0)
             except Exception as e:
-                self.console.print(f"[{COLORS['error']}]Error: {e}[/{COLORS['error']}]")
+                ChefErrorHandler.display_error(e, context="REPL", show_traceback=False)
+
+    # =========================================================================
+    # COMMAND HANDLING - Including Easter Eggs!
+    # =========================================================================
 
     async def _handle_command(self, command: str) -> None:
-        """Handle slash commands."""
+        """Handle slash commands including easter eggs."""
         cmd = command.lower().strip()
 
-        if cmd in {"/help", "/h", "/?"}:
+        # =====================================================================
+        # EASTER EGG COMMANDS - From vibe/cli/easter_eggs.py
+        # =====================================================================
+
+        if cmd == "/chef":
+            # Kitchen status with mode info - THE SIGNATURE COMMAND
             self.console.print()
-            self.console.print(HelpDisplay.render())
+            status = get_kitchen_status(self.mode_manager)
+            self.console.print(
+                Panel(
+                    status,
+                    title=f"[{COLORS['primary']}]👨‍🍳 Kitchen Status[/{COLORS['primary']}]",
+                    border_style=COLORS["primary"],
+                )
+            )
+            self.console.print()
+
+        elif cmd == "/wisdom":
+            # Random chef wisdom
+            self.console.print()
+            wisdom = get_random_wisdom()
+            self.console.print(
+                Panel(
+                    wisdom,
+                    title=f"[{COLORS['primary']}]🧠 Chef's Wisdom[/{COLORS['primary']}]",
+                    border_style=COLORS["secondary"],
+                )
+            )
+            self.console.print()
+
+        elif cmd == "/roast":
+            # Gordon Ramsay style roast
+            self.console.print()
+            roast = get_random_roast()
+            self.console.print(
+                Panel(
+                    roast,
+                    title=f"[{COLORS['error']}]🔥 Chef Ramsay Says[/{COLORS['error']}]",
+                    border_style=COLORS["error"],
+                )
+            )
+            self.console.print()
+
+        # =====================================================================
+        # PLATING COMMAND - From vibe/cli/plating.py
+        # =====================================================================
+
+        elif cmd == "/plate":
+            # Show the current session "plating"
+            self.console.print()
+            stats = self.agent.stats if self.agent else None
+            plating = generate_plating(self.mode_manager, stats)
+            self.console.print(plating)
+            self.console.print()
+
+        # =====================================================================
+        # STANDARD COMMANDS
+        # =====================================================================
+
+        elif cmd in {"/help", "/h", "/?"}:
+            self.console.print()
+            self.console.print(self._build_help_panel())
             self.console.print()
 
         elif cmd == "/mode":
             tips = MODE_TIPS.get(self.mode_manager.current_mode, [])
-            panel = ModeTransitionDisplay.render(
-                old_mode="",
-                new_mode=self.mode_manager.current_mode.value.upper(),
-                new_emoji=self.mode_manager.config.emoji,
-                description=self.mode_manager.config.description,
-                tips=tips,
-            )
             self.console.print()
-            self.console.print(panel)
+            self.console.print(
+                ModeTransitionDisplay.render(
+                    old_mode="",
+                    new_mode=self.mode_manager.current_mode.value.upper(),
+                    new_emoji=self.mode_manager.config.emoji,
+                    description=self.mode_manager.config.description,
+                    tips=tips,
+                )
+            )
             self.console.print()
 
         elif cmd == "/modes":
-            from rich.table import Table
-
-            from vibe.cli.mode_manager import MODE_CONFIGS
-
-            table = Table(
-                show_header=True, header_style=f"bold {COLORS['primary']}", box=None
-            )
-            table.add_column("Mode", style="bold")
-            table.add_column("Description")
-            table.add_column("", justify="right", width=3)
-
-            for mode in VibeMode:
-                cfg = MODE_CONFIGS[mode]
-                current = "◀" if mode == self.mode_manager.current_mode else ""
-                table.add_row(
-                    f"{cfg.emoji} {mode.name}",
-                    cfg.description,
-                    f"[{COLORS['success']}]{current}[/{COLORS['success']}]",
-                )
-
-            from rich.panel import Panel
-
+            # Use the easter_eggs display for consistency
             self.console.print()
+            modes_display = get_modes_display(self.mode_manager)
             self.console.print(
                 Panel(
-                    table,
+                    modes_display,
                     title=f"[{COLORS['primary']}]Available Modes[/{COLORS['primary']}]",
                     border_style=COLORS["secondary"],
                 )
@@ -373,6 +540,10 @@ class ChefChatREPL:
             self.console.print(StatusBar.render(self.mode_manager.auto_approve))
             self.console.print()
 
+        elif cmd == "/stats":
+            # Session statistics - Menu du Jour
+            self._show_stats()
+
         else:
             self.console.print(
                 f"  [{COLORS['warning']}]Unknown: {command}[/{COLORS['warning']}]"
@@ -381,9 +552,52 @@ class ChefChatREPL:
                 f"  [{COLORS['muted']}]Type /help for commands[/{COLORS['muted']}]\n"
             )
 
+    def _build_help_panel(self) -> Panel:
+        """Build the help panel with all commands including easter eggs."""
+        from rich.table import Table
+
+        table = Table(show_header=False, box=None, padding=(0, 3))
+        table.add_column("key", style=f"bold {COLORS['primary']}")
+        table.add_column("desc", style=COLORS["text"])
+
+        # Standard commands
+        table.add_row("/help", "Show this help")
+        table.add_row("/mode", "Show current mode details")
+        table.add_row("/modes", "List all available modes")
+        table.add_row("/clear", "Clear conversation history")
+        table.add_row("/status", "Show session status")
+        table.add_row("/exit", "Exit ChefChat")
+        table.add_row("", "")
+
+        # Easter egg commands - THE SECRET MENU
+        table.add_row("", "[dim]── Secret Menu ──[/dim]")
+        table.add_row("/chef", "🍳 Kitchen status report")
+        table.add_row("/wisdom", "🧠 Random chef wisdom")
+        table.add_row("/roast", "🔥 Get roasted by Chef Ramsay")
+        table.add_row("/plate", "🍽️ Present your work beautifully")
+        table.add_row("/stats", "📊 Session statistics")
+        table.add_row("", "")
+
+        # Keybindings
+        table.add_row("", "[dim]── Keybindings ──[/dim]")
+        table.add_row("Shift+Tab", "Cycle through modes")
+        table.add_row("Ctrl+C", "Cancel current operation")
+
+        return Panel(
+            table,
+            title=f"[{COLORS['primary']}]🍳 ChefChat Commands[/{COLORS['primary']}]",
+            border_style=COLORS["secondary"],
+            padding=(1, 2),
+        )
+
     def run(self) -> NoReturn:
         """Run the REPL."""
         asyncio.run(self.run_async())
+
+
+# =============================================================================
+# ENTRY POINT
+# =============================================================================
 
 
 def run_repl(config: VibeConfig, initial_mode: VibeMode = VibeMode.NORMAL) -> None:

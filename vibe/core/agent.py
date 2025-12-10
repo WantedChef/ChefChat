@@ -743,7 +743,7 @@ class Agent:
         if self.auto_approve:
             return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
 
-        args_model, _ = tool._get_tool_args_results()
+        args_model, _ = tool._get_args_and_result_models()
         validated_args = args_model.model_validate(args)
 
         allowlist_denylist_result = tool.check_allowlist_denylist(validated_args)

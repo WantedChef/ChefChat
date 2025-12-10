@@ -152,6 +152,7 @@ ChefChat (this fork) includes a powerful multi-mode system with 5 operational mo
 | `/modes`, `/mode` | 🔄 Display all modes with descriptions |
 | `/roast`, `/ramsay` | 🔥 Get roasted by Chef Ramsay |
 | `/plate`, `/present` | 🍽️ Present your work beautifully |
+| `/stats` | 📊 Session statistics (uptime, tokens, tools) |
 | `/taste`, `/review` | 👅 Quick code taste test (fun review) |
 | `/timer`, `/estimate` | ⏱️ Kitchen timer (time estimates) |
 
@@ -324,6 +325,17 @@ This affects where Vibe looks for:
 - `prompts/` - Custom system prompts
 - `tools/` - Custom tools
 - `logs/` - Session logsRetryTo run code, enable code execution and file creation in Settings > Capabilities.
+
+## Upstream Divergence
+
+This "ChefChat" fork of Mistral Vibe contains significant modifications to support a superior user experience, including:
+
+1.  **ModeManager**: A state machine enforcing 5 distinct operation modes (PLAN, NORMAL, AUTO, YOLO, ARCHITECT).
+2.  **Safety Gatekeeper**: `should_block_tool` logic in `vibe/core/agent.py` that strictly prevents write operations in read-only modes, overriding auto-approval.
+3.  **REPL-First**: The `vibe/cli/repl.py` is the primary interface, replacing the legacy Textual UI.
+4.  **Rich Visuals**: Custom "Plating" logic for chef-themed panels and output.
+
+These changes affect `vibe/core/agent.py` and `vibe/core/system_prompt.py`, making future merges from upstream non-trivial. Maintainers should review `CHEFCHAT_AUDIT_REPORT.md` for details.
 
 ## Resources
 

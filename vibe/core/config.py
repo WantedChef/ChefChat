@@ -564,3 +564,42 @@ class VibeConfig(BaseSettings):
             config_dict["tools"] = tool_defaults
 
         return config_dict
+
+
+# =============================================================================
+# SINGLETON ACCESSOR
+# =============================================================================
+
+_cached_config: VibeConfig | None = None
+
+
+def get_config(agent: str | None = None, force_reload: bool = False) -> VibeConfig:
+    """Get the global config (cached singleton).
+
+    This provides efficient access to the config from anywhere in the codebase,
+    avoiding redundant file reads and parsing.
+
+    Args:
+        agent: Optional agent name to load config for
+        force_reload: If True, reload config even if cached
+
+    Returns:
+        The global VibeConfig instance
+
+    Example:
+        >>> from vibe.core.config import get_config
+        >>> config = get_config()
+        >>> print(config.active_model)
+    """
+    global _cached_config
+
+    if _cached_config is None or force_reload:
+        _cached_config = VibeConfig.load(agent)
+
+    return _cached_config
+
+
+def clear_config_cache() -> None:
+    """Clear the cached config, forcing a reload on next access."""
+    global _cached_config
+    _cached_config = None

@@ -121,12 +121,13 @@ def create_write_blocked_error(
         user_message=f"""The tool **`{tool_name}`** cannot run in **{config.emoji} {mode.value.upper()}** mode.
 
 This mode is **read-only** to protect your codebase while you're planning or designing.""",
-        recovery_hint="""1. **Say "approved"** or **"go ahead"** to execute this specific action
-2. **Press `Shift+Tab`** to switch to a mode that allows writes:
+        recovery_hint="""1. **Press `Shift+Tab`** to switch to a mode that allows writes:
    - ⚡ **AUTO** - Auto-approve all tools
    - ✋ **NORMAL** - Confirm each tool individually
    - 🚀 **YOLO** - Maximum speed, no confirmations
-3. **Add to plan** - Let me document this in the implementation plan instead""",
+2. **Add to plan** - Let me document this in the implementation plan instead
+
+> **Note:** Read-only mode blocks writes intentionally. Switch modes to execute.""",
         context={"tool_name": tool_name, "mode": mode.value, "args": args},
     )
 
@@ -144,8 +145,7 @@ def create_tool_blocked_error(tool_name: str, mode: VibeMode, reason: str) -> Mo
 
 {reason}""",
         recovery_hint="""**Options:**
-- Type **"approved"** to allow this specific action
-- Press **`Shift+Tab`** to change modes
+- Press **`Shift+Tab`** to switch to a writeable mode
 - Type **`/modes`** to see all available modes""",
         context={"tool_name": tool_name, "mode": mode.value, "reason": reason},
     )
@@ -315,57 +315,6 @@ def validate_mode_state(mode_manager: ModeManager) -> tuple[bool, ModeError | No
     except Exception as e:
         logger.exception("Mode state validation failed")
         return False, create_mode_corruption_error(str(e))
-
-
-def attempt_force_execution(
-    mode_manager: ModeManager, tool_name: str, args: dict[str, Any], user_message: str
-) -> tuple[bool, str | None]:
-    """Check if user message indicates force execution.
-
-    Looks for approval signals like:
-    - "approved"
-    - "go ahead"
-    - "yes, do it"
-    - "execute"
-    - "force it"
-
-    Args:
-        mode_manager: Current mode manager
-        tool_name: Tool being requested
-        args: Tool arguments
-        user_message: User's last message
-
-    Returns:
-        Tuple of (should_execute, reason)
-    """
-    approval_signals = {
-        "approved",
-        "approve",
-        "go ahead",
-        "do it",
-        "execute",
-        "run it",
-        "yes",
-        "force",
-        "proceed",
-        "confirmed",
-        "confirm",
-        "allow",
-        "permit",
-        "ok",
-        "okay",
-    }
-
-    message_lower = user_message.lower().strip()
-
-    for signal in approval_signals:
-        if signal in message_lower:
-            logger.info(
-                "Force execution approved via '%s' for tool '%s'", signal, tool_name
-            )
-            return True, f"Approved via '{signal}'"
-
-    return False, None
 
 
 # =============================================================================
@@ -667,7 +616,6 @@ Press `Shift+Tab` until you see ⚡ AUTO"""
 __all__ = [
     "ModeError",
     "ModeErrorType",
-    "attempt_force_execution",
     "check_mode_system_health",
     "create_fallback_mode_manager",
     "create_keybind_failed_error",

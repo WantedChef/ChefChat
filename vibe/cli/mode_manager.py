@@ -104,8 +104,8 @@ MODE_PERSONALITIES: dict[VibeMode, str] = {
 MODE_TIPS: dict[VibeMode, list[str]] = {
     VibeMode.PLAN: [
         "💡 I'll research and plan before making any changes",
-        "📋 Say 'approved' or 'go ahead' when ready to execute",
-        "🔍 Ask me to analyze code, propose architectures, or create plans",
+        "📋 Press Shift+Tab to switch to NORMAL/AUTO when ready to execute",
+        "🔍 Try 'list all files in src/' or 'show me the config'",
     ],
     VibeMode.NORMAL: [
         "💡 I'll ask before each file modification",
@@ -609,12 +609,11 @@ class ModeManager:
 
         reason = f"""⛔ Tool '{tool_name}' blocked in {emoji} {mode_name} mode
 
-This operation would modify files. Current mode is read-only.
+This operation would modify files. Current mode is read-only for safety.
 
 **Options:**
-1. Say "approved" to execute this specific operation
-2. Press Shift+Tab to cycle to NORMAL or AUTO mode
-3. Let me add this to the implementation plan instead
+1. Press Shift+Tab to switch to NORMAL or AUTO mode
+2. Let me add this to the implementation plan instead
 
 What would you like to do?"""
 

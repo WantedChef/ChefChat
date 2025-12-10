@@ -49,7 +49,7 @@ CHEF_WISDOM: tuple[str, ...] = (
     "🍷 **Code drunk, debug sober** — wait, that's not quite right...",
     "🧊 **Cool heads make hot code** — stay calm in production fires.",
     "🍰 **Have your cake and eat it too** — but not your state and mutate it too.",
-    "🎂 **Life's too short for bad coffee** and untyped Python.",
+    "🎂 **Life's too short for bad coffee** and untyped code.",
     # Mode-specific wisdom
     "📋 **PLAN MODE**: Measure twice, `git push` once.",
     "⚡ **AUTO MODE**: Trust yourself, but commit often.",
@@ -144,10 +144,14 @@ def get_kitchen_status(mode_manager: ModeManager | None) -> str:
 
         # Session stats
         history_len = len(mode_manager.state.mode_history)
-        time_in_mode = (
-            now - mode_manager.state.started_at.replace(tzinfo=UTC)
-        ).total_seconds()
-        mins_in_mode = int(time_in_mode // 60)
+        # Calculate time in mode - handle timezone-naive started_at
+        started = mode_manager.state.started_at
+        if started.tzinfo is None:
+            # Naive datetime - compare with naive now
+            time_in_mode = (datetime.now() - started).total_seconds()
+        else:
+            time_in_mode = (now - started).total_seconds()
+        mins_in_mode = max(0, int(time_in_mode // 60))  # Ensure non-negative
 
         mode_section = f"""
 ### 📊 Current Station

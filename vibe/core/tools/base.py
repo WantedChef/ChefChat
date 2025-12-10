@@ -18,13 +18,7 @@ from typing import (
     get_type_hints,
 )
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    ValidationError,
-    field_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 ArgsT = TypeVar("ArgsT", bound=BaseModel)
 ResultT = TypeVar("ResultT", bound=BaseModel)
@@ -35,6 +29,7 @@ StateT = TypeVar("StateT", bound="BaseToolState")
 # =======================================================
 # Exceptions
 # =======================================================
+
 
 class ToolError(Exception):
     """Raised when a tool encounters an unrecoverable problem."""
@@ -47,6 +42,7 @@ class ToolPermissionError(Exception):
 # =======================================================
 # Permissions
 # =======================================================
+
 
 class ToolPermission(StrEnum):
     ALWAYS = auto()
@@ -68,8 +64,10 @@ class ToolPermission(StrEnum):
 # Config
 # =======================================================
 
+
 class BaseToolConfig(BaseModel):
     """Configuration common to all tools."""
+
     permission: ToolPermission = ToolPermission.ASK
     workdir: Path | None = Field(default=None, exclude=True)
     allowlist: list[str] = Field(default_factory=list)
@@ -96,18 +94,19 @@ class BaseToolConfig(BaseModel):
 # State
 # =======================================================
 
+
 class BaseToolState(BaseModel):
     """Internal persistent state for a tool instance."""
+
     model_config = ConfigDict(
-        extra="forbid",
-        validate_default=True,
-        arbitrary_types_allowed=True,
+        extra="forbid", validate_default=True, arbitrary_types_allowed=True
     )
 
 
 # =======================================================
 # ToolInfo
 # =======================================================
+
 
 class ToolInfo(BaseModel):
     name: str
@@ -119,9 +118,9 @@ class ToolInfo(BaseModel):
 # BaseTool Generic Framework
 # =======================================================
 
+
 class BaseTool(Generic[ArgsT, ResultT, ConfigT, StateT], ABC):
-    """
-    The main base class for defining async tools.
+    """The main base class for defining async tools.
     Subclasses must specify four type parameters:
 
         BaseTool[ArgsModel, ResultModel, ConfigModel, StateModel]
@@ -164,6 +163,16 @@ class BaseTool(Generic[ArgsT, ResultT, ConfigT, StateT], ABC):
         return None
 
     # ---------------------------------------------------
+    # Safety Checks
+    # ---------------------------------------------------
+    def check_allowlist_denylist(self, args: ArgsT) -> ToolPermission:
+        """Check if the arguments are allowed or denied by the configuration.
+        Default implementation returns ASK (neutral).
+        Subclasses can override this to implement granular checks.
+        """
+        return ToolPermission.ASK
+
+    # ---------------------------------------------------
     # Argument validation + execution
     # ---------------------------------------------------
     async def invoke(self, **raw: Any) -> ResultT:
@@ -182,8 +191,7 @@ class BaseTool(Generic[ArgsT, ResultT, ConfigT, StateT], ABC):
     # ---------------------------------------------------
     @classmethod
     def _get_args_and_result_models(cls) -> tuple[type[ArgsT], type[ResultT]]:
-        """
-        Extract annotated `args` parameter type and return type from the run(...)
+        """Extract annotated `args` parameter type and return type from the run(...)
         method. Works with postponed annotations.
         """
         try:
@@ -225,9 +233,7 @@ class BaseTool(Generic[ArgsT, ResultT, ConfigT, StateT], ABC):
 
     @classmethod
     def _extract_generic_param(cls, index: int, expected: type) -> type:
-        """
-        Extracts one of the generic type parameters of BaseTool[T1, T2, T3, T4].
-        """
+        """Extracts one of the generic type parameters of BaseTool[T1, T2, T3, T4]."""
         for base in cls.__orig_bases__:  # type: ignore
             origin = get_origin(base)
             if origin is BaseTool:

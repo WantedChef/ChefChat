@@ -368,7 +368,7 @@ class TestToolBlocking:
         """Block reason should contain helpful options."""
         blocked, reason = plan_manager.should_block_tool("write_file", {})
         assert blocked is True
-        assert "approved" in reason.lower()
+        assert "approved" not in reason.lower()
         assert "shift+tab" in reason.lower()
 
 
@@ -613,7 +613,8 @@ class TestScenarios:
         blocked, reason = manager.should_block_tool("write_file", {"path": "new.py"})
 
         assert blocked is True
-        assert "approved" in reason.lower()
+        assert "approved" not in reason.lower()
+        assert "shift+tab" in reason.lower()
 
     def test_scenario_cycle_through_all_modes(self) -> None:
         """User presses Shift+Tab 5 times → should visit all modes."""
