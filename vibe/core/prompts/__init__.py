@@ -20,6 +20,7 @@ class Prompt(StrEnum):
 class SystemPrompt(Prompt):
     CLI = auto()
     TESTS = auto()
+    STRICT_JUGGERNAUT = auto()
 
 
 class UtilityPrompt(Prompt):

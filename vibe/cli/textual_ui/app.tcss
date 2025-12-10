@@ -644,15 +644,53 @@ Horizontal {
     height: auto;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ChefChat Mode Indicator Styles
+   Each mode has distinct visual identity
+   ═══════════════════════════════════════════════════════════════ */
+
 ModeIndicator {
     width: auto;
     height: auto;
     background: transparent;
-    padding: 0;
+    padding: 0 1;
     margin: 0 0 0 1;
-    color: $warning;
+    color: $text-muted;
     align: left middle;
+    text-style: bold;
 
+    /* 📋 PLAN Mode - Research & Planning (read-only) */
+    &.mode-plan {
+        color: $primary;
+        background: $primary 10%;
+    }
+
+    /* ✋ NORMAL Mode - Safe & Steady */
+    &.mode-normal {
+        color: $text-muted;
+        background: transparent;
+    }
+
+    /* ⚡ AUTO Mode - Trust & Execute */
+    &.mode-auto {
+        color: $warning;
+        background: $warning 10%;
+    }
+
+    /* 🚀 YOLO Mode - Maximum Speed */
+    &.mode-yolo {
+        color: $success;
+        background: $success 15%;
+        text-style: bold italic;
+    }
+
+    /* 🏛️ ARCHITECT Mode - High-level Design (read-only) */
+    &.mode-architect {
+        color: $secondary;
+        background: $secondary 10%;
+    }
+
+    /* Legacy compatibility */
     &.mode-on {
         color: $warning;
     }

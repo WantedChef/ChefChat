@@ -5,7 +5,9 @@ from collections import OrderedDict
 from collections.abc import AsyncGenerator, Callable
 from enum import StrEnum, auto
 import time
-from typing import Any, cast
+
+# Import ModeManager for type checking only to avoid circular imports
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -60,6 +62,9 @@ from vibe.core.utils import (
     is_user_cancellation_event,
 )
 
+if TYPE_CHECKING:
+    from vibe.cli.mode_manager import ModeManager
+
 
 class ToolExecutionResponse(StrEnum):
     SKIP = auto()
@@ -93,6 +98,7 @@ class Agent:
         max_price: float | None = None,
         backend: BackendLike | None = None,
         enable_streaming: bool = False,
+        mode_manager: ModeManager | None = None,
     ) -> None:
         self.config = config
 
@@ -108,7 +114,9 @@ class Agent:
         self.enable_streaming = enable_streaming
         self._setup_middleware(max_turns, max_price)
 
-        system_prompt = get_universal_system_prompt(self.tool_manager, config)
+        system_prompt = get_universal_system_prompt(
+            self.tool_manager, config, mode_manager
+        )
 
         self.messages = [LLMMessage(role=Role.system, content=system_prompt)]
 
@@ -126,6 +134,9 @@ class Agent:
 
         self.auto_approve = auto_approve
         self.approval_callback: ApprovalCallback | None = None
+
+        # Store mode_manager for mode-aware tool execution
+        self.mode_manager: ModeManager | None = mode_manager
 
         self.session_id = str(uuid4())
 
@@ -722,6 +733,13 @@ class Agent:
     async def _should_execute_tool(
         self, tool: BaseTool, args: dict[str, Any], tool_call_id: str
     ) -> ToolDecision:
+        # Check mode-based blocking first (for read-only modes like PLAN, ARCHITECT)
+        if self.mode_manager is not None:
+            blocked, reason = self.mode_manager.should_block_tool(tool.get_name(), args)
+            if blocked:
+                return ToolDecision(verdict=ToolExecutionResponse.SKIP, feedback=reason)
+
+        # Auto-approve if enabled (AUTO or YOLO mode)
         if self.auto_approve:
             return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
 

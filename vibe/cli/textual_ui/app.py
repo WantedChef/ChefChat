@@ -15,6 +15,7 @@ from textual.widgets import Static
 
 from vibe.cli.clipboard import copy_selection_to_clipboard
 from vibe.cli.commands import CommandRegistry
+from vibe.cli.mode_manager import ModeManager, mode_from_auto_approve
 from vibe.cli.textual_ui.handlers.event_handler import EventHandler
 from vibe.cli.textual_ui.widgets.approval_app import ApprovalApp
 from vibe.cli.textual_ui.widgets.chat_input import ChatInputContainer
@@ -88,7 +89,10 @@ class VibeApp(App):
     ) -> None:
         super().__init__(**kwargs)
         self.config = config
-        self.auto_approve = auto_approve
+        # Initialize mode manager from auto_approve flag (backwards compatible)
+        self.mode_manager = ModeManager(
+            initial_mode=mode_from_auto_approve(auto_approve)
+        )
         self.enable_streaming = enable_streaming
         self.agent: Agent | None = None
         self._agent_running = False
@@ -134,7 +138,7 @@ class VibeApp(App):
 
         with Horizontal(id="loading-area"):
             yield Static(id="loading-area-content")
-            yield ModeIndicator(auto_approve=self.auto_approve)
+            yield ModeIndicator(mode_manager=self.mode_manager)
 
         yield Static(id="todo-area")
 
@@ -143,7 +147,7 @@ class VibeApp(App):
                 history_file=self.history_file,
                 command_registry=self.commands,
                 id="input-container",
-                show_warning=self.auto_approve,
+                show_warning=self.mode_manager.auto_approve,
             )
 
         with Horizontal(id="bottom-bar"):
@@ -411,11 +415,12 @@ class VibeApp(App):
         try:
             agent = Agent(
                 self.config,
-                auto_approve=self.auto_approve,
+                auto_approve=self.mode_manager.auto_approve,
                 enable_streaming=self.enable_streaming,
+                mode_manager=self.mode_manager,
             )
 
-            if not self.auto_approve:
+            if not self.mode_manager.auto_approve:
                 agent.approval_callback = self._approval_callback
 
             if self._loaded_messages:
@@ -470,6 +475,10 @@ class VibeApp(App):
     async def _handle_agent_turn(self, prompt: str) -> None:
         if not self.agent:
             return
+
+        # Strict Juggernaut Mode: strict wrapping
+        if self.config.system_prompt_id == "strict_juggernaut":
+            prompt = f"<task>{prompt}</task>"
 
         self._agent_running = True
 
@@ -748,6 +757,64 @@ class VibeApp(App):
     async def _exit_app(self) -> None:
         self.exit()
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🍳 CHEFCHAT EASTER EGG HANDLERS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _chef_status(self) -> None:
+        """Display the chef's kitchen status."""
+        from vibe.cli.easter_eggs import get_kitchen_status
+
+        mode_manager = getattr(self, "mode_manager", None)
+        status = get_kitchen_status(mode_manager)
+        await self._mount_and_scroll(UserCommandMessage(status))
+
+    async def _chef_wisdom(self) -> None:
+        """Display random chef wisdom."""
+        from vibe.cli.easter_eggs import get_random_wisdom
+
+        wisdom = get_random_wisdom()
+        await self._mount_and_scroll(UserCommandMessage(wisdom))
+
+    async def _show_modes(self) -> None:
+        """Display all modes with descriptions."""
+        from vibe.cli.easter_eggs import get_modes_display
+
+        mode_manager = getattr(self, "mode_manager", None)
+        modes_text = get_modes_display(mode_manager)
+        await self._mount_and_scroll(UserCommandMessage(modes_text))
+
+    async def _chef_roast(self) -> None:
+        """Get roasted by Chef Ramsay."""
+        from vibe.cli.easter_eggs import get_random_roast
+
+        roast = get_random_roast()
+        await self._mount_and_scroll(UserCommandMessage(roast))
+
+    async def _chef_plate(self) -> None:
+        """Present the current work beautifully."""
+        from vibe.cli.plating import generate_plating
+
+        mode_manager = getattr(self, "mode_manager", None)
+        stats = self.agent.stats if self.agent else None
+        plating = generate_plating(mode_manager, stats)
+        await self._mount_and_scroll(UserCommandMessage(plating))
+
+    async def _chef_taste(self) -> None:
+        """Quick taste test (fun code review)."""
+        from vibe.cli.plating import generate_taste_test
+
+        mode_manager = getattr(self, "mode_manager", None)
+        taste = generate_taste_test(mode_manager=mode_manager)
+        await self._mount_and_scroll(UserCommandMessage(taste))
+
+    async def _chef_timer(self) -> None:
+        """Kitchen timer - estimate time for tasks."""
+        from vibe.cli.plating import format_kitchen_timer
+
+        timer = format_kitchen_timer("general coding task")
+        await self._mount_and_scroll(UserCommandMessage(timer))
+
     async def _switch_to_config_app(self) -> None:
         if self._current_bottom_app == BottomApp.Config:
             return
@@ -921,24 +988,37 @@ class VibeApp(App):
             await result.render_result()
 
     def action_cycle_mode(self) -> None:
+        """Cycle through operational modes (Shift+Tab)."""
         if self._current_bottom_app != BottomApp.Input:
             return
 
-        self.auto_approve = not self.auto_approve
+        # Cycle to next mode
+        old_mode, new_mode = self.mode_manager.cycle_mode()
 
+        # Update the mode indicator widget
         if self._mode_indicator:
-            self._mode_indicator.set_auto_approve(self.auto_approve)
+            self._mode_indicator.set_mode(new_mode)
 
+        # Update chat input warning (shows in auto-approve modes)
         if self._chat_input_container:
-            self._chat_input_container.set_show_warning(self.auto_approve)
+            self._chat_input_container.set_show_warning(self.mode_manager.auto_approve)
 
+        # Update agent if initialized
         if self.agent:
-            self.agent.auto_approve = self.auto_approve
+            self.agent.auto_approve = self.mode_manager.auto_approve
+            self.agent.mode_manager = self.mode_manager
 
-            if self.auto_approve:
+            if self.mode_manager.auto_approve:
                 self.agent.approval_callback = None
             else:
                 self.agent.approval_callback = self._approval_callback
+
+        # Visual feedback via notification
+        self.notify(
+            self.mode_manager.get_mode_description(),
+            title=f"🔄 Mode: {old_mode.value.upper()} → {new_mode.value.upper()}",
+            timeout=3,
+        )
 
         self._focus_current_bottom_app()
 

@@ -15,6 +15,7 @@ from vibe.core.prompts import UtilityPrompt
 from vibe.core.utils import is_dangerous_directory, is_windows
 
 if TYPE_CHECKING:
+    from vibe.cli.mode_manager import ModeManager
     from vibe.core.config import ProjectContextConfig, VibeConfig
     from vibe.core.tools.manager import ToolManager
 
@@ -361,8 +362,31 @@ def _get_windows_system_prompt() -> str:
     )
 
 
-def get_universal_system_prompt(tool_manager: ToolManager, config: VibeConfig) -> str:
-    sections = [config.system_prompt]
+def get_universal_system_prompt(
+    tool_manager: ToolManager,
+    config: VibeConfig,
+    mode_manager: ModeManager | None = None,
+) -> str:
+    """Build the complete system prompt.
+
+    Args:
+        tool_manager: The tool manager instance
+        config: The VibeConfig instance
+        mode_manager: Optional ModeManager for mode-specific prompt injection
+
+    Returns:
+        The complete system prompt string
+    """
+    sections = []
+
+    # Inject mode-specific instructions FIRST (if mode_manager provided)
+    if mode_manager is not None:
+        mode_injection = mode_manager.get_system_prompt_modifier()
+        if mode_injection:
+            sections.append(mode_injection)
+
+    # Add the base system prompt
+    sections.append(config.system_prompt)
 
     if config.include_model_info:
         sections.append(f"Your model name is: `{config.active_model}`")

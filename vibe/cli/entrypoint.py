@@ -98,6 +98,14 @@ def parse_arguments() -> argparse.Namespace:
         metavar="SESSION_ID",
         help="Resume a specific session by its ID (supports partial matching)",
     )
+
+    # New argument for Classic REPL
+    parser.add_argument(
+        "--repl",
+        action="store_true",
+        help="Launch classic prompt_toolkit REPL instead of Textual UI",
+    )
+
     return parser.parse_args()
 
 
@@ -243,6 +251,14 @@ def main() -> None:  # noqa: PLR0912, PLR0915
                 print(f"Error: {e}", file=sys.stderr)
                 sys.exit(1)
         else:
+            if args.repl:
+                from vibe.cli.mode_manager import mode_from_auto_approve
+                from vibe.cli.repl import run_repl
+
+                initial_mode = mode_from_auto_approve(args.auto_approve)
+                run_repl(config, initial_mode=initial_mode)
+                sys.exit(0)
+
             run_textual_ui(
                 config,
                 auto_approve=args.auto_approve,

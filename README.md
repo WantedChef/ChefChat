@@ -129,6 +129,44 @@ by default it will use `auto-approve` mode.
 
 Use slash commands for meta-actions and configuration changes during a session.
 
+### 🍳 ChefChat Mode System
+
+ChefChat (this fork) includes a powerful multi-mode system with 5 operational modes. Press **`Shift+Tab`** to cycle through modes:
+
+| Mode | Emoji | Description | Auto-Approve | Read-Only |
+|------|-------|-------------|--------------|-----------|
+| **PLAN** | 📋 | Research & planning mode | ❌ | ✅ |
+| **NORMAL** | ✋ | Standard mode, confirms each tool | ❌ | ❌ |
+| **AUTO** | ⚡ | Auto-approves all tools | ✅ | ❌ |
+| **YOLO** | 🚀 | Maximum speed, minimal output | ✅ | ❌ |
+| **ARCHITECT** | 🏛️ | High-level design mode | ❌ | ✅ |
+
+**Mode Cycle Order:** NORMAL → AUTO → PLAN → YOLO → ARCHITECT → NORMAL
+
+#### ChefChat Easter Egg Commands
+
+| Command | Description |
+|---------|-------------|
+| `/chef`, `/kitchen` | 🍳 Show kitchen status with mode info |
+| `/wisdom`, `/quote` | 💡 Random cooking/coding wisdom |
+| `/modes`, `/mode` | 🔄 Display all modes with descriptions |
+| `/roast`, `/ramsay` | 🔥 Get roasted by Chef Ramsay |
+| `/plate`, `/present` | 🍽️ Present your work beautifully |
+| `/taste`, `/review` | 👅 Quick code taste test (fun review) |
+| `/timer`, `/estimate` | ⏱️ Kitchen timer (time estimates) |
+
+#### Read-Only Modes
+
+In **PLAN** and **ARCHITECT** modes, write operations are automatically blocked:
+- ✅ Allowed: `read_file`, `grep`, `ls`, `git status`, `cat`
+- ❌ Blocked: `write_file`, `rm`, `git push`, `touch`
+
+To execute a blocked operation, either:
+1. Say **"approved"** or **"go ahead"** in your message
+2. Press **`Shift+Tab`** to switch to a writable mode
+
+
+
 ## Configuration
 
 Vibe is configured via a `config.toml` file. It looks for this file first in `./.vibe/config.toml` and then falls back to `~/.vibe/config.toml`.
