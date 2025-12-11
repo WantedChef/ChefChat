@@ -85,32 +85,32 @@ class ChefErrorHandler:
 
                 # Status and basic info
                 if error.status:
-                    content.append(f"Status: ", style=COLORS["muted"])
+                    content.append("Status: ", style=COLORS["muted"])
                     content.append(f"{error.status}\n", style=COLORS["error"])
 
-                content.append(f"Model: ", style=COLORS["muted"])
+                content.append("Model: ", style=COLORS["muted"])
                 content.append(f"{error.model}\n", style="bold")
 
-                content.append(f"Provider: ", style=COLORS["muted"])
+                content.append("Provider: ", style=COLORS["muted"])
                 content.append(f"{error.provider}\n\n", style="bold")
 
                 # Provider message
                 if error.parsed_error:
-                    content.append(f"Message: ", style=COLORS["muted"])
+                    content.append("Message: ", style=COLORS["muted"])
                     content.append(f"{error.parsed_error}\n\n", style=COLORS["error"])
 
                 # Payload summary
                 content.append("Request Summary:\n", style=f"bold {COLORS['info']}")
-                content.append(f"  Messages: ", style=COLORS["muted"])
+                content.append("  Messages: ", style=COLORS["muted"])
                 content.append(f"{error.payload_summary.message_count}\n")
-                content.append(f"  Approx chars: ", style=COLORS["muted"])
+                content.append("  Approx chars: ", style=COLORS["muted"])
                 content.append(f"{error.payload_summary.approx_chars:,}\n")
-                content.append(f"  Temperature: ", style=COLORS["muted"])
+                content.append("  Temperature: ", style=COLORS["muted"])
                 content.append(f"{error.payload_summary.temperature}\n")
 
                 # Body excerpt if available
                 if error.body_text:
-                    content.append(f"\nResponse excerpt:\n", style=COLORS["muted"])
+                    content.append("\nResponse excerpt:\n", style=COLORS["muted"])
                     excerpt = error._excerpt(error.body_text, n=200)
                     content.append(f"{excerpt}\n", style="dim")
             else:

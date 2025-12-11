@@ -259,7 +259,7 @@ class SecureCommandExecutor:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     proc.communicate(), timeout=subprocess_timeout
                 )
-            except (TimeoutError, asyncio.TimeoutError):
+            except TimeoutError:
                 # Force kill process tree
                 try:
                     proc.kill()

@@ -6,7 +6,7 @@ import sys
 try:
     from typing import override
 except ImportError:
-    from typing_extensions import override
+    from typing import override
 
 import pytest
 from textual.app import App

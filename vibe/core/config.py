@@ -5,7 +5,7 @@ try:
 
     from vibe.core.compatibility import StrEnum
 except ImportError:
-    from enum import Enum, auto
+    from enum import Enum
 
     class StrEnum(str, Enum):
         pass

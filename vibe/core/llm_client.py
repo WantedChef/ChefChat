@@ -16,7 +16,6 @@ from vibe.core.types import (
     AssistantEvent,
     LLMChunk,
     LLMMessage,
-    LLMUsage,
     Role,
     ToolCall,
 )

@@ -1,1 +1,3 @@
-from .acp_agent import ACPAgent, AcpSession as ACPSession
+from __future__ import annotations
+
+from .acp_agent import ACPAgent as ACPAgent, AcpSession as ACPSession

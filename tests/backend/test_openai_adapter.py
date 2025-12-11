@@ -1,8 +1,9 @@
+from __future__ import annotations
 
-import pytest
+from vibe.core.config import Backend, ProviderConfig
 from vibe.core.llm.backend.generic import OpenAIAdapter
-from vibe.core.types import LLMMessage, Role, AvailableTool
-from vibe.core.config import ProviderConfig, Backend
+from vibe.core.types import AvailableTool, LLMMessage, Role
+
 
 def test_openai_adapter_prepare_request_basic():
     """Verify OpenAI adapter prepares basic chat request correctly."""

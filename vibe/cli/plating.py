@@ -18,11 +18,11 @@ from datetime import UTC, datetime
 import random
 from typing import TYPE_CHECKING, Any
 
+from rich import box
 from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich import box
 
 if TYPE_CHECKING:
     from vibe.cli.mode_manager import ModeManager
