@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from vibe.core.agent import LLMResponseError
 from vibe.core.config import VibeConfig
+from vibe.core.llm.backend.factory import BACKEND_FACTORY
 from vibe.core.llm.format import APIToolFormatHandler
 from vibe.core.llm.types import BackendLike
 from vibe.core.middleware import MiddlewareAction, MiddlewarePipeline
@@ -51,6 +52,12 @@ class LLMClient:
         # Last chunk stored for internal state tracking if needed by Agent (Agent seemingly accesses it)
         # But Agent accesses it via `self._last_chunk`. We should probably expose it or return it.
         self.last_chunk: LLMChunk | None = None
+
+    def _select_backend(self) -> BackendLike:
+        active_model = self.config.get_active_model()
+        provider = self.config.get_provider_for_model(active_model)
+        backend_cls = BACKEND_FACTORY[provider.backend]
+        return backend_cls(provider=provider, timeout=self.config.api_timeout)
 
     def reload(self, config: VibeConfig) -> None:
         """Reload client with new configuration."""

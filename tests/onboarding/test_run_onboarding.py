@@ -4,9 +4,9 @@ from pathlib import Path
 import sys
 
 try:
-    from typing import override  # Python 3.12+
+    from typing import override
 except ImportError:
-    from typing import override  # Python 3.10-11
+    from typing_extensions import override
 
 import pytest
 from textual.app import App

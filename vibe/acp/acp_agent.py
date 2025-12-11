@@ -7,9 +7,9 @@ import sys
 from typing import Any, cast
 
 try:
-    from typing import override  # Python 3.12+
+    from typing import override
 except ImportError:
-    from typing import override  # Python 3.10-11
+    from typing_extensions import override
 
 from acp import (
     PROTOCOL_VERSION,

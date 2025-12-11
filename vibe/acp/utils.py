@@ -8,9 +8,9 @@ from acp.schema import PermissionOption, SessionMode
 from vibe.core.compatibility import StrEnum
 
 
-class VibeSessionMode(enum.StrEnum):
-    APPROVAL_REQUIRED = enum.auto()
-    AUTO_APPROVE = enum.auto()
+class VibeSessionMode(StrEnum):
+    APPROVAL_REQUIRED = "approval_required"
+    AUTO_APPROVE = "auto_approve"
 
     def to_acp_session_mode(self) -> SessionMode:
         match self:
