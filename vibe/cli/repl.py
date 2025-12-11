@@ -41,6 +41,8 @@ from vibe.cli.easter_eggs import (
     get_random_roast,
     get_random_wisdom,
 )
+from vibe.core.autocompletion.completers import CommandCompleter, PathCompleter
+from vibe.cli.autocompletion.adapter import PromptToolkitCompleterAdapter
 
 # =============================================================================
 # CHEFCHAT INTEGRATIONS
@@ -112,6 +114,37 @@ class ChefChatREPL:
         # Session tracking
         self.session_start_time = time.time()
         self.tools_executed = 0
+        self._last_interrupt_time = 0.0
+
+        # Autocompletion setup
+        commands = [
+            ("/help", "Show help menu"),
+            ("/model", "Switch AI model"),
+            ("/chef", "Kitchen status"),
+            ("/wisdom", "Chef wisdom"),
+            ("/roast", "Get roasted"),
+            ("/fortune", "Dev fortune"),
+            ("/plate", "Show plating"),
+            ("/mode", "Current mode info"),
+            ("/modes", "List modes"),
+            ("/clear", "Clear history"),
+            ("/status", "Show status"),
+            ("/stats", "Show statistics"),
+            ("/exit", "Exit application"),
+            ("/quit", "Exit application"),
+        ]
+        self.completer = PromptToolkitCompleterAdapter([
+            CommandCompleter(commands),
+            PathCompleter(target_matches=20),
+        ])
+
+        # Re-create session with completer
+        self.session: PromptSession[str] = PromptSession(
+            key_bindings=self.kb,
+            style=self.style,
+            completer=self.completer,
+            complete_while_typing=True,
+        )
 
     # =========================================================================
     # KEYBINDINGS
@@ -164,6 +197,86 @@ class ChefChatREPL:
         )
         self.console.print()
         self.console.print(panel)
+
+
+
+    async def _handle_model_command(self) -> None:
+        """Handle interactive model switching."""
+        from rich.console import Group
+        from rich.prompt import Prompt
+        from rich.table import Table
+        from vibe.core.config import ModelConfig
+
+        # Create a display table for models
+        table = Table(
+            title=f"[{COLORS['primary']}]Available Models[/{COLORS['primary']}]",
+            box=box.ROUNDED,
+            border_style=COLORS['ash'],
+            show_header=True,
+            header_style=f"bold {COLORS['silver']}"
+        )
+        table.add_column("#", justify="right", style=COLORS['muted'])
+        table.add_column("Alias", style=f"bold {COLORS['primary']}")
+        table.add_column("Provider", style=COLORS['text'])
+        table.add_column("Model ID", style=COLORS['muted'])
+
+        models = self.config.models
+        for idx, model in enumerate(models, 1):
+            is_active = model.alias == self.config.active_model
+            marker = "★" if is_active else str(idx)
+            style = f"bold {COLORS['success']}" if is_active else COLORS['text']
+
+            table.add_row(
+                marker,
+                model.alias,
+                model.provider,
+                model.name,
+                style=style
+            )
+
+        self.console.print()
+        self.console.print(table)
+        self.console.print()
+
+        # Ask for selection
+        try:
+            choice = Prompt.ask(
+                f"[{COLORS['fire']}]Select model #[/{COLORS['fire']}]",
+                default=str(next((i for i, m in enumerate(models, 1) if m.alias == self.config.active_model), 1))
+            )
+
+            if choice.strip():
+                try:
+                    idx = int(choice)
+                    if 1 <= idx <= len(models):
+                        selected_model = models[idx - 1]
+                        self.config.active_model = selected_model.alias
+
+                        # Re-initialize agent
+                        await self._initialize_agent()
+
+                        self.console.print(
+                            f"\n  [{COLORS['sage']}]✓ Switched to {selected_model.alias} ({selected_model.provider})[/{COLORS['sage']}]\n"
+                        )
+                    else:
+                        self.console.print(f"  [{COLORS['ember']}]Invalid number[/{COLORS['ember']}]")
+                except ValueError:
+                    # Check if they typed the alias directly
+                    found = False
+                    for model in models:
+                        if model.alias.lower() == choice.lower():
+                            self.config.active_model = model.alias
+                            await self._initialize_agent()
+                            self.console.print(
+                                f"\n  [{COLORS['sage']}]✓ Switched to {model.alias}[/{COLORS['sage']}]\n"
+                            )
+                            found = True
+                            break
+                    if not found:
+                        self.console.print(f"  [{COLORS['ember']}]Invalid selection[/{COLORS['ember']}]")
+
+        except KeyboardInterrupt:
+            self.console.print(f"\n  [{COLORS['honey']}]Cancelled[/{COLORS['honey']}]")
 
     def _show_stats(self) -> None:
         """Display session statistics - Today's Service."""
@@ -426,7 +539,17 @@ class ChefChatREPL:
                 await self._handle_agent_response(user_input)
 
             except KeyboardInterrupt:
-                self.console.print()
+                current_time = time.time()
+                if current_time - self._last_interrupt_time < 1.0:
+                    self.console.print(
+                        f"\n[{COLORS['silver']}]👋 Kitchen closed. Service finished.[/{COLORS['silver']}]\n"
+                    )
+                    sys.exit(0)
+                else:
+                    self._last_interrupt_time = current_time
+                    self.console.print(
+                        f"\n  [{COLORS['honey']}]⚠ Press Ctrl+C again to exit[/{COLORS['honey']}]"
+                    )
                 continue
             except EOFError:
                 self.console.print(
@@ -505,6 +628,9 @@ class ChefChatREPL:
                 )
             )
             self.console.print()
+
+        elif cmd == "/model":
+            await self._handle_model_command()
 
         elif cmd == "/modes":
             # Use the easter_eggs display - returns Panel now

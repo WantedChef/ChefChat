@@ -6,7 +6,7 @@ import time
 from typing import TYPE_CHECKING
 
 from vibe.core.agent import LLMResponseError
-from vibe.core.config import VibeConfig
+from vibe.core.config import DEFAULT_MAX_TOKENS, VibeConfig
 from vibe.core.llm.backend.factory import BACKEND_FACTORY
 from vibe.core.llm.format import APIToolFormatHandler
 from vibe.core.llm.types import BackendLike
@@ -102,7 +102,7 @@ class LLMClient:
                         "User-Agent": get_user_agent(),
                         "x-affinity": self.session_id,
                     },
-                    max_tokens=max_tokens,
+                    max_tokens=max_tokens or active_model.max_tokens or DEFAULT_MAX_TOKENS,
                 )
 
             end_time = time.perf_counter()
@@ -173,7 +173,7 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                         "User-Agent": get_user_agent(),
                         "x-affinity": self.session_id,
                     },
-                    max_tokens=max_tokens,
+                    max_tokens=max_tokens or active_model.max_tokens or DEFAULT_MAX_TOKENS,
                 ):
                     yield chunk
                     last_chunk = chunk

@@ -25,7 +25,31 @@ class PayloadSummary(BaseModel):
     tool_choice: StrToolChoice | AvailableTool | None
 
 
-class BackendError(RuntimeError):
+class LLMError(RuntimeError):
+    """Base exception for all LLM-related errors."""
+
+
+class LLMConnectionError(LLMError):
+    """Network or connection errors."""
+
+
+class LLMAuthenticationError(LLMError):
+    """Authentication failed (invalid API key)."""
+
+
+class LLMRateLimitError(LLMError):
+    """Rate limit exceeded."""
+
+
+class LLMContextWindowError(LLMError):
+    """Context window exceeded."""
+
+
+class LLMGenerativeError(LLMError):
+    """Error during generation."""
+
+
+class BackendError(LLMError):
     def __init__(
         self,
         *,
@@ -167,7 +191,7 @@ class BackendErrorBuilder:
         except Exception:  # On streaming responses, we can't read the body
             body_text = None
 
-        return BackendError(
+        error = BackendError(
             provider=provider,
             endpoint=endpoint,
             status=response.status_code,
@@ -181,6 +205,17 @@ class BackendErrorBuilder:
             ),
         )
 
+        if error.status == HTTPStatus.UNAUTHORIZED:
+            return LLMAuthenticationError(str(error))
+
+        if error.status == HTTPStatus.TOO_MANY_REQUESTS:
+            return LLMRateLimitError(str(error))
+
+        if error.is_context_too_long():
+            return LLMContextWindowError(str(error))
+
+        return error
+
     @classmethod
     def build_request_error(
         cls,
@@ -193,8 +228,8 @@ class BackendErrorBuilder:
         temperature: float,
         has_tools: bool,
         tool_choice: StrToolChoice | AvailableTool | None,
-    ) -> BackendError:
-        return BackendError(
+    ) -> LLMConnectionError:
+        backend_error = BackendError(
             provider=provider,
             endpoint=endpoint,
             status=None,
@@ -207,6 +242,7 @@ class BackendErrorBuilder:
                 model, messages, temperature, has_tools, tool_choice
             ),
         )
+        return LLMConnectionError(str(backend_error))
 
     @staticmethod
     def _parse_provider_error(body_text: str | None) -> str | None:

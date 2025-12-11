@@ -384,14 +384,22 @@ class HelpDisplay:
 
         commands = [
             ("/help", "Show this help"),
-            ("/mode", "Show current mode details"),
+            ("/model", "Switch AI model"),
             ("/modes", "List all available modes"),
             ("/clear", "Clear conversation history"),
             ("/status", "Show session status"),
+            ("/stats", "Show session statistics"),
             ("/exit", "Exit ChefChat"),
             ("", ""),
             ("Shift+Tab", "Cycle through modes"),
             ("Ctrl+C", "Cancel current operation"),
+            ("", ""),
+            ("[dim]Chef's Specials[/dim]", ""),
+            ("/chef", "Kitchen status report"),
+            ("/wisdom", "Daily chef wisdom"),
+            ("/roast", "Get roasted by Gordon"),
+            ("/plate", "View current plating (stats)"),
+            ("/fortune", "Developer fortune cookie"),
         ]
 
         for key, desc in commands:

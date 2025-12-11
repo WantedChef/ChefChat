@@ -18,6 +18,7 @@ from vibe.core.types import (
     StrToolChoice,
 )
 from vibe.core.utils import async_generator_retry, async_retry
+from vibe.utils.tokenizer import count_tokens
 
 if TYPE_CHECKING:
     from vibe.core.config import ModelConfig, ProviderConfig
@@ -391,17 +392,32 @@ class GenericBackend:
                     continue
 
                 DELIM_CHAR = ":"
-                assert f"{DELIM_CHAR} " in line, "line should look like `key: value`"
+                DELIM_CHAR = ":"
                 delim_index = line.find(DELIM_CHAR)
+
+                if delim_index == -1:
+                    # Malformed line, skip it
+                    continue
+
                 key = line[0:delim_index]
-                value = line[delim_index + 2 :]
+
+                # Robustly extract value, handling optional space after colon
+                remainder = line[delim_index + 1 :]
+                if remainder.startswith(" "):
+                    value = remainder[1:]
+                else:
+                    value = remainder
 
                 if key != "data":
                     # This might be the case with openrouter, so we just ignore it
                     continue
                 if value == "[DONE]":
                     return
-                yield json.loads(value.strip())
+                try:
+                    yield json.loads(value.strip())
+                except json.JSONDecodeError:
+                    # Skip malformed JSON lines
+                    continue
 
     async def count_tokens(
         self,
@@ -413,24 +429,35 @@ class GenericBackend:
         tool_choice: StrToolChoice | AvailableTool | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> int:
-        probe_messages = list(messages)
-        if not probe_messages or probe_messages[-1].role != Role.user:
-            probe_messages.append(LLMMessage(role=Role.user, content=""))
+    async def count_tokens(
+        self,
+        *,
+        model: ModelConfig,
+        messages: list[LLMMessage],
+        temperature: float = 0.0,
+        tools: list[AvailableTool] | None = None,
+        tool_choice: StrToolChoice | AvailableTool | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> int:
+        # Use local tokenizer to estimate tokens
+        # This is much faster and cheaper than an API call
+        # It handles both tiktoken (precise for OpenAI) and heuristic (fallback)
 
-        result = await self.complete(
-            model=model,
-            messages=probe_messages,
-            temperature=temperature,
-            tools=tools,
-            max_tokens=16,  # Minimal amount for openrouter with openai models
-            tool_choice=tool_choice,
-            extra_headers=extra_headers,
-        )
-        assert result.usage is not None, (
-            "Usage should be present in non-streaming completions"
-        )
+        # Simple approximation of chat formatting:
+        # Sum of content tokens + constant overhead per message
+        total = 0
+        for msg in messages:
+            total += count_tokens(msg.content or "", model.name)
+            total += 4  # Approximate overhead per message (role, structure)
 
-        return result.usage.prompt_tokens
+        if tools:
+            # Rough estimate for tools definition
+            for tool in tools:
+                 # Estimate based on function definition
+                 # Very rough: 1 token per 4 chars of json dump
+                 total += count_tokens(json.dumps(tool.model_dump()), model.name)
+
+        return total
 
     async def close(self) -> None:
         if self._owns_client and self._client:

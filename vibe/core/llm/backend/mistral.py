@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, cast
 import httpx
 import mistralai
 
+from vibe.utils.tokenizer import count_tokens
+
 from vibe.core.llm.exceptions import BackendErrorBuilder
 from vibe.core.types import (
     AvailableTool,
@@ -316,17 +318,14 @@ class MistralBackend:
         tool_choice: StrToolChoice | AvailableTool | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> int:
-        result = await self.complete(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            tools=tools,
-            max_tokens=1,
-            tool_choice=tool_choice,
-            extra_headers=extra_headers,
-        )
-        assert result.usage is not None, (
-            "Usage should be present in non-streaming completions"
-        )
+        # Use local tokenizer to estimate tokens
+        total = 0
+        for msg in messages:
+            total += count_tokens(msg.content or "", model.name)
+            total += 4  # Approximate overhead per message
 
-        return result.usage.prompt_tokens
+        if tools:
+            for tool in tools:
+                 total += count_tokens(json.dumps(tool.model_dump()), model.name)
+
+        return total

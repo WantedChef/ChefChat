@@ -46,6 +46,7 @@ def get_vibe_home() -> Path:
 GLOBAL_CONFIG_DIR = get_vibe_home()
 GLOBAL_CONFIG_FILE = GLOBAL_CONFIG_DIR / "config.toml"
 GLOBAL_ENV_FILE = GLOBAL_CONFIG_DIR / ".env"
+DEFAULT_MAX_TOKENS = 8192
 
 
 def resolve_config_file() -> Path:
@@ -257,6 +258,7 @@ class ModelConfig(BaseModel):
     provider: str
     alias: str
     temperature: float = 0.2
+    max_tokens: int | None = None
     input_price: float = 0.0  # Price per million input tokens
     output_price: float = 0.0  # Price per million output tokens
 
