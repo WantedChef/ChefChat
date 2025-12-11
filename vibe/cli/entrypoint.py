@@ -155,6 +155,29 @@ def load_config_or_exit(agent: str | None = None) -> VibeConfig:
         sys.exit(1)
 
 
+def ensure_bootstrap_files() -> None:
+    """Create minimal config, instructions en history indien afwezig."""
+    if not CONFIG_FILE.exists():
+        try:
+            VibeConfig.save_updates(VibeConfig.create_default())
+        except Exception as e:
+            rprint(f"[yellow]Could not create default config file: {e}[/]")
+
+    if not INSTRUCTIONS_FILE.exists():
+        try:
+            INSTRUCTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            INSTRUCTIONS_FILE.touch()
+        except Exception as e:
+            rprint(f"[yellow]Could not create instructions file: {e}[/]")
+
+    if not HISTORY_FILE.exists():
+        try:
+            HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            HISTORY_FILE.write_text("Hello Vibe!\n", "utf-8")
+        except Exception as e:
+            rprint(f"[yellow]Could not create history file: {e}[/]")
+
+
 def main() -> None:  # noqa: PLR0912, PLR0915
     load_api_keys_from_env()
     args = parse_arguments()
@@ -163,25 +186,7 @@ def main() -> None:  # noqa: PLR0912, PLR0915
         run_onboarding()
         sys.exit(0)
     try:
-        if not CONFIG_FILE.exists():
-            try:
-                VibeConfig.save_updates(VibeConfig.create_default())
-            except Exception as e:
-                rprint(f"[yellow]Could not create default config file: {e}[/]")
-
-        if not INSTRUCTIONS_FILE.exists():
-            try:
-                INSTRUCTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
-                INSTRUCTIONS_FILE.touch()
-            except Exception as e:
-                rprint(f"[yellow]Could not create instructions file: {e}[/]")
-
-        if not HISTORY_FILE.exists():
-            try:
-                HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-                HISTORY_FILE.write_text("Hello Vibe!\n", "utf-8")
-            except Exception as e:
-                rprint(f"[yellow]Could not create history file: {e}[/]")
+        ensure_bootstrap_files()
 
         config = load_config_or_exit(args.agent)
 

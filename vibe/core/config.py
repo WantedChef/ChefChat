@@ -47,11 +47,17 @@ def resolve_config_file() -> Path:
 
 
 def load_api_keys_from_env() -> None:
-    if GLOBAL_ENV_FILE.is_file():
-        env_vars = dotenv_values(GLOBAL_ENV_FILE)
-        for key, value in env_vars.items():
-            if value:
-                os.environ.setdefault(key, value)
+    """Load API keys from .env but only for allowed prefixes to avoid env injection."""
+    if not GLOBAL_ENV_FILE.is_file():
+        return
+
+    allowed_prefixes = ("VIBE_", "MCP_")
+    env_vars = dotenv_values(GLOBAL_ENV_FILE)
+    for key, value in env_vars.items():
+        if not value:
+            continue
+        if key.startswith(allowed_prefixes):
+            os.environ.setdefault(key, value)
 
 
 CONFIG_FILE = resolve_config_file()

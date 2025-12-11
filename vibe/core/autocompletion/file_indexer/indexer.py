@@ -68,14 +68,16 @@ class FileIndexer:
             self._watcher.stop()
             with self._rebuild_lock:  # cancel rebuilds targeting other roots
                 self._target_root = resolved_root
-                stale_roots = [r for r in self._active_rebuilds if r != resolved_root]
+                stale_roots = [
+                    other_root
+                    for other_root in self._active_rebuilds
+                    if other_root != resolved_root
+                ]
                 for other_root in stale_roots:
-                    task = self._active_rebuilds.get(other_root)
-                    if task is None:
-                        continue
-                    task.cancel_event.set()
-                    task.done_event.set()
-                    self._active_rebuilds.pop(other_root, None)
+                    task = self._active_rebuilds.pop(other_root, None)
+                    if task:
+                        task.cancel_event.set()
+                        task.done_event.set()
 
         with self._lock:
             needs_rebuild = self._store.root != resolved_root
@@ -171,7 +173,9 @@ class FileIndexer:
         with self._rebuild_lock:
             task = self._active_rebuilds.get(root)
         if task:
-            task.done_event.wait()
+            completed = task.done_event.wait(timeout=30)
+            if not completed:
+                task.cancel_event.set()
 
     def _handle_watch_changes(
         self, root: Path, raw_changes: Iterable[tuple[Change, str]]
