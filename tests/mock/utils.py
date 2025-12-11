@@ -14,6 +14,7 @@ def mock_llm_chunk(
     name: str | None = None,
     tool_call_id: str | None = None,
     finish_reason: str | None = None,
+    usage: LLMUsage | None = None, # Allow explicit None for usage
     prompt_tokens: int = 10,
     completion_tokens: int = 5,
 ) -> LLMChunk:
@@ -24,11 +25,14 @@ def mock_llm_chunk(
         name=name,
         tool_call_id=tool_call_id,
     )
+    # Only create LLMUsage if not explicitly passed as None
+    if usage is None and (prompt_tokens is not None or completion_tokens is not None):
+        usage = LLMUsage(
+            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+        )
     return LLMChunk(
         message=message,
-        usage=LLMUsage(
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
-        ),
+        usage=usage,
         finish_reason=finish_reason,
     )
 
