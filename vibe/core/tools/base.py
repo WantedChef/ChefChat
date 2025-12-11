@@ -6,16 +6,7 @@ import inspect
 from pathlib import Path
 import re
 import sys
-from typing import (
-    Any,
-    ClassVar,
-    Generic,
-    TypeVar,
-    cast,
-    get_args,
-    get_origin,
-    get_type_hints,
-)
+from typing import Any, ClassVar, TypeVar, cast, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -122,7 +113,12 @@ class ToolInfo(BaseModel):
 # =======================================================
 
 
-class BaseTool(Generic[ArgsT, ResultT, ConfigT, StateT], ABC):
+class BaseTool[
+    ArgsT: BaseModel,
+    ResultT: BaseModel,
+    ConfigT: BaseToolConfig,
+    StateT: BaseToolState,
+](ABC):
     """The main base class for defining async tools.
     Subclasses must specify four type parameters:
 

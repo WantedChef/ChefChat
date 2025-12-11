@@ -61,7 +61,7 @@ from vibe.modes.security import is_write_bash_command, is_write_operation
 # Core types
 from vibe.modes.types import ModeConfig, ModeState, VibeMode
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     # Constants
     "MAX_COMMAND_DISPLAY_LEN",
     "MODE_CONFIGS",

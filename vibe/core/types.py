@@ -263,20 +263,13 @@ class OutputFormat(StrEnum):
     STREAMING = auto()
 
 
-try:
-    from typing import TypeAlias
-except ImportError:
-    from typing import TypeAlias
-
-AsyncApprovalCallback: TypeAlias = Callable[
+type AsyncApprovalCallback = Callable[
     [str, dict[str, Any], str], Awaitable[tuple[str, str | None]]
 ]
 
-SyncApprovalCallback: TypeAlias = Callable[
-    [str, dict[str, Any], str], tuple[str, str | None]
-]
+type SyncApprovalCallback = Callable[[str, dict[str, Any], str], tuple[str, str | None]]
 
-ApprovalCallback: TypeAlias = AsyncApprovalCallback | SyncApprovalCallback
+type ApprovalCallback = AsyncApprovalCallback | SyncApprovalCallback
 
 
 class ToolExecutionResponse(StrEnum):
