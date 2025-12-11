@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import enum
-from enum import StrEnum
 from typing import Literal, cast
 
 from acp.schema import PermissionOption, SessionMode
+
+from vibe.core.compatibility import StrEnum
 
 
 class VibeSessionMode(enum.StrEnum):

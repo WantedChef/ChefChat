@@ -37,7 +37,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 try:
-    from enum import StrEnum, auto
+    from enum import auto
+
+    from vibe.core.compatibility import StrEnum
 except ImportError:
     from enum import Enum, auto
 

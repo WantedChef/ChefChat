@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from enum import StrEnum, auto
+from enum import auto
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from vibe.core.compatibility import StrEnum
 from vibe.core.tools.base import BaseTool
 
 

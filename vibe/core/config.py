@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 try:
-    from enum import StrEnum, auto
+    from enum import auto
+
+    from vibe.core.compatibility import StrEnum
 except ImportError:
     from enum import Enum, auto
 

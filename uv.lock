@@ -680,6 +680,7 @@ dependencies = [
     { name = "rich" },
     { name = "textual" },
     { name = "tomli-w" },
+    { name = "typing-extensions" },
     { name = "watchfiles" },
 ]
 
@@ -717,6 +718,7 @@ requires-dist = [
     { name = "rich", specifier = ">=14.0.0" },
     { name = "textual", specifier = ">=1.0.0" },
     { name = "tomli-w", specifier = ">=1.2.0" },
+    { name = "typing-extensions", specifier = ">=4.0.0" },
     { name = "watchfiles", specifier = ">=1.1.1" },
 ]
 

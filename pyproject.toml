@@ -44,8 +44,8 @@ dependencies = [
     "watchfiles>=1.1.1",
     "pyperclip>=1.11.0",
     "prompt_toolkit>=3.0.0",
+    "typing_extensions>=4.0.0",
 ]
-
 [project.urls]
 Homepage = "https://github.com/mistralai/mistral-vibe"
 Repository = "https://github.com/mistralai/mistral-vibe"
@@ -154,5 +154,5 @@ max-nested-blocks = 4
 ignore_decorators = ["@*"]
 
 [tool.pytest.ini_options]
-addopts = "-vvvv -q -n auto --durations=5 --import-mode=importlib"
+addopts = "-vvvv -q --durations=5 --import-mode=importlib"
 timeout = 10

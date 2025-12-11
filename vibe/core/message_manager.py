@@ -86,13 +86,13 @@ class MessageManager:
         while i < len(self.messages):
             msg = self.messages[i]
 
-            if msg.role == "assistant" and msg.tool_calls:
+            if msg.role == Role.assistant and msg.tool_calls:
                 expected_responses = len(msg.tool_calls)
 
                 if expected_responses > 0:
                     actual_responses = 0
                     j = i + 1
-                    while j < len(self.messages) and self.messages[j].role == "tool":
+                    while j < len(self.messages) and self.messages[j].role == Role.tool:
                         actual_responses += 1
                         j += 1
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from enum import StrEnum, auto
+from enum import auto
 import functools
 import inspect
 from pathlib import Path
@@ -19,6 +19,8 @@ from typing import (
 )
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from vibe.core.compatibility import StrEnum
 
 ArgsT = TypeVar("ArgsT", bound=BaseModel)
 ResultT = TypeVar("ResultT", bound=BaseModel)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
 import concurrent.futures
-from enum import Enum, StrEnum, auto
+from enum import Enum, auto
 import functools
 import logging
 from pathlib import Path
@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 
 from vibe.core import __version__
+from vibe.core.compatibility import StrEnum
 from vibe.core.config import CONFIG_DIR, CONFIG_FILE, GLOBAL_CONFIG_FILE
 from vibe.core.types import BaseEvent, ToolResultEvent
 

@@ -21,10 +21,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum, auto
+from enum import auto
 from functools import wraps
 import logging
 from typing import TYPE_CHECKING, Any, TypeVar
+
+from vibe.core.compatibility import StrEnum
 
 if TYPE_CHECKING:
     from vibe.cli.mode_manager import ModeManager, VibeMode

@@ -4,7 +4,12 @@ import asyncio
 from collections.abc import AsyncGenerator
 from pathlib import Path
 import sys
-from typing import Any, cast, override
+from typing import Any, cast
+
+try:
+    from typing import override  # Python 3.12+
+except ImportError:
+    from typing import override  # Python 3.10-11
 
 from acp import (
     PROTOCOL_VERSION,
@@ -201,7 +206,6 @@ class VibeAcpAgent(AcpAgent):
         return disabled
 
     def _create_approval_callback(self, session_id: str) -> AsyncApprovalCallback:
-
         async def approval_callback(
             tool_name: str, args: dict[str, Any], tool_call_id: str
         ) -> tuple[str, str | None]:

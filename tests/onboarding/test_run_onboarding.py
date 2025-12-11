@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from typing import override
+
+try:
+    from typing import override  # Python 3.12+
+except ImportError:
+    from typing import override  # Python 3.10-11
 
 import pytest
 from textual.app import App
