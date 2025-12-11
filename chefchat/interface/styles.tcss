@@ -1,0 +1,262 @@
+/* ===================================================================
+   ChefChat - Dark Kitchen Theme
+   The Professional Kitchen Aesthetic: Slate & Saffron
+   =================================================================== */
+
+/* CSS Variables - Dark Kitchen Color Palette */
+$primary-bg: #1a1b26;
+$secondary-bg: #24283b;
+$surface: #2f3549;
+$panel-border: #414868;
+$text-primary: #c0caf5;
+$text-muted: #565f89;
+$accent: #e0af68;
+$accent-dim: #b8954d;
+$success: #9ece6a;
+$warning: #ff9e64;
+$error: #f7768e;
+$info: #7aa2f7;
+
+/* ===================================================================
+   Main Application Layout
+   =================================================================== */
+
+Screen {
+    background: $primary-bg;
+    color: $text-primary;
+}
+
+/* The Kitchen - Main 3-Pane Grid Layout */
+#kitchen-grid {
+    layout: grid;
+    grid-size: 2 2;
+    grid-columns: 2fr 1fr;
+    grid-rows: 2fr 1fr;
+    padding: 1;
+    grid-gutter: 1;
+}
+
+/* ===================================================================
+   The Ticket Rail - Chat History (Top Left)
+   Where orders come in from the Head Chef
+   =================================================================== */
+
+#ticket-rail {
+    column-span: 1;
+    row-span: 1;
+    background: $secondary-bg;
+    border: solid $panel-border;
+    border-title-color: $accent;
+    border-title-style: bold;
+    padding: 1 2;
+    overflow-y: auto;
+}
+
+#ticket-rail:focus {
+    border: solid $accent;
+}
+
+.ticket {
+    background: $surface;
+    margin: 0 0 1 0;
+    padding: 1;
+    border: round $panel-border;
+}
+
+.ticket-user {
+    border-left: thick $accent;
+}
+
+.ticket-assistant {
+    border-left: thick $info;
+}
+
+/* ===================================================================
+   The Pass - Agent Status Panel (Top Right)
+   Where the Brigade reports their progress
+   =================================================================== */
+
+#the-pass {
+    column-span: 1;
+    row-span: 1;
+    background: $secondary-bg;
+    border: solid $panel-border;
+    border-title-color: $accent;
+    border-title-style: bold;
+    padding: 1 2;
+    overflow-y: auto;
+}
+
+#the-pass:focus {
+    border: solid $accent;
+}
+
+.station-row {
+    height: 3;
+    margin: 0 0 1 0;
+}
+
+.station-label {
+    color: $text-muted;
+    text-style: italic;
+    width: 14;
+}
+
+.station-progress {
+    width: 1fr;
+    margin: 0 1;
+}
+
+ProgressBar > .bar--bar {
+    color: $accent;
+}
+
+ProgressBar > .bar--complete {
+    color: $success;
+}
+
+/* Station-specific colors */
+.sous-chef-bar > .bar--bar {
+    color: $info;
+}
+
+.line-cook-bar > .bar--bar {
+    color: $warning;
+}
+
+.sommelier-bar > .bar--bar {
+    color: #bb9af7;  /* Purple for sommelier */
+}
+
+/* ===================================================================
+   The Plate - Code Output (Bottom, Full Width)
+   Where the final dish is presented
+   =================================================================== */
+
+#the-plate {
+    column-span: 2;
+    row-span: 1;
+    background: $secondary-bg;
+    border: solid $panel-border;
+    border-title-color: $accent;
+    border-title-style: bold;
+    padding: 1 2;
+    overflow: auto;
+}
+
+#the-plate:focus {
+    border: solid $accent;
+}
+
+.code-block {
+    background: $primary-bg;
+    border: round $panel-border;
+    padding: 1;
+    margin: 1 0;
+}
+
+/* ===================================================================
+   Whisk Loader - The Signature Loading Animation
+   =================================================================== */
+
+#whisk-loader {
+    dock: bottom;
+    height: 3;
+    background: $surface;
+    border-top: solid $panel-border;
+    padding: 0 2;
+    display: none;
+}
+
+#whisk-loader.visible {
+    display: block;
+}
+
+.whisk-spinner {
+    color: $accent;
+    text-style: bold;
+}
+
+.whisk-message {
+    color: $text-muted;
+    margin-left: 2;
+}
+
+/* ===================================================================
+   Header - Kitchen Name Plate
+   =================================================================== */
+
+#header {
+    dock: top;
+    height: 3;
+    background: $surface;
+    border-bottom: solid $accent;
+    padding: 0 2;
+    content-align: center middle;
+}
+
+#header-title {
+    color: $accent;
+    text-style: bold;
+}
+
+#header-status {
+    color: $text-muted;
+    dock: right;
+}
+
+/* ===================================================================
+   Footer - Command Bar
+   =================================================================== */
+
+#footer {
+    dock: bottom;
+    height: 1;
+    background: $surface;
+    padding: 0 2;
+}
+
+#command-input {
+    background: $primary-bg;
+    border: none;
+    padding: 0 1;
+}
+
+#command-input:focus {
+    border: none;
+}
+
+/* ===================================================================
+   Utility Classes
+   =================================================================== */
+
+.success {
+    color: $success;
+}
+
+.warning {
+    color: $warning;
+}
+
+.error {
+    color: $error;
+}
+
+.muted {
+    color: $text-muted;
+}
+
+.accent {
+    color: $accent;
+}
+
+/* Message styling */
+.mise-en-place {
+    color: $info;
+    text-style: italic;
+}
+
+/* Hidden elements */
+.hidden {
+    display: none;
+}
