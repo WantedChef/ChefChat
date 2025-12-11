@@ -34,6 +34,7 @@ from rich.spinner import Spinner
 from rich.syntax import Syntax
 
 from vibe.cli.autocompletion.adapter import PromptToolkitCompleterAdapter
+from vibe.core.autocompletion.file_indexer import FileIndexer
 
 # Easter Eggs Integration
 from vibe.cli.easter_eggs import (
@@ -122,6 +123,10 @@ class ChefChatREPL:
         self._last_interrupt_time = 0.0
 
         # Autocompletion setup
+        file_indexer = FileIndexer(
+            parallel_walk=config.file_indexer_parallel_walk,
+            max_workers=config.file_indexer_max_workers,
+        )
         commands = [
             ("/help", "Show help menu"),
             ("/model", "Switch AI model"),
@@ -142,7 +147,7 @@ class ChefChatREPL:
         ]
         self.completer = PromptToolkitCompleterAdapter([
             CommandCompleter(commands),
-            PathCompleter(target_matches=20),
+            PathCompleter(indexer=file_indexer, target_matches=20),
         ])
 
         # Re-create session with completer

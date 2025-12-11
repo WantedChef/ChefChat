@@ -153,7 +153,6 @@ class PathCompleter(Completer):
         self, entries: list[IndexEntry], context: _SearchContext
     ) -> list[tuple[str, float]]:
         scored_matches: list[tuple[str, float]] = []
-        MAX_MATCHES = 50
 
         for i, entry in enumerate(entries):
             if i >= self._max_entries_to_process:
@@ -178,10 +177,7 @@ class PathCompleter(Completer):
             )
             if match_result.matched:
                 scored_matches.append((label, match_result.score))
-                if (
-                    len(scored_matches) >= self._target_matches
-                    and match_result.score > MAX_MATCHES
-                ):
+                if len(scored_matches) >= self._target_matches:
                     break
 
         scored_matches.sort(key=lambda x: (-x[1], x[0]))

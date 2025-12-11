@@ -113,6 +113,14 @@ vibe --resume session_123
 
 ---
 
+## ⚙️ File Indexer Performance
+
+- **Parallel walk:** enabled by default. Disable via `file_indexer_parallel_walk = false` in config or `VIBE_FILE_INDEXER_PARALLEL_WALK=false`.
+- **Worker limit:** default `file_indexer_max_workers = 4`. Override via config or `VIBE_FILE_INDEXER_MAX_WORKERS=<n>`. If set to `null`, it auto-uses `ceil(cpus/2)` capped at 8.
+- **Use when?** Keep parallel on for large trees; lower `max_workers` if I/O contention is high, or disable parallel for very slow disks/NFS.
+
+---
+
 ## 📚 Mode System Deep Dive
 
 ### 📋 PLAN Mode - "Measure Twice, Cut Once"

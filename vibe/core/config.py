@@ -358,6 +358,8 @@ class VibeConfig(BaseSettings):
     include_model_info: bool = True
     include_project_context: bool = True
     include_prompt_detail: bool = True
+    file_indexer_parallel_walk: bool = True
+    file_indexer_max_workers: int | None = 4
     enable_update_checks: bool = True
     api_timeout: float = 720.0
     providers: list[ProviderConfig] = Field(

@@ -27,6 +27,8 @@ class FileIndexer:
         self,
         mass_change_threshold: int = 200,
         max_depth: int | None = None,
+        parallel_walk: bool = True,
+        max_workers: int | None = None,
     ) -> None:
         self._lock = RLock()  # guards _store snapshot access and watcher callbacks.
         self._stats = FileIndexStats()
@@ -36,6 +38,8 @@ class FileIndexer:
             self._stats,
             mass_change_threshold=mass_change_threshold,
             max_depth=max_depth,
+            parallel_walk=parallel_walk,
+            max_workers=max_workers,
         )
         self._watcher = WatchController(self._handle_watch_changes)
         self._rebuild_executor = ThreadPoolExecutor(
@@ -64,11 +68,14 @@ class FileIndexer:
             self._watcher.stop()
             with self._rebuild_lock:  # cancel rebuilds targeting other roots
                 self._target_root = resolved_root
-                for other_root, task in self._active_rebuilds.items():
-                    if other_root != resolved_root:
-                        task.cancel_event.set()
-                        task.done_event.set()
-                        self._active_rebuilds.pop(other_root, None)
+                stale_roots = [r for r in self._active_rebuilds if r != resolved_root]
+                for other_root in stale_roots:
+                    task = self._active_rebuilds.get(other_root)
+                    if task is None:
+                        continue
+                    task.cancel_event.set()
+                    task.done_event.set()
+                    self._active_rebuilds.pop(other_root, None)
 
         with self._lock:
             needs_rebuild = self._store.root != resolved_root
