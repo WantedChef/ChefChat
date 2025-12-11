@@ -118,7 +118,10 @@ class MessageManager:
                             self.messages.insert(insertion_point, empty_response)
                             insertion_point += 1
 
-                    i = i + 1 + expected_responses
+                        insertion_count = expected_responses - actual_responses
+                        i = j + insertion_count
+                    else:
+                        i = j
                     continue
 
             i += 1
