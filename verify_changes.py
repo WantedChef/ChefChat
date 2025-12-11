@@ -24,6 +24,9 @@ async def main():
     assert count > 0
 
     print("Checking Backend count_tokens (mock)...")
+    import os
+    os.environ["MISTRAL_API_KEY"] = "mock_key"
+    os.environ["OPENAI_API_KEY"] = "mock_key"
     config = VibeConfig()
     try:
         mistral_provider = config.providers[0]
