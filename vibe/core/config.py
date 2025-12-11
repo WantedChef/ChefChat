@@ -277,6 +277,13 @@ DEFAULT_PROVIDERS = [
         backend=Backend.MISTRAL,
     ),
     ProviderConfig(
+        name="openai",
+        api_base="https://api.openai.com/v1",
+        api_key_env_var="OPENAI_API_KEY",
+        api_style="openai",
+        backend=Backend.GENERIC,
+    ),
+    ProviderConfig(
         name="llamacpp",
         api_base="http://127.0.0.1:8080/v1",
         api_key_env_var="",  # NOTE: if you wish to use --api-key in llama-server, change this value
@@ -297,6 +304,38 @@ DEFAULT_MODELS = [
         alias="devstral-small",
         input_price=0.1,
         output_price=0.3,
+    ),
+    ModelConfig(
+        name="gpt-4o",
+        provider="openai",
+        alias="gpt4o",
+        temperature=0.2,
+        input_price=2.5,
+        output_price=10.0,
+    ),
+    ModelConfig(
+        name="gpt-4o-mini",
+        provider="openai",
+        alias="gpt4o-mini",
+        temperature=0.2,
+        input_price=0.15,
+        output_price=0.60,
+    ),
+    ModelConfig(
+        name="gpt-4-turbo",
+        provider="openai",
+        alias="gpt4-turbo",
+        temperature=0.2,
+        input_price=10.0,
+        output_price=30.0,
+    ),
+    ModelConfig(
+        name="gpt-3.5-turbo",
+        provider="openai",
+        alias="gpt35",
+        temperature=0.2,
+        input_price=0.5,
+        output_price=1.5,
     ),
     ModelConfig(
         name="devstral",

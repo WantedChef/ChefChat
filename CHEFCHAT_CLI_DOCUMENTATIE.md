@@ -59,7 +59,57 @@ ChefChat heeft een unieke persoonlijkheid geïnspireerd door:
 ### Vereisten
 - Python 3.12 of hoger
 - pip of uv package manager
-- API key voor je gewenste AI provider (Mistral, OpenAI, etc.)
+- API key voor je gewenste AI provider:
+  - **Mistral AI**: https://console.mistral.ai
+  - **OpenAI**: https://platform.openai.com/api-keys
+
+### OpenAI Configuratie
+
+Om OpenAI modellen te gebruiken met ChefChat:
+
+1. **Stel je API key in**:
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   ```
+
+2. **Update je config** (`~/.vibe/config.toml`):
+   ```toml
+   # Gebruik GPT-4o (aanbevolen)
+   active_model = "gpt4o"
+
+   # Of gebruik de voordelige GPT-4o-mini
+   active_model = "gpt4o-mini"
+   ```
+
+#### Beschikbare OpenAI Modellen
+
+| Model | Alias | Gebruik | Input Prijs | Output Prijs |
+|-------|-------|---------|-------------|--------------|
+| `gpt-4o` | `gpt4o` | Meest capabel, multimodal | $2.50/1M | $10.00/1M |
+| `gpt-4o-mini` | `gpt4o-mini` | Snel en voordelig | $0.15/1M | $0.60/1M |
+| `gpt-4-turbo` | `gpt4-turbo` | Geavanceerd redeneren | $10.00/1M | $30.00/1M |
+| `gpt-3.5-turbo` | `gpt35` | Legacy model | $0.50/1M | $1.50/1M |
+
+> **Chef's Tip**: GPT-4o-mini is 93% goedkoper dan GPT-4-turbo en werkt fantastisch voor de meeste taken!
+
+#### Azure OpenAI en Compatibele APIs
+
+ChefChat ondersteunt ook Azure OpenAI en andere OpenAI-compatibele providers. Voeg dit toe aan je `~/.vibe/config.toml`:
+
+```toml
+[[providers]]
+name = "azure-openai"
+api_base = "https://JOUW_RESOURCE.openai.azure.com/openai/deployments/JOUW_DEPLOYMENT"
+api_key_env_var = "AZURE_OPENAI_API_KEY"
+api_style = "openai"
+backend = "generic"
+
+[[models]]
+name = "gpt-4"
+provider = "azure-openai"
+alias = "azure-gpt4"
+temperature = 0.2
+```
 
 ### Installatie via pip
 ```bash

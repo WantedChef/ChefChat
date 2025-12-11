@@ -221,6 +221,59 @@ vim_keybindings = false
 textual_theme = "textual-dark"
 ```
 
+### OpenAI Configuration
+
+To use OpenAI models with ChefChat:
+
+1. **Set your API key**:
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   ```
+
+2. **Update your config** (`~/.vibe/config.toml`):
+   ```toml
+   # Use GPT-4o (recommended)
+   active_model = "gpt4o"
+
+   # Or use the cost-effective GPT-4o-mini
+   active_model = "gpt4o-mini"
+   ```
+
+3. **Verify the configuration**:
+   ```bash
+   vibe --setup
+   ```
+
+#### Available OpenAI Models
+
+| Model | Alias | Use Case | Input Price | Output Price |
+|-------|-------|----------|-------------|--------------|
+| `gpt-4o` | `gpt4o` | Most capable, multimodal | $2.50/1M | $10.00/1M |
+| `gpt-4o-mini` | `gpt4o-mini` | Fast and affordable | $0.15/1M | $0.60/1M |
+| `gpt-4-turbo` | `gpt4-turbo` | Advanced reasoning | $10.00/1M | $30.00/1M |
+| `gpt-3.5-turbo` | `gpt35` | Legacy model | $0.50/1M | $1.50/1M |
+
+> **Chef's Tip**: GPT-4o-mini is 93% cheaper than GPT-4-turbo and works great for most coding tasks!
+
+#### Azure OpenAI and OpenAI-Compatible APIs
+
+ChefChat also supports Azure OpenAI and other OpenAI-compatible providers. Add this to your `~/.vibe/config.toml`:
+
+```toml
+[[providers]]
+name = "azure-openai"
+api_base = "https://YOUR_RESOURCE.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT"
+api_key_env_var = "AZURE_OPENAI_API_KEY"
+api_style = "openai"
+backend = "generic"
+
+[[models]]
+name = "gpt-4"
+provider = "azure-openai"
+alias = "azure-gpt4"
+temperature = 0.2
+```
+
 ---
 
 ## 🛡️ Safety Features
