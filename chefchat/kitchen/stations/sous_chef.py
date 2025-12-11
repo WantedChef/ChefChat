@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePriority
+from chefchat.kitchen.mise_en_place import create_snapshot
 
 if TYPE_CHECKING:
     from chefchat.pantry.ingredients import IngredientsManager
@@ -97,11 +98,13 @@ class SousChef(BaseStation):
                 await self._send_error("Usage: /chef cook <recipe_name>")
                 return
             recipe_name = parts[2]
+            await self._ensure_snapshot("chef cook")
             await self._cook_recipe(recipe_name)
 
         elif subcommand == "taste":
             # Run taste test (QA) via Expeditor
             target_path = parts[2] if len(parts) > 2 else "."
+            await self._ensure_snapshot("chef taste")
             await self._run_taste_test(target_path)
 
         elif subcommand == "recipes":
@@ -115,6 +118,7 @@ class SousChef(BaseStation):
 
         elif subcommand == "critic":
             target_path = parts[2] if len(parts) > 2 else "."
+            await self._ensure_snapshot("chef critic")
             await self._roast_code(target_path)
 
         else:
@@ -550,6 +554,9 @@ class SousChef(BaseStation):
 
         self._current_ticket = ticket_id
 
+        # Take a snapshot before starting work
+        await self._ensure_snapshot(f"ticket {ticket_id}")
+
         # Notify UI that we're starting to plan
         await self.send(
             recipient="tui",
@@ -654,5 +661,18 @@ class SousChef(BaseStation):
                 "pending_tasks": len(self._pending_tasks),
                 "status": "ready" if not self._current_ticket else "busy",
                 "graph_loaded": self._ingredients is not None,
+            },
+        )
+
+    async def _ensure_snapshot(self, reason: str) -> None:
+        """Create a git snapshot before potentially destructive work."""
+        result = await create_snapshot(self.project_root, message=f"ChefChat snapshot - {reason}")
+        icon = "🗂️" if result.success else "⚠️"
+        await self.send(
+            recipient="tui",
+            action="LOG_MESSAGE",
+            payload={
+                "type": "system",
+                "content": f"{icon} **Snapshot**: {result.message}",
             },
         )

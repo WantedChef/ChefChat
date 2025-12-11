@@ -198,6 +198,7 @@ class ThePass(Container):
         ("sous_chef", "Sous Chef"),
         ("line_cook", "Line Cook"),
         ("sommelier", "Sommelier"),
+        ("expeditor", "Expeditor"),
     ]
 
     def compose(self) -> ComposeResult:

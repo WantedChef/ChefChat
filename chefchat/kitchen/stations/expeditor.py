@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import TYPE_CHECKING
+import time
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePriority
 
@@ -111,7 +112,46 @@ class Expeditor(BaseStation):
             payload: Test configuration
         """
         ticket_id = payload.get("ticket_id", "unknown")
-        test_types = payload.get("tests", ["pytest", "ruff"])
+        raw_tests = payload.get("tests", ["pytest", "ruff"])
+        test_types: list[TasteTestType] = []
+        unknown_tests: list[str] = []
+
+        for test_name in raw_tests:
+            match test_name.lower():
+                case "pytest":
+                    test_types.append(TasteTestType.PYTEST)
+                case "ruff":
+                    test_types.append(TasteTestType.RUFF)
+                case "pyright":
+                    test_types.append(TasteTestType.PYRIGHT)
+                case "all":
+                    test_types.append(TasteTestType.ALL)
+                case _:
+                    unknown_tests.append(test_name)
+
+        if unknown_tests:
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={
+                    "type": "system",
+                    "content": (
+                        "ℹ️ **Taste Test**: Skipping unknown checks: "
+                        + ", ".join(unknown_tests)
+                    ),
+                },
+            )
+
+        if not test_types:
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={
+                    "type": "system",
+                    "content": "⚠️ **Taste Test**: No valid tests to run.",
+                },
+            )
+            return
         target_path = payload.get("path", ".")
 
         self._current_test = ticket_id
@@ -140,7 +180,7 @@ class Expeditor(BaseStation):
         all_passed = True
 
         # Run each test type
-        for i, test_type_str in enumerate(test_types):
+        for i, test_type in enumerate(test_types):
             progress = int((i / len(test_types)) * 80)
 
             await self.send(
@@ -150,11 +190,10 @@ class Expeditor(BaseStation):
                     "station": self.name,
                     "status": "testing",
                     "progress": progress,
-                    "message": f"🔍 Running {test_type_str}...",
+                    "message": f"🔍 Running {test_type.name.lower()}...",
                 },
             )
 
-            test_type = TasteTestType[test_type_str.upper()]
             result = await self._execute_test(test_type, target_path)
             results.append(result)
 
@@ -179,8 +218,6 @@ class Expeditor(BaseStation):
         Returns:
             TasteTestResult with outcome
         """
-        import time
-
         start_time = time.time()
 
         # Build command based on test type and config
@@ -209,7 +246,7 @@ class Expeditor(BaseStation):
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(), timeout=self.timeout
                 )
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 process.kill()
                 return TasteTestResult(
                     test_type=test_type,
@@ -307,13 +344,11 @@ class Expeditor(BaseStation):
         current_attempt = attempts + 1
 
         # Collect errors from failed tests
-        errors = []
-        for result in results:
-            if not result.passed:
-                error_text = result.stderr or result.stdout
-                errors.append(
-                    f"**{result.test_type.name}**:\n```\n{error_text[:500]}\n```"
-                )
+        errors = [
+            f"**{result.test_type.name}**:\n```\n{(result.stderr or result.stdout)[:500]}\n```"
+            for result in results
+            if not result.passed
+        ]
 
         await self.send(
             recipient="tui",
@@ -346,7 +381,7 @@ class Expeditor(BaseStation):
                 "ticket_id": ticket_id,
                 "path": target_path,
                 "attempt": current_attempt,
-                "max_attempts": self.MAX_HEALING_ATTEMPTS,
+                "max_attempts": self.max_healing_attempts,
                 "errors": errors,
                 "raw_results": [
                     {
@@ -425,14 +460,13 @@ class Expeditor(BaseStation):
         """
         ticket_id = payload.get("ticket_id", "unknown")
         success = payload.get("success", False)
+        path = payload.get("path", ".")
 
         if success:
             # Re-run tests on fixed code
-            await self._run_taste_test({
-                "ticket_id": ticket_id,
-                "tests": ["pytest", "ruff"],
-                "path": payload.get("path", "."),
-            })
+            await self._run_taste_test(
+                {"ticket_id": ticket_id, "tests": ["pytest", "ruff"], "path": path}
+            )
         else:
             # Fix failed, try again or give up
             attempts = self._healing_attempts.get(ticket_id, 0)
@@ -445,6 +479,21 @@ class Expeditor(BaseStation):
                         "content": "❌ **86'd!** Line Cook couldn't fix the errors.",
                     },
                 )
+                await self.send(
+                    recipient="tui",
+                    action="STATUS_UPDATE",
+                    payload={
+                        "station": self.name,
+                        "status": "error",
+                        "progress": 0,
+                        "message": "❌ Healing failed",
+                    },
+                )
+                return
+
+            await self._run_taste_test(
+                {"ticket_id": ticket_id, "tests": ["pytest", "ruff"], "path": path}
+            )
 
     async def _verify_code(self, payload: dict) -> None:
         """Quick verification of code without full test suite.

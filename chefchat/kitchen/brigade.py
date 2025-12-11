@@ -114,6 +114,8 @@ async def create_default_brigade() -> Brigade:
     Returns:
         A fully configured Brigade ready to open
     """
+    # Imports kept inside to avoid circulars at module import time
+    from chefchat.kitchen.stations.expeditor import Expeditor
     from chefchat.kitchen.stations.line_cook import LineCook
     from chefchat.kitchen.stations.sommelier import Sommelier
     from chefchat.kitchen.stations.sous_chef import SousChef
@@ -131,5 +133,9 @@ async def create_default_brigade() -> Brigade:
     # The dependency/package station
     sommelier = Sommelier(brigade.bus)
     brigade.register(sommelier)
+
+    # The QA / testing station
+    expeditor = Expeditor(brigade.bus)
+    brigade.register(expeditor)
 
     return brigade

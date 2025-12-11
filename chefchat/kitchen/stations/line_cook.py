@@ -73,6 +73,7 @@ class LineCook(BaseStation):
         attempt = payload.get("attempt", 1)
         max_attempts = payload.get("max_attempts", 3)
         errors = payload.get("errors", [])
+        path = payload.get("path", ".")
 
         self._current_task = ticket_id
 
@@ -120,7 +121,7 @@ class LineCook(BaseStation):
             payload={
                 "ticket_id": ticket_id,
                 "success": True,  # Simulated success
-                "path": payload.get("path", "."),
+                "path": path,
             },
         )
 

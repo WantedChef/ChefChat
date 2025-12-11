@@ -26,6 +26,7 @@ from textual.widgets import Footer, Input, Static
 from chefchat.interface.widgets.the_pass import StationStatus, ThePass
 from chefchat.interface.widgets.the_plate import ThePlate
 from chefchat.interface.widgets.ticket_rail import TicketRail
+from chefchat.kitchen.brigade import Brigade, create_default_brigade
 from chefchat.kitchen.bus import ChefMessage, KitchenBus, MessagePriority
 
 if TYPE_CHECKING:
@@ -178,7 +179,8 @@ class ChefChatApp(App):
     def __init__(self) -> None:
         """Initialize the ChefChat TUI."""
         super().__init__()
-        self._bus = KitchenBus()
+        self._bus: KitchenBus | None = None
+        self._brigade: Brigade | None = None
         self._processing = False
         self._stations_started = False
 
@@ -209,29 +211,8 @@ class ChefChatApp(App):
         # Focus the input
         self.query_one("#command-input", CommandInput).focus()
 
-        # Subscribe TUI to bus messages
-        self._bus.subscribe("tui", self._handle_bus_message)
-
-        # Start the bus
-        await self._bus.start()
-
-        # Start the kitchen stations as workers
-        self._start_kitchen_workers()
-
-    @work(exclusive=False, name="kitchen_stations")
-    async def _start_kitchen_workers(self) -> None:
-        """Start the kitchen station workers."""
-        from chefchat.kitchen.stations.expeditor import Expeditor
-        from chefchat.kitchen.stations.line_cook import LineCook
-        from chefchat.kitchen.stations.sous_chef import SousChef
-
-        # Create and start stations
-        sous_chef = SousChef(self._bus)
-        line_cook = LineCook(self._bus)
-        expeditor = Expeditor(self._bus)
-
-        # Start their listening loops
-        await asyncio.gather(sous_chef.start(), line_cook.start(), expeditor.start())
+        # Build brigade and start the kitchen
+        await self._setup_brigade()
 
     async def _handle_bus_message(self, message: ChefMessage) -> None:
         """Handle incoming messages from the bus.
@@ -357,6 +338,9 @@ class ChefChatApp(App):
         """
         ticket_id = str(uuid4())[:8]
 
+        if not self._bus:
+            return
+
         message = ChefMessage(
             sender="tui",
             recipient="sous_chef",
@@ -425,7 +409,10 @@ class ChefChatApp(App):
 
     async def _shutdown(self) -> None:
         """Gracefully shutdown the kitchen."""
-        await self._bus.stop()
+        if self._brigade:
+            await self._brigade.close_kitchen()
+        elif self._bus:
+            await self._bus.stop()
 
     def action_quit(self) -> None:
         """Quit the application."""
@@ -452,6 +439,18 @@ class ChefChatApp(App):
     def action_focus_input(self) -> None:
         """Focus the command input."""
         self.query_one("#command-input", CommandInput).focus()
+
+    async def _setup_brigade(self) -> None:
+        """Create and start the full brigade and bus."""
+        self._brigade = await create_default_brigade()
+        self._bus = self._brigade.bus
+
+        # Subscribe TUI to bus messages
+        self._bus.subscribe("tui", self._handle_bus_message)
+
+        # Open kitchen (starts bus and stations)
+        await self._brigade.open_kitchen()
+        self._stations_started = True
 
 
 def run() -> None:
