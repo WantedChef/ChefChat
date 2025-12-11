@@ -1,16 +1,6 @@
 from __future__ import annotations
 
-try:
-    from enum import auto
-
-    from vibe.core.compatibility import StrEnum
-except ImportError:
-    from enum import Enum, auto
-
-    class StrEnum(str, Enum):
-        pass
-
-
+from enum import StrEnum
 import os
 from pathlib import Path
 import re

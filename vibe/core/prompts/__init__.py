@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import auto
 from pathlib import Path
 
 from vibe import VIBE_ROOT

@@ -33,6 +33,8 @@ from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.syntax import Syntax
 
+from vibe.cli.autocompletion.adapter import PromptToolkitCompleterAdapter
+
 # Easter Eggs Integration
 from vibe.cli.easter_eggs import (
     get_dev_fortune,
@@ -41,8 +43,6 @@ from vibe.cli.easter_eggs import (
     get_random_roast,
     get_random_wisdom,
 )
-from vibe.core.autocompletion.completers import CommandCompleter, PathCompleter
-from vibe.cli.autocompletion.adapter import PromptToolkitCompleterAdapter
 
 # =============================================================================
 # CHEFCHAT INTEGRATIONS
@@ -56,15 +56,16 @@ from vibe.cli.plating import generate_plating
 from vibe.cli.ui_components import (
     COLORS,
     ApprovalDialog,
+    HelpDisplay,
     ModeTransitionDisplay,
     ResponseDisplay,
     StatusBar,
     create_header,
-    HelpDisplay,
 )
 
 # Core imports
 from vibe.core.agent import Agent
+from vibe.core.autocompletion.completers import CommandCompleter, PathCompleter
 from vibe.core.config import VibeConfig
 from vibe.core.error_handler import ChefErrorHandler
 from vibe.core.types import AssistantEvent, ToolCallEvent, ToolResultEvent
@@ -177,8 +178,8 @@ class ChefChatREPL:
 
     def _show_startup_banner(self) -> None:
         """Display the ChefChat startup banner with warmth."""
-        from vibe.core import __version__
         from vibe.cli.ui_components import get_greeting
+        from vibe.core import __version__
 
         greeting, greeting_emoji = get_greeting()
 
@@ -203,10 +204,9 @@ class ChefChatREPL:
 
     async def _handle_model_command(self) -> None:
         """Handle interactive model switching."""
-        from rich.console import Group
         from rich.prompt import Prompt
         from rich.table import Table
-        from vibe.core.config import ModelConfig
+
 
         # Create a display table for models
         table = Table(
@@ -320,6 +320,7 @@ class ChefChatREPL:
     def _get_bottom_toolbar(self) -> Any:
         """Render the bottom status toolbar."""
         from html import escape
+
         from prompt_toolkit.formatted_text import HTML
 
         # Status

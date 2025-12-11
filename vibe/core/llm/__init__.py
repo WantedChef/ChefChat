@@ -1,16 +1,15 @@
-from .exceptions import (
-    LLMError,
-    LLMConnectionError,
-    LLMAuthenticationError,
-    LLMRateLimitError,
-    LLMContextWindowError,
-    LLMGenerativeError
+from __future__ import annotations
+
+from vibe.core.llm.exceptions import (
+    LLMAuthenticationError as LLMAuthenticationError,
+    LLMConnectionError as LLMConnectionError,
+    LLMContextWindowError as LLMContextWindowError,
+    LLMError as LLMError,
+    LLMGenerativeError as LLMGenerativeError,
+    LLMRateLimitError as LLMRateLimitError,
 )
-from vibe.core.types import (
-    LLMMessage,
-    Role
-)
-from .types import BackendLike
+from vibe.core.llm.types import BackendLike as BackendLike
+from vibe.core.types import LLMMessage, Role
 
 # Aliases
 Message = LLMMessage

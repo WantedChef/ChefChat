@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import enum
 from typing import Literal, cast
 
 from acp.schema import PermissionOption, SessionMode

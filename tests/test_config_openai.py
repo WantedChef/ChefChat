@@ -1,7 +1,7 @@
+from __future__ import annotations
 
-import os
-import pytest
-from vibe.core.config import VibeConfig, DEFAULT_PROVIDERS, DEFAULT_MODELS, Backend
+from vibe.core.config import DEFAULT_MODELS, DEFAULT_PROVIDERS, Backend, VibeConfig
+
 
 def test_openai_provider_in_defaults():
     """Verify OpenAI provider is in DEFAULT_PROVIDERS."""

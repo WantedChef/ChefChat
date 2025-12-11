@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from .github_version_update_gateway import GitHubVersionUpdateGateway
-from .version_update import (
+from vibe.cli.update_notifier.github_version_update_gateway import (
+    GitHubVersionUpdateGateway,
+)
+from vibe.cli.update_notifier.version_update import (
     VersionUpdate,
     VersionUpdateError,
     is_version_update_available,
 )
-from .version_update_gateway import VersionUpdateGateway
+from vibe.cli.update_notifier.version_update_gateway import VersionUpdateGateway
 
 __all__ = [
     "GitHubVersionUpdateGateway",

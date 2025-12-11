@@ -1,3 +1,5 @@
-from .adapter import PromptToolkitCompleterAdapter
-from .path_completion import PathCompletionController
-from .slash_command import SlashCommandController
+from __future__ import annotations
+
+from .adapter import PromptToolkitCompleterAdapter as PromptToolkitCompleterAdapter
+from .path_completion import PathCompletionController as PathCompletionController
+from .slash_command import SlashCommandController as SlashCommandController

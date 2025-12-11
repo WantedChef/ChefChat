@@ -274,7 +274,7 @@ class ConversationLimitException(Exception):
     pass
 
 
-def run_sync(coro: Coroutine[Any, Any, T]) -> T:
+def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     """Run an async coroutine synchronously, handling nested event loops.
 
     If called from within an async context (running event loop), runs the

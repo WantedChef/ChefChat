@@ -9,7 +9,7 @@ from typing import Any, cast
 try:
     from typing import override
 except ImportError:
-    from typing_extensions import override
+    from typing import override
 
 from acp import (
     PROTOCOL_VERSION,

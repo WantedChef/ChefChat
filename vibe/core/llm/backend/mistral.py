@@ -10,8 +10,6 @@ from typing import TYPE_CHECKING, cast
 import httpx
 import mistralai
 
-from vibe.utils.tokenizer import count_tokens
-
 from vibe.core.llm.exceptions import BackendErrorBuilder
 from vibe.core.types import (
     AvailableTool,
@@ -24,6 +22,7 @@ from vibe.core.types import (
     StrToolChoice,
     ToolCall,
 )
+from vibe.utils.tokenizer import count_tokens
 
 if TYPE_CHECKING:
     from vibe.core.config import ModelConfig, ProviderConfig

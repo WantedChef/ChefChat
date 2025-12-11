@@ -6,7 +6,8 @@ from tests.mock.utils import mock_llm_chunk
 from tests.stubs.fake_backend import FakeBackend
 from vibe.core.agent import Agent
 from vibe.core.config import SessionLoggingConfig, VibeConfig
-from vibe.core.types import Role, LLMMessage
+from vibe.core.types import LLMMessage, Role
+
 
 @pytest.mark.asyncio
 async def test_manual_compact_works() -> None:
