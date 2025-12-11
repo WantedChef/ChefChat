@@ -101,6 +101,21 @@ def parse_arguments() -> argparse.Namespace:
         help="Resume a specific session by its ID (supports partial matching)",
     )
 
+    parser.add_argument(
+        "--file-indexer-parallel-walk",
+        dest="file_indexer_parallel_walk",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable parallel directory walk for file indexer (default: config).",
+    )
+    parser.add_argument(
+        "--file-indexer-max-workers",
+        dest="file_indexer_max_workers",
+        type=int,
+        metavar="N",
+        help="Max workers for file indexer parallel walk (default: config; null = auto).",
+    )
+
     # --repl flag kept for backward compatibility (REPL is now always used)
     parser.add_argument(
         "--repl",
