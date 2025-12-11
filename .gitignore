@@ -202,5 +202,3 @@ tests/playground/*
 
 .gemini/
 gha-creds-*.json
-/home/chef/chefchat/ChefChat/docs/*
-docs/*
