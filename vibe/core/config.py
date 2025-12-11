@@ -344,6 +344,10 @@ class VibeConfig(BaseSettings):
     vim_keybindings: bool = False
     disable_welcome_banner_animation: bool = False
     displayed_workdir: str = ""
+    fun_mode: bool = True
+    color_enabled: bool = True
+    emoji_enabled: bool = True
+    ui_theme: str = "chef-dark"
     auto_compact_threshold: int = 200_000
     context_warnings: bool = False
     textual_theme: str = "textual-dark"

@@ -55,11 +55,14 @@ from vibe.cli.plating import generate_plating
 # UI Components (the new premium dark system)
 from vibe.cli.ui_components import (
     COLORS,
+    DEFAULT_THEME,
     ApprovalDialog,
     HelpDisplay,
     ModeTransitionDisplay,
+    RenderContext,
     ResponseDisplay,
     StatusBar,
+    Theme,
     create_header,
 )
 
@@ -96,6 +99,7 @@ class ChefChatREPL:
         self.console = Console()
         self.agent: Agent | None = None
         self._last_mode = initial_mode
+        self._render_context = self._build_render_context()
 
         # Setup keybindings
         self.kb = KeyBindings()
@@ -128,6 +132,7 @@ class ChefChatREPL:
             ("/plate", "Show plating"),
             ("/mode", "Current mode info"),
             ("/modes", "List modes"),
+            ("/theme", "Switch UI theme"),
             ("/compact", "Compact conversation history"),
             ("/clear", "Clear history"),
             ("/status", "Show status"),
@@ -317,6 +322,17 @@ class ChefChatREPL:
     # UI HELPERS
     # =========================================================================
 
+    def _build_render_context(self) -> RenderContext:
+        """Build a render context based on config and console width."""
+        width = max(40, self.console.width or 80)
+        is_mono = self.config.ui_theme.lower() == "mono"
+        theme = Theme(
+            palette=DEFAULT_THEME.palette,
+            emoji_enabled=False if is_mono else self.config.emoji_enabled,
+            color_enabled=False if is_mono else self.config.color_enabled,
+        )
+        return RenderContext(theme=theme, width=width)
+
     def _get_bottom_toolbar(self) -> Any:
         """Render the bottom status toolbar."""
         from html import escape
@@ -450,25 +466,33 @@ class ChefChatREPL:
 
                     elif isinstance(event, ToolCallEvent):
                         self.console.print(
-                            ResponseDisplay.render_tool_call(event.tool_name)
+                            ResponseDisplay.render_tool_call(
+                                event.tool_name, ctx=self._render_context
+                            )
                         )
 
                     elif isinstance(event, ToolResultEvent):
                         if event.error:
                             self.console.print(
                                 ResponseDisplay.render_tool_result(
-                                    False, str(event.error)[:50]
+                                    False, str(event.error)[:50], ctx=self._render_context
                                 )
                             )
                         elif event.skipped:
                             self.console.print(
                                 ResponseDisplay.render_tool_result(
-                                    False, event.skip_reason or "Skipped"
+                                    False,
+                                    event.skip_reason or "Skipped",
+                                    ctx=self._render_context,
                                 )
                             )
                         else:
                             self.tools_executed += 1
-                            self.console.print(ResponseDisplay.render_tool_result(True))
+                            self.console.print(
+                                ResponseDisplay.render_tool_result(
+                                    True, ctx=self._render_context
+                                )
+                            )
 
             except KeyboardInterrupt:
                 self.console.print(
@@ -484,7 +508,11 @@ class ChefChatREPL:
         # Display response with elegant styling
         if response_text.strip():
             self.console.print()
-            self.console.print(ResponseDisplay.render_response(Markdown(response_text)))
+            self.console.print(
+                ResponseDisplay.render_response(
+                    Markdown(response_text), ctx=self._render_context
+                )
+            )
         self.console.print()
 
     # =========================================================================
@@ -500,7 +528,8 @@ class ChefChatREPL:
 
         # Print elegant header
         self.console.print()
-        self.console.print(create_header(self.config, self.mode_manager))
+        self._render_context = self._build_render_context()
+        self.console.print(create_header(self.config, self.mode_manager, ctx=self._render_context))
         self.console.print()
 
         while True:
@@ -627,6 +656,7 @@ class ChefChatREPL:
                     new_emoji=self.mode_manager.config.emoji,
                     description=self.mode_manager.config.description,
                     tips=tips,
+                    ctx=self._render_context,
                 )
             )
             self.console.print()
@@ -638,6 +668,38 @@ class ChefChatREPL:
             # Use the easter_eggs display - returns Panel now
             self.console.print()
             self.console.print(get_modes_display(self.mode_manager))
+            self.console.print()
+
+        elif cmd == "/theme":
+            from rich.prompt import Prompt
+
+            themes = ["chef-dark", "mono"]
+            default_theme = (
+                self.config.ui_theme if self.config.ui_theme in themes else "chef-dark"
+            )
+            choice = Prompt.ask(
+                f"[{COLORS['fire']}]Select theme[/{COLORS['fire']}]",
+                choices=themes,
+                default=default_theme,
+                show_choices=True,
+            )
+
+            self.config.ui_theme = choice
+            if choice == "mono":
+                self.config.color_enabled = False
+                self.config.emoji_enabled = False
+            else:
+                self.config.color_enabled = True
+                self.config.emoji_enabled = True
+
+            self._render_context = self._build_render_context()
+            self.console.print()
+            self.console.print(
+                f"[{COLORS['sage']}]✓ Theme switched to {choice}[/{COLORS['sage']}]"
+            )
+            self.console.print(
+                create_header(self.config, self.mode_manager, ctx=self._render_context)
+            )
             self.console.print()
 
         elif cmd == "/clear":
@@ -685,7 +747,7 @@ class ChefChatREPL:
 
         elif cmd == "/status":
             self.console.print()
-            self.console.print(StatusBar.render(self.mode_manager.auto_approve))
+            self.console.print(StatusBar.render(self.mode_manager.auto_approve, ctx=self._render_context))
             self.console.print()
 
         elif cmd == "/stats":
