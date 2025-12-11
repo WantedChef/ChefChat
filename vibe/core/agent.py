@@ -2,17 +2,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Callable
 
-try:
-    from enum import auto
-
-    from vibe.core.compatibility import StrEnum
-except ImportError:
-    from enum import Enum
-
-    class StrEnum(str, Enum):
-        pass
-
-
 # Import ModeManager for type checking only to avoid circular imports
 from typing import TYPE_CHECKING
 from uuid import uuid4
