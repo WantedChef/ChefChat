@@ -429,16 +429,6 @@ class GenericBackend:
         tool_choice: StrToolChoice | AvailableTool | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> int:
-    async def count_tokens(
-        self,
-        *,
-        model: ModelConfig,
-        messages: list[LLMMessage],
-        temperature: float = 0.0,
-        tools: list[AvailableTool] | None = None,
-        tool_choice: StrToolChoice | AvailableTool | None = None,
-        extra_headers: dict[str, str] | None = None,
-    ) -> int:
         # Use local tokenizer to estimate tokens
         # This is much faster and cheaper than an API call
         # It handles both tiktoken (precise for OpenAI) and heuristic (fallback)

@@ -6,11 +6,12 @@ from .exceptions import (
     LLMContextWindowError,
     LLMGenerativeError
 )
-from .types import (
-    Message,
-    MessageRole,
-    CompletionResponse,
-    StreamResponse,
-    ModelCapabilities,
-    ModelConfig
+from vibe.core.types import (
+    LLMMessage,
+    Role
 )
+from .types import BackendLike
+
+# Aliases
+Message = LLMMessage
+MessageRole = Role

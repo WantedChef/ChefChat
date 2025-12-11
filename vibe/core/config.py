@@ -159,8 +159,8 @@ class SessionLoggingConfig(BaseSettings):
 
 
 class Backend(StrEnum):
-    MISTRAL = auto()
-    GENERIC = auto()
+    MISTRAL = "mistral"
+    GENERIC = "generic"
 
 
 class ProviderConfig(BaseModel):
