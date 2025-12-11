@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from threading import Event, RLock
 
@@ -22,12 +23,19 @@ class _RebuildTask:
 
 
 class FileIndexer:
-    def __init__(self, mass_change_threshold: int = 200) -> None:
+    def __init__(
+        self,
+        mass_change_threshold: int = 200,
+        max_depth: int | None = None,
+    ) -> None:
         self._lock = RLock()  # guards _store snapshot access and watcher callbacks.
         self._stats = FileIndexStats()
         self._ignore_rules = IgnoreRules()
         self._store = FileIndexStore(
-            self._ignore_rules, self._stats, mass_change_threshold=mass_change_threshold
+            self._ignore_rules,
+            self._stats,
+            mass_change_threshold=mass_change_threshold,
+            max_depth=max_depth,
         )
         self._watcher = WatchController(self._handle_watch_changes)
         self._rebuild_executor = ThreadPoolExecutor(
@@ -161,11 +169,20 @@ class FileIndexer:
     def _handle_watch_changes(
         self, root: Path, raw_changes: Iterable[tuple[Change, str]]
     ) -> None:
-        normalized: list[tuple[Change, Path]] = []
+        normalized: dict[tuple[Change, Path], None] = {}
         for change, path_str in raw_changes:
             if change not in {Change.added, Change.deleted, Change.modified}:
                 continue
-            normalized.append((change, Path(path_str).resolve()))
+
+            try:
+                resolved = Path(path_str).resolve(strict=False)
+            except OSError:
+                continue
+
+            if not str(resolved):
+                continue
+
+            normalized[(change, resolved)] = None
 
         if not normalized:
             return
@@ -173,4 +190,4 @@ class FileIndexer:
         with self._lock:  # make watcher ignore stale roots
             if self._store.root != root:
                 return
-            self._store.apply_changes(normalized)
+            self._store.apply_changes(list(normalized))

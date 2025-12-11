@@ -30,10 +30,12 @@ class FileIndexStore:
         ignore_rules: IgnoreRules,
         stats: FileIndexStats,
         mass_change_threshold: int = 200,
+        max_depth: int | None = None,
     ) -> None:
         self._ignore_rules = ignore_rules
         self._stats = stats
         self._mass_change_threshold = mass_change_threshold
+        self._max_depth = max_depth
         self._entries_by_rel: dict[str, IndexEntry] = {}
         self._ordered_entries: list[IndexEntry] | None = None
         self._root: Path | None = None
@@ -52,7 +54,9 @@ class FileIndexStore:
     ) -> None:
         resolved_root = root.resolve()
         self._ignore_rules.ensure_for_root(resolved_root)
-        entries = self._walk_directory(resolved_root, cancel_check=should_cancel)
+        entries = self._walk_directory(
+            resolved_root, cancel_check=should_cancel, depth=0
+        )
         self._entries_by_rel = {entry.rel: entry for entry in entries}
         self._ordered_entries = entries
         self._root = resolved_root
@@ -100,7 +104,7 @@ class FileIndexStore:
                 if dir_entry:
                     self._entries_by_rel[rel_str] = dir_entry
                     modified = True
-                for entry in self._walk_directory(path, rel_str):
+                for entry in self._walk_directory(path, rel_str, depth=rel_str.count("/")):
                     self._entries_by_rel[entry.rel] = entry
                     modified = True
             else:
@@ -127,8 +131,11 @@ class FileIndexStore:
         directory: Path,
         rel_prefix: str = "",
         cancel_check: Callable[[], bool] | None = None,
+        depth: int = 0,
     ) -> list[IndexEntry]:
         results: list[IndexEntry] = []
+        if self._max_depth is not None and depth > self._max_depth:
+            return results
         try:
             with os.scandir(directory) as iterator:
                 for entry in iterator:
@@ -146,9 +153,13 @@ class FileIndexStore:
 
                     results.append(index_entry)
 
-                    if is_dir:
+                    if is_dir and (
+                        self._max_depth is None or depth < self._max_depth
+                    ):
                         results.extend(
-                            self._walk_directory(path, rel_str, cancel_check)
+                            self._walk_directory(
+                                path, rel_str, cancel_check, depth=depth + 1
+                            )
                         )
         except (PermissionError, OSError):
             pass

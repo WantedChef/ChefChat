@@ -59,10 +59,13 @@ class CommandCompleter(Completer):
 class PathCompleter(Completer):
     def __init__(
         self,
+        root: Path | str | None = None,
+        indexer: FileIndexer | None = None,
         max_entries_to_process: int = DEFAULT_MAX_ENTRIES_TO_PROCESS,
         target_matches: int = DEFAULT_TARGET_MATCHES,
     ) -> None:
-        self._indexer = FileIndexer()
+        self._indexer = indexer or FileIndexer()
+        self._root = Path(root) if root is not None else Path(".")
         self._max_entries_to_process = max_entries_to_process
         self._target_matches = target_matches
 
@@ -193,8 +196,7 @@ class PathCompleter(Completer):
         context = self._build_search_context(partial_path)
 
         try:
-            # TODO (Vince): doing the assumption that "." is the root directory... Reliable?
-            file_index = self._indexer.get_index(Path("."))
+            file_index = self._indexer.get_index(self._root)
         except (OSError, RuntimeError):
             return []
 
