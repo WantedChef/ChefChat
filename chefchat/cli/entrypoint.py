@@ -27,9 +27,11 @@ def parse_arguments() -> argparse.Namespace:
     # ... (rest of parse_arguments) ...
     pass
 
+
 def get_prompt_from_stdin() -> str | None:
     # ... (rest of get_prompt_from_stdin) ...
     pass
+
 
 def load_config_or_exit(agent: str | None = None) -> VibeConfig:
     try:
@@ -37,6 +39,7 @@ def load_config_or_exit(agent: str | None = None) -> VibeConfig:
     except MissingAPIKeyError:
         # Lazy import run_onboarding here to break circular dependency
         from chefchat.setup.onboarding import run_onboarding
+
         run_onboarding()
         return VibeConfig.load(agent)
     except MissingPromptFileError as e:
@@ -45,6 +48,7 @@ def load_config_or_exit(agent: str | None = None) -> VibeConfig:
     except ValueError as e:
         rprint(f"[yellow]{e}[/]")
         sys.exit(1)
+
 
 def main() -> None:  # noqa: PLR0912, PLR0915
     # Force UTF-8 encoding for stdout on Windows to support emojis
@@ -57,30 +61,34 @@ def main() -> None:  # noqa: PLR0912, PLR0915
     if args.setup:
         # Lazy import run_onboarding here to break circular dependency
         from chefchat.setup.onboarding import run_onboarding
+
         run_onboarding()
         sys.exit(0)
+
+    # Ensure config and history files exist
+    if not CONFIG_FILE.exists():
+        try:
+            VibeConfig.save_updates(VibeConfig.create_default())
+        except Exception as e:
+            rprint(f"[yellow]Could not create default config file: {e}[/]")
+
+    if not INSTRUCTIONS_FILE.exists():
+        try:
+            INSTRUCTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            INSTRUCTIONS_FILE.touch()
+        except Exception as e:
+            rprint(f"[yellow]Could not create instructions file: {e}[/]")
+
+    if not HISTORY_FILE.exists():
+        try:
+            HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            HISTORY_FILE.write_text("Hello Vibe!\n", "utf-8")
+        except Exception as e:
+            rprint(f"[yellow]Could not create history file: {e}[/]")
+
+    # Load configuration
     try:
-        if not CONFIG_FILE.exists():
-            try:
-                VibeConfig.save_updates(VibeConfig.create_default())
-            except Exception as e:
-                rprint(f"[yellow]Could not create default config file: {e}[/]")
-
-        if not INSTRUCTIONS_FILE.exists():
-            try:
-                INSTRUCTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
-                INSTRUCTIONS_FILE.touch()
-            except Exception as e:
-                rprint(f"[yellow]Could not create instructions file: {e}[/]")
-
-        if not HISTORY_FILE.exists():
-            try:
-                HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-                HISTORY_FILE.write_text("Hello Vibe!\n", "utf-8")
-            except Exception as e:
-                rprint(f"[yellow]Could not create history file: {e}[/]")
-
-        config = load_config_or_exit(args.agent)
+        config = load_config_or_exit(agent=args.agent)
 
         if args.enabled_tools:
             config.enabled_tools = args.enabled_tools

@@ -63,12 +63,12 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-include = ["vibe/"]
+include = ["chefchat/"]
 
 
 [project.scripts]
-vibe = "vibe.cli.entrypoint:main"
-vibe-acp = "vibe.acp.entrypoint:main"
+vibe = "chefchat.cli.entrypoint:main"
+chefchat = "chefchat.cli.entrypoint:main"
 
 
 [tool.uv]

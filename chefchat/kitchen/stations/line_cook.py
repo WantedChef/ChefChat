@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
+from chefchat.kitchen.bus import BaseStation, KitchenBus
 
 if TYPE_CHECKING:
     pass
@@ -28,38 +28,95 @@ class LineCook(BaseStation):
     - Result reporting
     """
 
-    def __init__(self, bus: KitchenBus) -> None:
+    def __init__(self, bus: KitchenBus, brain: KitchenBrain) -> None:
         """Initialize the Line Cook station.
 
         Args:
             bus: The kitchen bus to connect to
+            brain: The kitchen brain for LLM operations
         """
         super().__init__("line_cook", bus)
+        self.brain = brain
         self._current_task: str | None = None
 
-    async def handle(self, message: ChefMessage) -> None:
-        """Process incoming messages.
+    async def _execute_plan(self, plan: dict) -> None:
+        """Execute the implementation plan.
 
         Args:
-            message: The message to process
+            plan: The implementation plan from Sous Chef
         """
-        action = message.action
+        task = plan.get("task", "Unknown Task")
+        ticket_id = plan.get("ticket_id", "unknown")
 
-        if action == "PLAN":
-            # Implementation request from Sous Chef
-            await self._execute_plan(message.payload)
+        self._current_task = ticket_id
 
-        elif action == "test":
-            # Run tests on code
-            await self._run_tests(message.payload)
+        # Notify we're starting
+        await self.send(
+            recipient="tui",
+            action="STATUS_UPDATE",
+            payload={
+                "station": self.name,
+                "status": "cooking",
+                "progress": 0,
+                "message": "🍳 Firing up the grill...",
+            },
+        )
 
-        elif action == "refactor":
-            # Refactor existing code
-            await self._refactor(message.payload)
+        try:
+            # Generate code using the Brain with streaming updates
+            generated_code = ""
+            async for chunk in self.brain.stream_response(
+                f"Implement this plan:\n{task}", system=self.brain.CODE_SYSTEM_PROMPT
+            ):
+                generated_code += chunk
+                # Throttle updates to avoid flooding TUI
+                if len(generated_code) % 50 == 0:
+                    await self.send(
+                        recipient="tui",
+                        action="STREAM_UPDATE",
+                        payload={"content": chunk, "full_content": generated_code},
+                    )
 
-        elif action == "FIX_ERRORS":
-            # Fix errors from Expeditor (self-healing loop)
-            await self._fix_errors(message.payload)
+            # Complete!
+            await self.send(
+                recipient="tui",
+                action="STATUS_UPDATE",
+                payload={
+                    "station": self.name,
+                    "status": "complete",
+                    "progress": 100,
+                    "message": "✅ Plated!",
+                },
+            )
+
+            # Send final code to The Plate
+            await self.send(
+                recipient="tui",
+                action="PLATE_CODE",
+                payload={
+                    "code": generated_code,
+                    "language": "python",
+                    "file_path": f"solution_{ticket_id[:5]}.py",
+                    "ticket_id": ticket_id,
+                },
+            )
+
+            # Report completion to Sous Chef
+            await self.send(
+                recipient="sous_chef",
+                action="TASK_COMPLETE",
+                payload={
+                    "ticket_id": ticket_id,
+                    "result": "Code generated successfully",
+                },
+            )
+
+        except Exception as e:
+            await self._send_error(str(e))
+
+    def _generate_code(self, task: str) -> str:
+        """Deprecated: Use self.brain.write_code instead."""
+        return ""
 
     async def _fix_errors(self, payload: dict) -> None:
         """Attempt to fix errors reported by Expeditor.
