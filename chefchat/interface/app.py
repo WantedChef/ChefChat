@@ -20,7 +20,11 @@ from textual.widgets import Input
 
 from chefchat.cli.commands import CommandRegistry
 from chefchat.core.agent import Agent
-from chefchat.core.config import MissingAPIKeyError, VibeConfig
+from chefchat.core.config import (
+    MissingAPIKeyError,
+    VibeConfig,
+    load_api_keys_from_env,
+)
 from chefchat.core.types import (
     AssistantEvent,
     CompactEndEvent,
@@ -135,6 +139,8 @@ class ChefChatApp(App):
     async def _initialize_agent(self) -> None:
         """Initialize the core Agent for active mode."""
         try:
+            # Ensure environment variables are loaded from .env
+            load_api_keys_from_env()
             self._config = VibeConfig.load()
         except MissingAPIKeyError:
             # Push onboarding screen if key is missing
