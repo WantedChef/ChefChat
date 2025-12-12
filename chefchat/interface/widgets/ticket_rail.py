@@ -54,6 +54,8 @@ class Ticket(Static):
     """A single ticket (message bubble) in the rail."""
 
     # CSS defined in styles.tcss
+    
+    content: reactive[str] = reactive("")
 
     def __init__(
         self,
@@ -256,3 +258,45 @@ class TicketRail(VerticalScroll):
             Number of messages stored
         """
         return len(self._messages)
+
+    # --- Streaming Support ---
+
+    def start_streaming_message(self) -> None:
+        """Start a new streaming assistant message."""
+        # Create a placeholder empty message
+        self.add_assistant_message("")
+        # Keep track that the last message is streaming
+        self._streaming_active = True
+
+    def stream_token(self, token: str) -> None:
+        """Append a token to the current streaming message.
+
+        Args:
+            token: The token text to append
+        """
+        if not self._messages:
+            return
+
+        # Get the last message object
+        last_msg = self._messages[-1]
+        last_msg.content += token
+
+        # Update the widget
+        try:
+            # We need to find the last widget.
+            # Ideally we'd keep a reference, but querying is safer for now.
+            tickets = self.query(Ticket)
+            if tickets:
+                last_ticket = tickets.last()
+                last_ticket.content = last_msg.content
+                # Force re-render (Textual might handle reactive, but explicit is sure)
+                last_ticket.refresh()
+                
+                # Auto-scroll
+                self.scroll_end(animate=False)
+        except Exception:
+            pass
+
+    def finish_streaming_message(self) -> None:
+        """Finalize the current streaming message."""
+        self._streaming_active = False

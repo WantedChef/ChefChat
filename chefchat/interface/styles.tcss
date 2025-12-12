@@ -468,3 +468,78 @@ VerticalScroll {
     scrollbar-color: $accent;
     scrollbar-background: $primary-bg;
 }
+
+/* ===================================================================
+   New Modal Screens (Active Mode)
+   =================================================================== */
+
+OnboardingScreen {
+    align: center middle;
+}
+
+#onboarding-container {
+    width: 60;
+    height: auto;
+    background: $surface;
+    border: round $accent;
+    padding: 1 2;
+}
+
+#onboarding-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $accent;
+}
+
+#onboarding-desc {
+    text-align: center;
+    margin-bottom: 2;
+    color: $text-muted;
+}
+
+ModelSelectionScreen {
+    align: center middle;
+}
+
+#models-container {
+    width: 60;
+    height: auto;
+    max-height: 80%;
+    background: $surface;
+    border: round $accent;
+    padding: 1 2;
+}
+
+#models-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $accent;
+}
+
+ToolApprovalScreen {
+    align: center middle;
+}
+
+#approval-container {
+    width: 70;
+    height: auto;
+    background: $surface;
+    border: round $warning;
+    padding: 1 2;
+}
+
+#approval-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $warning;
+}
+
+#tool-name {
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}

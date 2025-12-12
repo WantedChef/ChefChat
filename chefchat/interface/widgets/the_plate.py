@@ -215,6 +215,18 @@ class ThePlate(TabbedContent):
         except NoMatches:
             logger.warning("Terminal widget not found for logging")
 
+    def append_log(self, text: str) -> None:
+        """Append text to the last log entry (streaming).
+
+        This is a simplification; RichLog doesn't support partial line updates easily.
+        We'll just write it as a new chunk.
+        """
+        try:
+            terminal = self.query_one("#plate-terminal", RichLog)
+            terminal.write(text)
+        except NoMatches:
+            logger.warning("Terminal widget not found for logging")
+
     def get_notes(self) -> str:
         """Get the content of the Notes tab.
 

@@ -12,13 +12,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 from uuid import uuid4
 
-from textual import on
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid
 from textual.widgets import Input
 
 from chefchat.cli.commands import CommandRegistry
+from chefchat.core.agent import Agent
+from chefchat.core.config import MissingAPIKeyError, VibeConfig
+from chefchat.core.types import (
+    AssistantEvent,
+    CompactEndEvent,
+    CompactStartEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+)
 from chefchat.interface.constants import (
     MARKDOWN_SANITIZE_CHARS,
     BusAction,
@@ -33,6 +42,9 @@ from chefchat.interface.screens.confirm_restart import (
     get_saved_layout,
     save_tui_preference,
 )
+from chefchat.interface.screens.models import ModelSelectionScreen
+from chefchat.interface.screens.onboarding import OnboardingScreen
+from chefchat.interface.screens.tool_approval import ToolApprovalScreen
 from chefchat.interface.widgets.kitchen_ui import (
     CommandInput,
     KitchenFooter,
@@ -96,7 +108,11 @@ class ChefChatApp(App):
         StatusString.ERROR.value: StationStatus.ERROR,
     }
 
-    def __init__(self, layout: TUILayout = TUILayout.CHAT_ONLY) -> None:
+    def __init__(
+        self,
+        layout: TUILayout = TUILayout.CHAT_ONLY,
+        active_mode: bool = False,
+    ) -> None:
         super().__init__()
         self._bus: KitchenBus | None = None
         self._brigade: Brigade | None = None
@@ -104,12 +120,74 @@ class ChefChatApp(App):
         self._mode_manager = ModeManager(initial_mode=VibeMode.NORMAL)
         self._command_registry = CommandRegistry()
         self._layout = layout
+        
+        # Active Mode
+        self._active_mode = active_mode
+        self._agent: Agent | None = None
+        self._config: VibeConfig | None = None
 
     @property
     def bus(self) -> KitchenBus:
         if self._bus is None:
             raise RuntimeError("Kitchen bus not initialized")
         return self._bus
+
+    async def _initialize_agent(self) -> None:
+        """Initialize the core Agent for active mode."""
+        try:
+            self._config = VibeConfig.load()
+        except MissingAPIKeyError:
+            # Push onboarding screen if key is missing
+            await self.push_screen(OnboardingScreen(), self._on_onboarding_complete)
+            return
+        except Exception as e:
+            self.notify(f"Config Error: {e}", severity="error")
+            return
+
+        self._agent = Agent(
+            config=self._config,
+            auto_approve=self._mode_manager.auto_approve,
+            enable_streaming=True,
+            mode_manager=self._mode_manager,
+        )
+        self._agent.set_approval_callback(self._tool_approval_callback)
+        
+        # Notify user
+        mode = self._mode_manager.current_mode
+        config = MODE_CONFIGS[mode]
+        self.query_one("#ticket-rail", TicketRail).add_system_message(
+            f"✅ **Agent Connected**\n\n"
+            f"Model: `{self._config.active_model}`\n"
+            f"Mode: {config.emoji} {mode.value.upper()}"
+        )
+
+    def _on_onboarding_complete(self, success: bool) -> None:
+        """Callback when onboarding is done."""
+        if success:
+            asyncio.create_task(self._initialize_agent())
+        else:
+            self.notify("Setup incomplete. Chat will be disabled.", severity="warning")
+
+    async def _tool_approval_callback(
+        self, tool_name: str, tool_args: dict | str
+    ) -> tuple[str, str | None]:
+        """Handle tool approval requests via modal."""
+        # We need to wait for the user response, so we use a future
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+
+        def on_screen_result(result: tuple[str, str | None]) -> None:
+            if not future.done():
+                future.set_result(result)
+
+        # Schedule screen push on main thread
+        self.call_from_thread(
+            lambda: self.push_screen(
+                ToolApprovalScreen(tool_name, tool_args), on_screen_result
+            )
+        )
+
+        return await future
 
     def compose(self) -> ComposeResult:
         """Compose the layout based on current mode."""
@@ -152,6 +230,9 @@ class ChefChatApp(App):
             )
 
             self.query_one("#command-input", CommandInput).focus()
+            
+            if self._active_mode:
+                await self._initialize_agent()
 
         except Exception as e:
             logger.exception("Error in on_mount: %s", e)
@@ -251,11 +332,68 @@ class ChefChatApp(App):
         else:
             await self._submit_ticket(user_input)
 
+    @work(exclusive=True, thread=True)
+    async def _run_agent_loop(self, request: str) -> None:
+        """Run the agent interaction loop in a worker thread."""
+        if not self._agent:
+            return
+
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        plate = self.query_one("#the-plate", ThePlate)
+        loader = self.query_one(WhiskLoader)
+
+        # UI Updates must be scheduled on the main thread
+        self.call_from_thread(loader.start, "Thinking...")
+        self.call_from_thread(ticket_rail.start_streaming_message)
+
+        try:
+            async for event in self._agent.act(request):
+                if isinstance(event, AssistantEvent):
+                    if event.content:
+                        self.call_from_thread(ticket_rail.stream_token, event.content)
+                
+                elif isinstance(event, ToolCallEvent):
+                    self.call_from_thread(
+                        plate.log_message, 
+                        f"[bold blue]🛠️ Calling Tool:[/] {event.tool_name}\n"
+                    )
+                    self.call_from_thread(loader.start, f"Running {event.tool_name}...")
+                
+                elif isinstance(event, ToolResultEvent):
+                    status = "[green]Success[/]" if not event.is_error else "[red]Error[/]"
+                    self.call_from_thread(
+                        plate.log_message,
+                        f"[bold]Result:[/] {status}\n"
+                    )
+                
+                elif isinstance(event, (CompactStartEvent, CompactEndEvent)):
+                    self.call_from_thread(
+                        plate.log_message,
+                        "[dim]Compacting conversation history...[/]\n"
+                    )
+
+        except Exception as e:
+            self.call_from_thread(self.notify, f"Agent Error: {e}", severity="error")
+            self.call_from_thread(
+                plate.log_message, f"[bold red]Error:[/] {e}\n"
+            )
+        finally:
+            self.call_from_thread(ticket_rail.finish_streaming_message)
+            self.call_from_thread(loader.stop)
+            self._processing = False
+
     async def _submit_ticket(self, request: str) -> None:
         """Submit a new ticket to the kitchen via the bus."""
         # Show user message in UI immediately
         self.query_one("#ticket-rail", TicketRail).add_user_message(request)
 
+        # ACTIVE MODE: Use Agent directly
+        if self._active_mode and self._agent:
+            self._processing = True
+            self._run_agent_loop(request)
+            return
+
+        # LEGACY/MOCK MODE: Use Brigade/Bus
         # Check if we have a full brigade setup
         if not self._brigade:
             # No agent connected yet - show informational message
@@ -334,17 +472,49 @@ class ChefChatApp(App):
                 return
 
         # Fallback for TUI-specific commands not in registry
-        if name in {"/layout", "/fortune"}:
+        if name in {"/layout", "/fortune", "/api", "/model"}:
             if name == "/layout":
                 await self._handle_layout_command(arg)
             elif name == "/fortune":
                 await self._show_fortune()
+            elif name == "/api":
+                await self._handle_api_command()
+            elif name == "/model":
+                await self._handle_model_command()
             return
 
         # Unknown command
         self.query_one("#ticket-rail", TicketRail).add_system_message(
             f"❓ Unknown command: `{name}`\n\nType `/help` to see available commands."
         )
+
+    async def _handle_api_command(self) -> None:
+        """Show API key onboarding screen."""
+        await self.push_screen(OnboardingScreen(), self._on_onboarding_complete)
+
+    async def _handle_model_command(self) -> None:
+        """Show model selection screen."""
+        if not self._config:
+            self._config = VibeConfig.load()
+            
+        def on_model_selected(model_alias: str | None) -> None:
+            if model_alias and self._config:
+                try:
+                    # Update config active model
+                    self._config.active_model = model_alias
+                    
+                    # Persist change
+                    VibeConfig.save_updates({"active_model": model_alias})
+                    
+                    # Re-initialize agent if active
+                    if self._active_mode:
+                        asyncio.create_task(self._initialize_agent())
+                    
+                    self.notify(f"Switched to model: {model_alias}")
+                except Exception as e:
+                    self.notify(f"Failed to switch model: {e}", severity="error")
+
+        await self.push_screen(ModelSelectionScreen(self._config), on_model_selected)
 
     async def _show_command_palette(self) -> None:
         """Show help directly in chat instead of separate palette."""
@@ -439,6 +609,10 @@ class ChefChatApp(App):
 
     async def _handle_clear(self) -> None:
         await self.query_one("#ticket-rail", TicketRail).clear_tickets()
+        if self._active_mode and self._agent:
+            await self._agent.clear_history()
+            self.notify("Context cleared")
+            
         if self._layout == TUILayout.FULL_KITCHEN:
             try:
                 self.query_one("#the-plate", ThePlate).clear_plate()
@@ -697,8 +871,15 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
         await self._brigade.open_kitchen()
 
 
-def run(*, verbose: bool = False, layout: str | None = None) -> None:
-    """Run the ChefChat TUI application."""
+def run(*, verbose: bool = False, layout: str | None = None, active: bool = False) -> None:
+    """Run the ChefChat TUI application.
+
+    Args:
+        verbose: Enable debug logging
+        layout: Layout mode - 'chat' (clean) or 'kitchen' (3-panel).
+                If None, uses saved preference (defaults to 'chat').
+        active: Enable active mode (real Agent backend).
+    """
     # Ensure Textual works with colors
     os.environ.setdefault("FORCE_COLOR", "1")
 
@@ -716,7 +897,7 @@ def run(*, verbose: bool = False, layout: str | None = None) -> None:
             else TUILayout.CHAT_ONLY
         )
 
-        app = ChefChatApp(layout=layout_mode)
+        app = ChefChatApp(layout=layout_mode, active_mode=active)
 
         try:
             result = app.run()

@@ -61,6 +61,9 @@ Examples:
         default=None,
         help="TUI layout mode: chat (clean) or kitchen (3-panel). Uses saved preference if not specified.",
     )
+    parser.add_argument(
+        "--active", action="store_true", help="Enable Active Mode (Real Agent) in TUI"
+    )
     parser.add_argument("--setup", action="store_true", help="Launch the setup wizard")
     parser.add_argument("--agent", default=None, help="The name of the agent to use")
     parser.add_argument(
@@ -246,18 +249,36 @@ def main() -> None:
     # Ensure config and history files exist
     _ensure_config_files()
 
+    # Skip CLI config loading/onboarding for TUI to allow in-app onboarding
+    # unless we are in REPL or programmatic mode
+    config = None
+    if not explicit_tui and not args.repl and not args.prompt and not get_prompt_from_stdin():
+        # Default run (likely TUI), let TUI handle config
+        pass
+    else:
+        try:
+            config = load_config_or_exit(agent=args.agent)
+            if args.enabled_tools:
+                config.enabled_tools = args.enabled_tools
+        except Exception:
+            # If config load fails and we are forcing TUI, let TUI handle it
+            if explicit_tui:
+                pass
+            else:
+                raise
+
     try:
-        config = load_config_or_exit(agent=args.agent)
-
-        if args.enabled_tools:
-            config.enabled_tools = args.enabled_tools
-
-        # Handle session resume
-        loaded_messages, _ = _handle_session_resume(args, config)
+        # Handle session resume (only if config loaded)
+        loaded_messages = None
+        if config:
+            loaded_messages, _ = _handle_session_resume(args, config)
 
         # Check for programmatic mode (prompt provided via args or stdin)
         stdin_prompt = get_prompt_from_stdin()
         if args.prompt or stdin_prompt:
+            if not config:
+                 config = load_config_or_exit(agent=args.agent)
+            
             programmatic_prompt = " ".join(args.prompt) if args.prompt else stdin_prompt
             if not programmatic_prompt:
                 print(
@@ -290,6 +311,8 @@ def main() -> None:
 
         # 1. Classic REPL Mode requested
         if args.repl:
+            if not config:
+                config = load_config_or_exit(agent=args.agent)
             rprint("[bold blue]🔪 Starting REPL...[/]")
             initial_mode = mode_from_auto_approve(args.auto_approve)
             run_repl(config, initial_mode=initial_mode)
@@ -305,7 +328,7 @@ def main() -> None:
             # Late import to avoid heavy dependencies if only doing --help or programmatic
             from chefchat.interface.tui import run as run_tui
 
-            run_tui(verbose=args.verbose, layout=args.layout)
+            run_tui(verbose=args.verbose, layout=args.layout, active=args.active)
 
         except ImportError as e:
             rprint(f"[red]❌ Failed to import TUI dependencies: {e}[/]")
@@ -317,6 +340,8 @@ def main() -> None:
                 sys.exit(1)
 
             rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
+            if not config:
+                config = load_config_or_exit(agent=args.agent)
             initial_mode = mode_from_auto_approve(args.auto_approve)
             run_repl(config, initial_mode=initial_mode)
 
@@ -329,6 +354,8 @@ def main() -> None:
                 sys.exit(1)
 
             rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
+            if not config:
+                config = load_config_or_exit(agent=args.agent)
             initial_mode = mode_from_auto_approve(args.auto_approve)
             run_repl(config, initial_mode=initial_mode)
 
