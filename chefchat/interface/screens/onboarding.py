@@ -95,7 +95,7 @@ class OnboardingScreen(ModalScreen[str | None]):
                 ]
             else:
                 # Fallback defaults
-                providers = [("Mistral", "mistral"), ("OpenAI", "openai")]
+                providers = [("Mistral", "mistral"), ("OpenAI", "openai"), ("Local (Llama.cpp)", "llamacpp")]
             
             yield Select(providers, allow_blank=False, value="mistral", id="provider-select")
 
@@ -117,7 +117,8 @@ class OnboardingScreen(ModalScreen[str | None]):
         provider = self.query_one("#provider-select", Select).value
         api_key = self.query_one("#api-key-input", Input).value
 
-        if not api_key:
+        # Local provider doesn't strictly need a key
+        if not api_key and provider != "llamacpp":
             self.notify("Please enter an API key", severity="error")
             return
 
@@ -130,6 +131,11 @@ class OnboardingScreen(ModalScreen[str | None]):
         env_var_name = f"{str(provider).upper()}_API_KEY"
         
         try:
+            # For local, we might not need to save anything if key is empty
+            if not api_key and provider == "llamacpp":
+                self.dismiss(str(provider))
+                return
+
             # Save to .env file
             GLOBAL_ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
             
