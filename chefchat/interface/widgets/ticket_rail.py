@@ -288,12 +288,28 @@ class TicketRail(VerticalScroll):
             tickets = self.query(Ticket)
             if tickets:
                 last_ticket = tickets.last()
+                # Update internal state (for history)
                 last_ticket.content = last_msg.content
-                # Force re-render (Textual might handle reactive, but explicit is sure)
-                last_ticket.refresh()
+                # Update the display using Static.update()
+                # We need to manually construct the renderable as Ticket.render() does
+                from rich.console import Group
+                from rich.markdown import Markdown
+                from rich.text import Text
+                from chefchat.interface.widgets.ticket_rail import TICKET_EMOJI
+
+                time_str = last_ticket.timestamp.strftime("%H:%M")
+                header = Text()
+                emoji = TICKET_EMOJI.get(last_ticket.ticket_type, "📋")
+                header.append(f"{emoji} ", style="bold")
+                header.append(f"[{time_str}]", style="dim")
+
+                try:
+                    content_renderable = Markdown(last_ticket.content)
+                except Exception:
+                    content_renderable = Text(last_ticket.content)
                 
-                # Auto-scroll
-                self.scroll_end(animate=False)
+                last_ticket.update(Group(header, content_renderable))
+                last_ticket.scroll_visible()
         except Exception:
             pass
 
