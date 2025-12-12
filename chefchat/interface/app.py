@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from pathlib import Path
 import re
 import sys
 import traceback
-from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 from uuid import uuid4
 
@@ -20,11 +20,7 @@ from textual.widgets import Input
 
 from chefchat.cli.commands import CommandRegistry
 from chefchat.core.agent import Agent
-from chefchat.core.config import (
-    MissingAPIKeyError,
-    VibeConfig,
-    load_api_keys_from_env,
-)
+from chefchat.core.config import MissingAPIKeyError, VibeConfig, load_api_keys_from_env
 from chefchat.core.types import (
     AssistantEvent,
     CompactEndEvent,
@@ -40,8 +36,8 @@ from chefchat.interface.constants import (
     StatusString,
     TUILayout,
 )
-from chefchat.interface.screens.command_palette import CommandPalette
 from chefchat.interface.screens.confirm_restart import (
+    TUI_PREFS_FILE,
     ConfirmRestartScreen,
     get_saved_layout,
     save_tui_preference,
@@ -113,9 +109,7 @@ class ChefChatApp(App):
     }
 
     def __init__(
-        self,
-        layout: TUILayout = TUILayout.CHAT_ONLY,
-        active_mode: bool = False,
+        self, layout: TUILayout = TUILayout.CHAT_ONLY, active_mode: bool = False
     ) -> None:
         super().__init__()
         self._bus: KitchenBus | None = None
@@ -124,7 +118,7 @@ class ChefChatApp(App):
         self._mode_manager = ModeManager(initial_mode=VibeMode.NORMAL)
         self._command_registry = CommandRegistry()
         self._layout = layout
-        
+
         # Active Mode
         self._active_mode = active_mode
         self._agent: Agent | None = None
@@ -157,7 +151,7 @@ class ChefChatApp(App):
             mode_manager=self._mode_manager,
         )
         self._agent.set_approval_callback(self._tool_approval_callback)
-        
+
         # Notify user
         mode = self._mode_manager.current_mode
         config = MODE_CONFIGS[mode]
@@ -169,7 +163,7 @@ class ChefChatApp(App):
 
     def _on_onboarding_complete(self, provider: str | None) -> None:
         """Callback when onboarding is done.
-        
+
         Args:
             provider: The provider name that was configured, or None if cancelled.
         """
@@ -183,7 +177,7 @@ class ChefChatApp(App):
             # Load config (should pass now that key is in env)
             load_api_keys_from_env()
             config = VibeConfig.load()
-            
+
             current_model = config.get_active_model()
             if current_model.provider != provider:
                 # Switch to first model for this provider
@@ -260,7 +254,7 @@ class ChefChatApp(App):
             )
 
             self.query_one("#command-input", CommandInput).focus()
-            
+
             if self._active_mode:
                 await self._initialize_agent()
 
@@ -293,6 +287,10 @@ class ChefChatApp(App):
             logger.exception("Error handling bus message: %s", exc)
 
     async def _update_station_status(self, payload: dict) -> None:
+        # ThePass only exists in FULL_KITCHEN layout
+        if self._layout != TUILayout.FULL_KITCHEN:
+            return
+
         station_id = payload.get(PayloadKey.STATION, "")
         if not station_id:
             return
@@ -314,10 +312,15 @@ class ChefChatApp(App):
 
         # Log to ticket rail
         self.query_one("#ticket-rail", TicketRail).add_assistant_message(content)
-        # Also log to Plate log
-        self.query_one("#the-plate", ThePlate).log_message(content)
+        # Also log to Plate log (only in FULL_KITCHEN layout)
+        if self._layout == TUILayout.FULL_KITCHEN:
+            self.query_one("#the-plate", ThePlate).log_message(content)
 
     async def _plate_code(self, payload: dict, *, append: bool = False) -> None:
+        # ThePlate only exists in FULL_KITCHEN layout
+        if self._layout != TUILayout.FULL_KITCHEN:
+            return
+
         code = str(payload.get(PayloadKey.CODE, ""))
         if not code:
             return
@@ -328,6 +331,10 @@ class ChefChatApp(App):
         plate.plate_code(code, language=language, file_path=file_path, append=append)
 
     async def _add_terminal_log(self, payload: dict) -> None:
+        # ThePlate only exists in FULL_KITCHEN layout
+        if self._layout != TUILayout.FULL_KITCHEN:
+            return
+
         message = str(
             payload.get(PayloadKey.MESSAGE, "") or payload.get(PayloadKey.CONTENT, "")
         )
@@ -369,7 +376,10 @@ class ChefChatApp(App):
             return
 
         ticket_rail = self.query_one("#ticket-rail", TicketRail)
-        plate = self.query_one("#the-plate", ThePlate)
+        # ThePlate only exists in FULL_KITCHEN layout
+        plate = None
+        if self._layout == TUILayout.FULL_KITCHEN:
+            plate = self.query_one("#the-plate", ThePlate)
         loader = self.query_one(WhiskLoader)
 
         # UI Updates directly (we are on main loop)
@@ -381,27 +391,33 @@ class ChefChatApp(App):
                 if isinstance(event, AssistantEvent):
                     if event.content:
                         ticket_rail.stream_token(event.content)
-                
+
                 elif isinstance(event, ToolCallEvent):
-                    plate.log_message( 
-                        f"[bold blue]🛠️ Calling Tool:[/] {event.tool_name}\n"
-                    )
+                    if plate:
+                        plate.log_message(
+                            f"[bold blue]🛠️ Calling Tool:[/] {event.tool_name}\n"
+                        )
                     loader.start(f"Running {event.tool_name}...")
-                
+
                 elif isinstance(event, ToolResultEvent):
-                    status = "[green]Success[/]" if not event.is_error else "[red]Error[/]"
-                    plate.log_message(
-                        f"[bold]Result:[/] {status}\n"
-                    )
-                
+                    if plate:
+                        status = (
+                            "[green]Success[/]"
+                            if not event.is_error
+                            else "[red]Error[/]"
+                        )
+                        plate.log_message(f"[bold]Result:[/] {status}\n")
+
                 elif isinstance(event, (CompactStartEvent, CompactEndEvent)):
-                    plate.log_message(
-                        "[dim]Compacting conversation history...[/]\n"
-                    )
+                    if plate:
+                        plate.log_message(
+                            "[dim]Compacting conversation history...[/]\n"
+                        )
 
         except Exception as e:
             self.notify(f"Agent Error: {e}", severity="error")
-            plate.log_message(f"[bold red]Error:[/] {e}\n")
+            if plate:
+                plate.log_message(f"[bold red]Error:[/] {e}\n")
             traceback.print_exc()  # Print stack trace to stderr
         finally:
             ticket_rail.finish_streaming_message()
@@ -522,20 +538,20 @@ class ChefChatApp(App):
         """Show model selection screen."""
         if not self._config:
             self._config = VibeConfig.load()
-            
+
         def on_model_selected(model_alias: str | None) -> None:
             if model_alias and self._config:
                 try:
                     # Update config active model
                     self._config.active_model = model_alias
-                    
+
                     # Persist change
                     VibeConfig.save_updates({"active_model": model_alias})
-                    
+
                     # Re-initialize agent if active
                     if self._active_mode:
                         asyncio.create_task(self._initialize_agent())
-                    
+
                     self.notify(f"Switched to model: {model_alias}")
                 except Exception as e:
                     self.notify(f"Failed to switch model: {e}", severity="error")
@@ -638,7 +654,7 @@ class ChefChatApp(App):
         if self._active_mode and self._agent:
             await self._agent.clear_history()
             self.notify("Context cleared")
-            
+
         if self._layout == TUILayout.FULL_KITCHEN:
             try:
                 self.query_one("#the-plate", ThePlate).clear_plate()
@@ -718,7 +734,7 @@ class ChefChatApp(App):
 
         fortunes = [
             "🥠 Your next merge conflict will resolve itself peacefully.",
-            "🥠 The bug you\'ve been hunting is in the file you refuse to check.",
+            "🥠 The bug you've been hunting is in the file you refuse to check.",
             "🥠 A refactor is in your future. Embrace it.",
             "🥠 Your deployment will succeed on the first try (just kidding).",
             "🥠 The documentation you need has not been written yet.",
@@ -897,7 +913,9 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
         await self._brigade.open_kitchen()
 
 
-def run(*, verbose: bool = False, layout: str | None = None, active: bool = False) -> None:
+def run(
+    *, verbose: bool = False, layout: str | None = None, active: bool = False
+) -> None:
     """Run the ChefChat TUI application.
 
     Args:
