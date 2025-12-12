@@ -112,8 +112,11 @@ class OnboardingScreen(ModalScreen[str | None]):
                 yield Button("Save & Start Cooking", variant="success", id="save-btn")
 
     @on(Button.Pressed, "#save-btn")
+    @on(Input.Submitted, "#api-key-input")
     def save_key(self) -> None:
         """Save the API key to .env file."""
+        # Check if called from Input (event has 'value') or Button
+        # We need to get values from widgets regardless
         provider = self.query_one("#provider-select", Select).value
         api_key = self.query_one("#api-key-input", Input).value
 
