@@ -7,7 +7,10 @@ TUI is the default mode; use --repl flag for the classic REPL interface.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import traceback
+from pathlib import Path
 
 from rich import print as rprint
 
@@ -39,10 +42,10 @@ def parse_arguments() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  vibe                          # Start TUI (default)
-  vibe --repl                   # Start classic REPL
-  vibe --setup                  # Run setup wizard
-  vibe "Create a REST API"      # Programmatic mode with prompt
+  vibe                      # Start TUI (default)
+  vibe --repl               # Start classic REPL
+  vibe --setup              # Run setup wizard
+  vibe "Create a REST API"  # Programmatic mode with prompt
         """,
     )
     parser.add_argument(
@@ -52,7 +55,9 @@ Examples:
     parser.add_argument(
         "--repl", action="store_true", help="Launch classic REPL mode instead of TUI"
     )
-    parser.add_argument("--tui", action="store_true", help="Launch TUI mode (default)")
+    parser.add_argument(
+        "--tui", action="store_true", help="Launch TUI mode (explicit)"
+    )
     parser.add_argument("--setup", action="store_true", help="Launch the setup wizard")
     parser.add_argument("--agent", default=None, help="The name of the agent to use")
     parser.add_argument(
@@ -147,7 +152,7 @@ def _ensure_config_files() -> None:
     if not HISTORY_FILE.exists():
         try:
             HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-            HISTORY_FILE.write_text("Hello Vibe!\n", "utf-8")
+            HISTORY_FILE.write_text("Hello Chef!\n", "utf-8")
         except Exception as e:
             rprint(f"[yellow]Could not create history file: {e}[/]")
 
@@ -226,7 +231,7 @@ def main() -> None:
     load_api_keys_from_env()
     args = parse_arguments()
 
-    explicit_tui = bool(getattr(args, "tui", False))
+    explicit_tui = args.tui
 
     # Handle setup wizard
     if args.setup:
@@ -247,9 +252,9 @@ def main() -> None:
         # Handle session resume
         loaded_messages, _ = _handle_session_resume(args, config)
 
-        # Check for programmatic mode (prompt provided)
+        # Check for programmatic mode (prompt provided via args or stdin)
         stdin_prompt = get_prompt_from_stdin()
-        if args.prompt:
+        if args.prompt or stdin_prompt:
             programmatic_prompt = " ".join(args.prompt) if args.prompt else stdin_prompt
             if not programmatic_prompt:
                 print(
@@ -257,9 +262,7 @@ def main() -> None:
                 )
                 sys.exit(1)
 
-            output_format = OutputFormat(
-                args.format if hasattr(args, "format") else "text"
-            )
+            output_format = OutputFormat(args.format)
 
             try:
                 final_response = run_programmatic(
@@ -274,63 +277,64 @@ def main() -> None:
                     print(final_response)
                 sys.exit(0)
             except ConversationLimitException as e:
-                print(e, file=sys.stderr)
+                print(str(e), file=sys.stderr)
                 sys.exit(1)
             except RuntimeError as e:
                 print(f"Error: {e}", file=sys.stderr)
                 sys.exit(1)
 
-        # Interactive mode
+        # === Interactive Mode ===
+
+        # 1. Classic REPL Mode requested
         if args.repl:
             rprint("[bold blue]🔪 Starting REPL...[/]")
-            # Classic REPL mode (legacy)
             initial_mode = mode_from_auto_approve(args.auto_approve)
             run_repl(config, initial_mode=initial_mode)
-        else:
-            rprint("[bold blue]👨‍🍳 Starting TUI...[/]")
-            # TUI is the default (new standard)
-            try:
-                # Set environment to force Textual to work
-                import os
-                os.environ.setdefault("FORCE_COLOR", "1")
-                os.environ.setdefault("TERM", "xterm-256color")
-                
-                from chefchat.interface.tui import run as run_tui
+            return
 
-                run_tui(verbose=bool(getattr(args, "verbose", False)))
-            except ImportError as e:
-                rprint(f"[red]❌ Failed to import TUI: {e}[/]")
-                if args.verbose:
-                    import traceback
-                    traceback.print_exc()
-                if explicit_tui:
-                    raise
-                rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
-                initial_mode = mode_from_auto_approve(args.auto_approve)
-                run_repl(config, initial_mode=initial_mode)
-            except Exception as e:
-                rprint(f"[red]❌ Error launching TUI: {e}[/]")
-                
-                # Show debug info in verbose mode
-                if args.verbose:
-                    import traceback
-                    traceback.print_exc()
+        # 2. Default TUI Mode
+        rprint("[bold blue]👨‍🍳 Starting TUI...[/]")
+        try:
+            # Set environment to force Textual to work in diverse environments
+            os.environ.setdefault("FORCE_COLOR", "1")
+            os.environ.setdefault("TERM", "xterm-256color")
+            
+            # Late import to avoid heavy dependencies if only doing --help or programmatic
+            from chefchat.interface.tui import run as run_tui
+            
+            run_tui(verbose=args.verbose)
 
-                if explicit_tui:
-                    raise
+        except ImportError as e:
+            rprint(f"[red]❌ Failed to import TUI dependencies: {e}[/]")
+            if args.verbose:
+                traceback.print_exc()
+            
+            if explicit_tui:
+                # If user explicitly asked for TUI, crash instead of fallback
+                sys.exit(1)
+            
+            rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
+            initial_mode = mode_from_auto_approve(args.auto_approve)
+            run_repl(config, initial_mode=initial_mode)
 
-                rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
-                # Fallback to REPL
-                initial_mode = mode_from_auto_approve(args.auto_approve)
-                run_repl(config, initial_mode=initial_mode)
+        except Exception as e:
+            rprint(f"[red]❌ Error launching TUI: {e}[/]")
+            if args.verbose:
+                traceback.print_exc()
+
+            if explicit_tui:
+                sys.exit(1)
+
+            rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
+            initial_mode = mode_from_auto_approve(args.auto_approve)
+            run_repl(config, initial_mode=initial_mode)
 
     except (KeyboardInterrupt, EOFError):
         rprint("\n[dim]👋 Bye![/]")
         sys.exit(0)
     except Exception as e:
         rprint(f"[red]Fatal error: {e}[/]")
-        if args.verbose if hasattr(args, "verbose") else False:
-            import traceback
+        if args.verbose:
             traceback.print_exc()
         sys.exit(1)
 

@@ -32,7 +32,7 @@ class BusAction(str, Enum):
 
 
 class StatusString(str, Enum):
-    """Status strings that map to StationStatus."""
+    """Status strings that come from the backend/agents."""
 
     IDLE = "idle"
     PLANNING = "planning"
@@ -44,12 +44,12 @@ class StatusString(str, Enum):
 
 
 class StationStatus(Enum):
-    """Status of a kitchen station."""
+    """Internal TUI status states for logic handling."""
 
-    IDLE = auto()  # "At ease" - waiting for orders
-    WORKING = auto()  # "Firing" - actively cooking
-    COMPLETE = auto()  # "Plated" - finished the order
-    ERROR = auto()  # "86'd" - something went wrong
+    IDLE = auto()    # "At ease" - waiting for orders
+    WORKING = auto() # "Firing" - actively cooking
+    COMPLETE = auto()# "Plated" - finished the order
+    ERROR = auto()   # "86'd" - something went wrong
 
 
 class TicketCommand(str, Enum):
@@ -61,36 +61,6 @@ class TicketCommand(str, Enum):
     SETTINGS = "settings"
     CHEF = "chef"
     PLATE = "plate"
-
-
-# Default station configuration - (station_id, display_name)
-DEFAULT_STATIONS: Final[list[tuple[str, str]]] = [
-    (StationName.SOUS_CHEF.value, "Sous Chef"),
-    (StationName.LINE_COOK.value, "Line Cook"),
-    (StationName.SOMMELIER.value, "Sommelier"),
-    (StationName.EXPEDITOR.value, "Expeditor"),
-]
-
-# Whisk animation frames
-WHISK_FRAMES: Final[list[str]] = ["   🥄", "  🥄 ", " 🥄  ", "🥄   ", " 🥄  ", "  🥄 "]
-
-# Status emoji mapping
-STATUS_EMOJI: Final[dict[str, str]] = {
-    StatusString.IDLE.value: "⚪",
-    StatusString.PLANNING.value: "📋",
-    StatusString.COOKING.value: "🔥",
-    StatusString.TESTING.value: "🧪",
-    StatusString.REFACTORING.value: "🔧",
-    StatusString.COMPLETE.value: "✅",
-    StatusString.ERROR.value: "❌",
-}
-
-# Ticket type emojis
-TICKET_EMOJI: Final[dict[str, str]] = {
-    "user": "👨‍🍳",
-    "assistant": "🍳",
-    "system": "📋",
-}
 
 
 class PayloadKey(str, Enum):
@@ -118,6 +88,42 @@ class MessageType(str, Enum):
     ASSISTANT = "assistant"
     SYSTEM = "system"
 
+
+# Default station configuration - (station_id, display_name)
+DEFAULT_STATIONS: Final[list[tuple[str, str]]] = [
+    (StationName.SOUS_CHEF.value, "Sous Chef"),
+    (StationName.LINE_COOK.value, "Line Cook"),
+    (StationName.SOMMELIER.value, "Sommelier"),
+    (StationName.EXPEDITOR.value, "Expeditor"),
+]
+
+# Whisk animation frames
+WHISK_FRAMES: Final[list[str]] = [
+    "   🥄", 
+    "  🥄 ", 
+    " 🥄  ", 
+    "🥄   ", 
+    " 🥄  ", 
+    "  🥄 "
+]
+
+# Status emoji mapping for UI display
+STATUS_EMOJI: Final[dict[str, str]] = {
+    StatusString.IDLE.value: "⚪",
+    StatusString.PLANNING.value: "📋",
+    StatusString.COOKING.value: "🔥",
+    StatusString.TESTING.value: "🧪",
+    StatusString.REFACTORING.value: "🔧",
+    StatusString.COMPLETE.value: "✅",
+    StatusString.ERROR.value: "❌",
+}
+
+# Ticket type emojis
+TICKET_EMOJI: Final[dict[str, str]] = {
+    "user": "👨‍🍳",
+    "assistant": "🍳",
+    "system": "📋",
+}
 
 # Characters to sanitize from markdown input
 MARKDOWN_SANITIZE_CHARS: Final[dict[str, str]] = {

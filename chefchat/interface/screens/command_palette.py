@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Grid
+from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label
 
@@ -9,47 +9,7 @@ from textual.widgets import Button, Label
 class CommandPalette(ModalScreen):
     """A modal dialog showing available commands."""
 
-    CSS = """
-    CommandPalette {
-        align: center middle;
-    }
-
-    #palette-dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: auto;
-        padding: 0 1;
-        width: 60;
-        height: auto;
-        border: thick $accent;
-        background: $surface;
-    }
-
-    #palette-title {
-        column-span: 2;
-        height: 3;
-        content-align: center middle;
-        text-style: bold;
-        color: $accent;
-        border-bottom: solid $panel-border;
-        margin-bottom: 1;
-    }
-
-    .cmd-name {
-        text-style: bold;
-        color: $info;
-    }
-
-    .cmd-desc {
-        color: $text-muted;
-    }
-
-    Button {
-        width: 100%;
-        margin-top: 1;
-        column-span: 2;
-    }
-    """
+    BINDINGS = [("escape", "dismiss", "Close")]
 
     COMMANDS = [
         ("/help", "Show this help menu"),
@@ -59,20 +19,27 @@ class CommandPalette(ModalScreen):
         ("/quit", "Exit the kitchen"),
     ]
 
+    def action_dismiss(self) -> None:
+        """Dismiss the screen."""
+        self.dismiss()
+
     def compose(self) -> ComposeResult:
-        yield Grid(
-            Label("👨‍🍳 ChefChat Command Menu", id="palette-title"),
-            *[
-                item
-                for cmd, desc in self.COMMANDS
-                for item in (
-                    Label(cmd, classes="cmd-name"),
-                    Label(desc, classes="cmd-desc"),
-                )
-            ],
-            Button("Close Menu", variant="primary", id="close_btn"),
-            id="palette-dialog",
-        )
+        # We gebruiken 'palette-container' om te matchen met de CSS
+        with Container(id="palette-container"):
+            # Titel
+            yield Label("👨‍🍳 ChefChat Command Menu", classes="palette-title")
+
+            # Lijst met commando's
+            with Vertical(classes="command-list"):
+                for cmd, desc in self.COMMANDS:
+                    with Horizontal(classes="command-row"):
+                        # 'command-key' wordt blauw/info kleur in CSS
+                        yield Label(cmd, classes="command-key")
+                        # 'command-desc' wordt standaard tekstkleur
+                        yield Label(desc, classes="command-desc")
+
+            # Sluit knop onderaan
+            yield Button("Close Menu", variant="primary", id="close_btn")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close_btn":

@@ -53,28 +53,7 @@ class TicketMessage:
 class Ticket(Static):
     """A single ticket (message bubble) in the rail."""
 
-    DEFAULT_CSS = """
-    Ticket {
-        width: 100%;
-        margin: 0 0 1 0;
-        padding: 1;
-        background: $surface;
-        border: round $panel-border;
-    }
-
-    Ticket.user {
-        border-left: thick $accent;
-    }
-
-    Ticket.assistant {
-        border-left: thick $primary;
-    }
-
-    Ticket.system {
-        border-left: thick $warning;
-        background: $secondary-bg;
-    }
-    """
+    # CSS defined in styles.tcss
 
     def __init__(
         self,
@@ -138,19 +117,7 @@ class TicketRail(VerticalScroll):
     with the most recent at the bottom.
     """
 
-    DEFAULT_CSS = """
-    TicketRail {
-        background: $secondary-bg;
-        border: solid $panel-border;
-        border-title-color: $accent;
-        border-title-style: bold;
-        padding: 1 2;
-    }
-
-    TicketRail:focus {
-        border: solid $accent;
-    }
-    """
+    # CSS defined in styles.tcss
 
     BORDER_TITLE = "📋 The Ticket"
 

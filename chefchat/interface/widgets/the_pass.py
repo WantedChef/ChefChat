@@ -35,45 +35,7 @@ STATUS_EMOJI: dict[StationStatus, str] = {
 class StationRow(Horizontal):
     """A single station's status row."""
 
-    DEFAULT_CSS = """
-    StationRow {
-        height: 3;
-        margin: 0 0 1 0;
-        padding: 0 1;
-        align: center middle;
-    }
-
-    StationRow .station-name {
-        width: 16;
-        text-style: bold;
-    }
-
-    StationRow .station-progress {
-        width: 1fr;
-        margin: 0 1;
-    }
-
-    StationRow .station-status {
-        width: 24;
-        text-align: right;
-    }
-
-    StationRow.idle .station-progress Bar > .bar--bar {
-        color: $text-muted;
-    }
-
-    StationRow.working .station-progress Bar > .bar--bar {
-        color: $accent;
-    }
-
-    StationRow.complete .station-progress Bar > .bar--bar {
-        color: $success;
-    }
-
-    StationRow.error .station-progress Bar > .bar--bar {
-        color: $error;
-    }
-    """
+    # CSS defined in styles.tcss (if needed, currently generic styles)
 
     def __init__(
         self,
@@ -155,30 +117,7 @@ class ThePass(Container):
     Stations can be configured via constructor or use defaults.
     """
 
-    DEFAULT_CSS = """
-    ThePass {
-        background: $secondary-bg;
-        border: solid $panel-border;
-        border-title-color: $accent;
-        border-title-style: bold;
-        padding: 1 2;
-        overflow-y: auto;
-    }
-
-    ThePass:focus {
-        border: solid $accent;
-    }
-
-    ThePass #pass-header {
-        height: 2;
-        margin-bottom: 1;
-    }
-
-    ThePass #pass-header Static {
-        text-style: bold;
-        color: $accent;
-    }
-    """
+    # CSS defined in styles.tcss
 
     BORDER_TITLE = "🍳 The Pass"
 

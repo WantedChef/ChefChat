@@ -27,14 +27,7 @@ logger = logging.getLogger(__name__)
 class CodeBlock(Static):
     """A syntax-highlighted code block."""
 
-    DEFAULT_CSS = """
-    CodeBlock {
-        background: $primary-bg;
-        border: round $panel-border;
-        padding: 1;
-        margin: 1 0;
-    }
-    """
+    # CSS defined in styles.tcss (if needed, currently generic styles)
 
     def __init__(
         self,
@@ -88,37 +81,7 @@ class ThePlate(TabbedContent):
     - Notes: Scratchpad or implementation notes
     """
 
-    DEFAULT_CSS = """
-    ThePlate {
-        background: $secondary-bg;
-        border: solid $panel-border;
-        border-title-color: $accent;
-        border-title-style: bold;
-        padding: 0;
-    }
-
-    ThePlate:focus {
-        border: solid $accent;
-    }
-
-    #plate-code-scroll {
-        padding: 1 2;
-        background: $secondary-bg;
-    }
-
-    #plate-empty {
-        color: $text-muted;
-        text-style: italic;
-        text-align: center;
-        padding-top: 2;
-    }
-
-    .file-path {
-        color: $info;
-        text-style: bold;
-        margin-bottom: 0;
-    }
-    """
+    # CSS defined in styles.tcss
 
     BORDER_TITLE = "🍽️ The Plate"
 
