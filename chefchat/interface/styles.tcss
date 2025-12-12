@@ -48,8 +48,8 @@ Screen {
     row-span: 2;
     background: $secondary-bg;
     border: round $panel-border;
-    border-title-color: $text-muted;
-    border-title-align: center;
+    /* border-title-color: $text-muted; */
+    /* border-title-align: center; */
     padding: 1 2;
     overflow-y: auto;
     scrollbar-color: $accent;
@@ -60,28 +60,40 @@ Screen {
     border: round $accent;
 }
 
-/* Chat Messages - User (right accent), Assistant (left accent) */
+/* Chat-only mode - full width chat */
+#ticket-rail.chat-only {
+    width: 100%;
+    height: 1fr;
+    margin: 1 2;
+    /* border-title-align: left; */
+}
+
+/* Chat Messages - User (right aligned), Assistant (left aligned) */
 Ticket.user {
     background: $surface;
     color: $text-primary;
     padding: 1 2;
-    margin: 0 0 1 2;
+    margin: 0 0 1 6;
     border-right: thick $accent;
+    text-align: right;
 }
 
 Ticket.assistant {
     background: $surface;
     color: $text-primary;
     padding: 1 2;
-    margin: 0 2 1 0;
+    margin: 0 6 1 0;
     border-left: thick $purple;
+    text-align: left;
 }
 
 Ticket.system {
+    background: transparent;
     color: $text-muted;
     text-style: italic;
     padding: 1 2;
-    margin-bottom: 1;
+    margin: 0 2 1 2;
+    text-align: center;
 }
 
 /* Legacy Static message classes (fallback) */
@@ -123,8 +135,8 @@ Static.assistant-message {
     row-span: 1;
     background: $secondary-bg;
     border: round $panel-border;
-    border-title-color: $text-muted;
-    border-title-align: center;
+    /* border-title-color: $text-muted; */
+    /* border-title-align: center; */
     padding: 1 2;
 }
 
@@ -139,26 +151,33 @@ Static.assistant-message {
 }
 
 .station-row {
-    height: auto;
-    margin-bottom: 0;
-    padding: 0;
+    height: 3;
+    margin-bottom: 1;
+    padding: 0 1;
+    background: $surface;
+}
+
+.station-row:hover {
+    background: $secondary-bg;
 }
 
 .station-name {
     color: $text-primary;
     text-style: bold;
     width: 14;
+    padding: 0 1;
 }
 
 .station-progress {
     width: 1fr;
-    margin: 0 1;
+    margin: 0 2;
 }
 
 .station-status {
     color: $text-muted;
-    width: 12;
+    width: 10;
     text-align: right;
+    padding-right: 1;
 }
 
 /* Station state colors */
@@ -175,13 +194,34 @@ Static.assistant-message {
 }
 
 /* Progress bar styling */
+ProgressBar {
+    height: 1;
+}
+
 ProgressBar > Bar {
-    color: $accent;
-    background: $surface;
+    width: 1fr;
+    background: $panel-border;
+}
+
+ProgressBar > Bar > .bar--bar {
+    background: $accent;
+}
+
+ProgressBar > Bar > .bar--indeterminate {
+    background: $warning;
 }
 
 ProgressBar > Bar > .bar--complete {
-    color: $success;
+    background: $success;
+}
+
+/* Progress bar in working state */
+.station-row.working ProgressBar > Bar > .bar--bar {
+    background: $warning;
+}
+
+.station-row.error ProgressBar > Bar > .bar--bar {
+    background: $error;
 }
 
 /* ===================================================================
@@ -193,8 +233,8 @@ ProgressBar > Bar > .bar--complete {
     row-span: 1;
     background: $secondary-bg;
     border: round $panel-border;
-    border-title-color: $text-muted;
-    border-title-align: center;
+    /* border-title-color: $text-muted; */
+    /* border-title-align: center; */
     padding: 0;
     overflow: auto;
     scrollbar-color: $accent;
@@ -311,23 +351,70 @@ WhiskLoader .whisk-message {
    =================================================================== */
 
 Footer {
-    background: $secondary-bg;
-    color: $text-muted;
+    display: none;  /* Hide default ugly footer */
+}
+
+/* Kitchen Footer - Compact 1-line status bar */
+KitchenFooter {
     dock: bottom;
     height: 1;
+    background: $secondary-bg;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+KitchenFooter .footer-mode {
+    color: $text-primary;
+    text-style: bold;
+    min-width: 15;
+}
+
+KitchenFooter .footer-label {
+    color: $text-muted;
+    margin-left: 2;
+}
+
+KitchenFooter .footer-value {
+    margin-left: 1;
+}
+
+KitchenFooter .footer-sep {
+    color: $panel-border;
+    padding: 0 1;
+}
+
+KitchenFooter .key-hint {
+    background: $surface;
+    color: $text-muted;
+    padding: 0 1;
+    margin-left: 1;
+}
+
+KitchenFooter .auto-on {
+    color: $success;
+    text-style: bold;
+}
+
+KitchenFooter .auto-off {
+    color: $warning;
+    text-style: bold;
 }
 
 CommandInput {
     dock: bottom;
     height: 3;
     background: $primary-bg;
-    border: round $panel-border;
-    padding: 0 2;
+    border: solid $panel-border;
+    /* border-title: "Command or Message"; - Not supported in Textual 6.x */
+    /* border-title-align: left; */
+    padding: 0 1;
     color: $text-primary;
 }
 
 CommandInput:focus {
-    border: round $accent;
+    border: solid $accent;
+    background: $surface;
+    tint: $accent 10%;
 }
 
 /* ===================================================================
@@ -344,4 +431,40 @@ CommandPalette {
     padding: 1 2;
     width: 60;
     max-height: 20;
+}
+
+/* ===================================================================
+   Notifications & Toasts
+   =================================================================== */
+
+Toast {
+    background: $surface;
+    border: solid $panel-border;
+    padding: 1 2;
+}
+
+Toast.-information {
+    border-left: thick $info;
+}
+
+Toast.-warning {
+    border-left: thick $warning;
+}
+
+Toast.-error {
+    border-left: thick $error;
+}
+
+/* ===================================================================
+   Scrollbars
+   =================================================================== */
+
+Vertical {
+    scrollbar-color: $accent;
+    scrollbar-background: $primary-bg;
+}
+
+VerticalScroll {
+    scrollbar-color: $accent;
+    scrollbar-background: $primary-bg;
 }

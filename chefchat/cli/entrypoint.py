@@ -10,7 +10,6 @@ import argparse
 import os
 import sys
 import traceback
-from pathlib import Path
 
 from rich import print as rprint
 
@@ -55,8 +54,12 @@ Examples:
     parser.add_argument(
         "--repl", action="store_true", help="Launch classic REPL mode instead of TUI"
     )
+    parser.add_argument("--tui", action="store_true", help="Launch TUI mode (explicit)")
     parser.add_argument(
-        "--tui", action="store_true", help="Launch TUI mode (explicit)"
+        "--layout",
+        choices=["chat", "kitchen"],
+        default=None,
+        help="TUI layout mode: chat (clean) or kitchen (3-panel). Uses saved preference if not specified.",
     )
     parser.add_argument("--setup", action="store_true", help="Launch the setup wizard")
     parser.add_argument("--agent", default=None, help="The name of the agent to use")
@@ -298,21 +301,21 @@ def main() -> None:
             # Set environment to force Textual to work in diverse environments
             os.environ.setdefault("FORCE_COLOR", "1")
             os.environ.setdefault("TERM", "xterm-256color")
-            
+
             # Late import to avoid heavy dependencies if only doing --help or programmatic
             from chefchat.interface.tui import run as run_tui
-            
-            run_tui(verbose=args.verbose)
+
+            run_tui(verbose=args.verbose, layout=args.layout)
 
         except ImportError as e:
             rprint(f"[red]❌ Failed to import TUI dependencies: {e}[/]")
             if args.verbose:
                 traceback.print_exc()
-            
+
             if explicit_tui:
                 # If user explicitly asked for TUI, crash instead of fallback
                 sys.exit(1)
-            
+
             rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
             initial_mode = mode_from_auto_approve(args.auto_approve)
             run_repl(config, initial_mode=initial_mode)

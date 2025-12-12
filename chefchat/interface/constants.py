@@ -29,6 +29,7 @@ class BusAction(str, Enum):
     TERMINAL_LOG = "TERMINAL_LOG"
     NEW_TICKET = "NEW_TICKET"
     PLAN = "PLAN"
+    TASTE_TEST = "TASTE_TEST"
 
 
 class StatusString(str, Enum):
@@ -46,10 +47,10 @@ class StatusString(str, Enum):
 class StationStatus(Enum):
     """Internal TUI status states for logic handling."""
 
-    IDLE = auto()    # "At ease" - waiting for orders
-    WORKING = auto() # "Firing" - actively cooking
-    COMPLETE = auto()# "Plated" - finished the order
-    ERROR = auto()   # "86'd" - something went wrong
+    IDLE = auto()  # "At ease" - waiting for orders
+    WORKING = auto()  # "Firing" - actively cooking
+    COMPLETE = auto()  # "Plated" - finished the order
+    ERROR = auto()  # "86'd" - something went wrong
 
 
 class TicketCommand(str, Enum):
@@ -61,6 +62,23 @@ class TicketCommand(str, Enum):
     SETTINGS = "settings"
     CHEF = "chef"
     PLATE = "plate"
+    MODES = "modes"
+    STATUS = "status"
+    MODEL = "model"
+    WISDOM = "wisdom"
+    ROAST = "roast"
+    FORTUNE = "fortune"
+    LAYOUT = "layout"
+    LOG = "log"
+    TASTE = "taste"
+    TIMER = "timer"
+
+
+class TUILayout(str, Enum):
+    """Available TUI layout modes."""
+
+    CHAT_ONLY = "chat"  # Clean chat interface only
+    FULL_KITCHEN = "kitchen"  # Full 3-panel kitchen view
 
 
 class PayloadKey(str, Enum):
@@ -98,14 +116,7 @@ DEFAULT_STATIONS: Final[list[tuple[str, str]]] = [
 ]
 
 # Whisk animation frames
-WHISK_FRAMES: Final[list[str]] = [
-    "   🥄", 
-    "  🥄 ", 
-    " 🥄  ", 
-    "🥄   ", 
-    " 🥄  ", 
-    "  🥄 "
-]
+WHISK_FRAMES: Final[list[str]] = ["   🥄", "  🥄 ", " 🥄  ", "🥄   ", " 🥄  ", "  🥄 "]
 
 # Status emoji mapping for UI display
 STATUS_EMOJI: Final[dict[str, str]] = {

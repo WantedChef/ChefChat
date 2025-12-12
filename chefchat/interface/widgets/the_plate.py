@@ -59,10 +59,10 @@ class CodeBlock(Static):
         syntax = Syntax(
             self.code,
             self.language,
-            theme="monokai",
+            theme="github-dark",
             line_numbers=True,
             word_wrap=True,
-            background_color="#1a1b26",
+            background_color="#0d1117",
         )
 
         if self.title:

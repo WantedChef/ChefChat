@@ -221,7 +221,7 @@ class TicketRail(VerticalScroll):
         """
         return self.add_ticket(content, MessageType.SYSTEM)
 
-    def clear_tickets(self) -> None:
+    async def clear_tickets(self) -> None:
         """Clear all tickets from the rail.
 
         Properly cleans up both the internal message list and
@@ -231,7 +231,8 @@ class TicketRail(VerticalScroll):
         self._messages.clear()
 
         # Batch remove all Ticket widgets using Textual's query batch removal
-        self.query(Ticket).remove()
+        # Await the removal to ensure DOM is clean before adding empty state
+        await self.query(Ticket).remove()
 
         # Remove empty state if stuck
         try:
@@ -240,7 +241,7 @@ class TicketRail(VerticalScroll):
             pass
 
         # Restore empty state
-        self.mount(
+        await self.mount(
             Static(
                 "[dim italic]Waiting for orders...[/]",
                 id="empty-state",
