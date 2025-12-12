@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     pass
 
 
-class OnboardingScreen(ModalScreen[bool]):
+class OnboardingScreen(ModalScreen[str | None]):
     """Modal screen for API key onboarding."""
 
     DEFAULT_CSS = """
@@ -150,7 +150,7 @@ class OnboardingScreen(ModalScreen[bool]):
             # Set in current process for immediate use
             os.environ[env_var_name] = api_key
             
-            self.dismiss(True)
+            self.dismiss(str(provider))
             
         except Exception as e:
             self.notify(f"Failed to save API key: {e}", severity="error")

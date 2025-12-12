@@ -167,12 +167,36 @@ class ChefChatApp(App):
             f"Mode: {config.emoji} {mode.value.upper()}"
         )
 
-    def _on_onboarding_complete(self, success: bool) -> None:
-        """Callback when onboarding is done."""
-        if success:
-            asyncio.create_task(self._initialize_agent())
-        else:
+    def _on_onboarding_complete(self, provider: str | None) -> None:
+        """Callback when onboarding is done.
+        
+        Args:
+            provider: The provider name that was configured, or None if cancelled.
+        """
+        if not provider:
             self.notify("Setup incomplete. Chat will be disabled.", severity="warning")
+            return
+
+        # We must ensure the active model matches the configured provider
+        # to avoid immediate crash on re-init.
+        try:
+            # Load config (should pass now that key is in env)
+            load_api_keys_from_env()
+            config = VibeConfig.load()
+            
+            current_model = config.get_active_model()
+            if current_model.provider != provider:
+                # Switch to first model for this provider
+                for model in config.models:
+                    if model.provider == provider:
+                        self.notify(f"Switching active model to {model.alias}...")
+                        config.active_model = model.alias
+                        VibeConfig.save_updates({"active_model": model.alias})
+                        break
+        except Exception as e:
+            logger.warning(f"Error adjusting model after onboarding: {e}")
+
+        asyncio.create_task(self._initialize_agent())
 
     async def _tool_approval_callback(
         self, tool_name: str, tool_args: dict | str
