@@ -78,9 +78,13 @@ class Ticket(Static):
             classes: CSS classes
         """
         super().__init__(name=name, id=id, classes=classes)
-        self.content = content
+        # Initialize attributes used in rendering BEFORE setting reactive content
+        # (which triggers watch_content -> _update_renderable)
         self.ticket_type = ticket_type
         self.timestamp = timestamp or datetime.now()
+        
+        # Now safe to set content
+        self.content = content
 
         # Apply CSS class based on type - use value (lower case string)
         self.add_class(ticket_type.value)
