@@ -166,6 +166,66 @@ class AnthropicAdapter(LLMAdapter):
                 yield text
 
 
+class MistralAdapter(LLMAdapter):
+    """Mistral AI API adapter."""
+
+    def __init__(
+        self, model: str = "mistral-large-latest", temperature: float = 0.7
+    ) -> None:
+        """Initialize Mistral adapter.
+
+        Args:
+            model: Model to use
+            temperature: Response temperature
+        """
+        self.model = model
+        self.temperature = temperature
+        self._client = None
+
+    def _get_client(self) -> Any:
+        """Lazy-load Mistral client."""
+        if self._client is None:
+            try:
+                from mistralai import Mistral
+
+                self._client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
+            except ImportError:
+                raise ImportError(
+                    "mistralai package required. Install with: pip install mistralai"
+                )
+        return self._client
+
+    async def generate(self, prompt: str, system: str | None = None) -> str:
+        """Generate response using Mistral."""
+        client = self._get_client()
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.complete_async(
+            model=self.model, messages=messages, temperature=self.temperature
+        )
+        return response.choices[0].message.content or ""
+
+    async def stream(
+        self, prompt: str, system: str | None = None
+    ) -> AsyncIterator[str]:
+        """Stream response using Mistral."""
+        client = self._get_client()
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        stream = await client.chat.stream_async(
+            model=self.model, messages=messages, temperature=self.temperature
+        )
+        async for chunk in stream:
+            if chunk.data.choices[0].delta.content:
+                yield chunk.data.choices[0].delta.content
+
+
 class SimulatedAdapter(LLMAdapter):
     """Simulated adapter for when no API key is available."""
 
@@ -263,6 +323,23 @@ Keep it under 300 words. Make it sting, but make it useful."""
             )
         elif provider == "anthropic" and os.getenv("ANTHROPIC_API_KEY"):
             self._adapter = AnthropicAdapter(
+                model=self.config.model, temperature=self.config.temperature
+            )
+        elif provider == "mistral" and os.getenv("MISTRAL_API_KEY"):
+            self._adapter = MistralAdapter(
+                model=self.config.model, temperature=self.config.temperature
+            )
+        # Auto-detect based on available API keys
+        elif os.getenv("OPENAI_API_KEY"):
+            self._adapter = OpenAIAdapter(
+                model=self.config.model, temperature=self.config.temperature
+            )
+        elif os.getenv("ANTHROPIC_API_KEY"):
+            self._adapter = AnthropicAdapter(
+                model=self.config.model, temperature=self.config.temperature
+            )
+        elif os.getenv("MISTRAL_API_KEY"):
+            self._adapter = MistralAdapter(
                 model=self.config.model, temperature=self.config.temperature
             )
         else:

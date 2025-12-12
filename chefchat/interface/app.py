@@ -238,25 +238,31 @@ class ChefChatApp(App):
     async def on_mount(self) -> None:
         """Handle app mount - start workers and show welcome."""
         try:
-            # Initialize the bus for local messaging (lightweight, no full brigade)
-            self._bus = KitchenBus()
-            await self._bus.start()
-            self._bus.subscribe("tui", self._handle_bus_message)
+            if self._active_mode:
+                # Active mode: Full Brigade (SousChef, LineCook, etc.)
+                await self._setup_brigade()
+            else:
+                # Standalone mode: Just the bus for local messaging
+                self._bus = KitchenBus()
+                await self._bus.start()
+                self._bus.subscribe("tui", self._handle_bus_message)
 
             ticket_rail = self.query_one("#ticket-rail", TicketRail)
             mode = self._mode_manager.current_mode
             config = MODE_CONFIGS[mode]
+
+            active_status = (
+                "🟢 **Brigade Active**" if self._active_mode else "💤 *Standalone Mode*"
+            )
             ticket_rail.add_system_message(
                 f"🍽️ **Welcome to ChefChat!**\n\n"
                 f"The kitchen is ready, Chef. What would you like to cook today?\n\n"
                 f"*Current Mode: {config.emoji} {mode.value.upper()}*\n\n"
+                f"{active_status}\n\n"
                 f"*Commands: `/help` for menu, `/modes` to see modes, `Shift+Tab` to cycle*"
             )
 
             self.query_one("#command-input", CommandInput).focus()
-
-            if self._active_mode:
-                await self._initialize_agent()
 
         except Exception as e:
             logger.exception("Error in on_mount: %s", e)
@@ -429,20 +435,34 @@ class ChefChatApp(App):
         # Show user message in UI immediately
         self.query_one("#ticket-rail", TicketRail).add_user_message(request)
 
-        # ACTIVE MODE: Use Agent directly
-        if self._active_mode and self._agent:
+        # ACTIVE MODE: Use Brigade via Bus
+        if self._active_mode and self._brigade:
+            if not self._bus:
+                self.notify("Kitchen bus not ready!", severity="error")
+                return
+
+            ticket_id = str(uuid4())[:8]
+            message = ChefMessage(
+                sender="tui",
+                recipient="sous_chef",
+                action=BusAction.NEW_TICKET.value,
+                payload={PayloadKey.TICKET_ID: ticket_id, PayloadKey.REQUEST: request},
+                priority=MessagePriority.HIGH,
+            )
+
+            # Start the loader
+            self.query_one(WhiskLoader).start("Cooking...")
             self._processing = True
-            self._run_agent_loop(request)
+
+            await self._bus.publish(message)
             return
 
-        # LEGACY/MOCK MODE: Use Brigade/Bus
-        # Check if we have a full brigade setup
+        # STANDALONE MODE: No brigade connected
         if not self._brigade:
-            # No agent connected yet - show informational message
             self.query_one("#ticket-rail", TicketRail).add_system_message(
-                "🔧 **Agent Not Connected**\n\n"
-                "The TUI is running in standalone mode. To process requests, "
-                "use the REPL: `uv run vibe`\n\n"
+                "🔧 **Kitchen Not Active**\n\n"
+                "The TUI is running in standalone mode. Start with `--active` flag:\n"
+                "`uv run vibe --tui --active`\n\n"
                 "*Available commands: `/help`, `/modes`, `/roast`, `/wisdom`*"
             )
             return
@@ -907,10 +927,27 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
             self.notify(f"Mode error: {e}", severity="error", timeout=3)
 
     async def _setup_brigade(self) -> None:
+        """Initialize the full Brigade for active mode."""
+        # Load API keys from .env files
+        try:
+            from chefchat.core.utils import load_api_keys_from_env
+
+            load_api_keys_from_env()
+        except Exception as e:
+            logger.warning("Could not load API keys from .env: %s", e)
+
+        # Create and start the brigade
         self._brigade = await create_default_brigade()
         self._bus = self._brigade.bus
         self._bus.subscribe("tui", self._handle_bus_message)
         await self._brigade.open_kitchen()
+
+        # Log brigade status
+        logger.info(
+            "Brigade started with %d stations: %s",
+            self._brigade.station_count,
+            self._brigade.station_names,
+        )
 
 
 def run(

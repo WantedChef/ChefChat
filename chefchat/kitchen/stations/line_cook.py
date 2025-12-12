@@ -263,3 +263,37 @@ class LineCook(BaseStation):
                 "message": "✅ Refactored!",
             },
         )
+
+    async def _send_error(self, error: str) -> None:
+        """Send an error message to the TUI and Sous Chef.
+
+        Args:
+            error: Error message to send
+        """
+        # Update status to error
+        await self.send(
+            recipient="tui",
+            action="STATUS_UPDATE",
+            payload={
+                "station": self.name,
+                "status": "error",
+                "progress": 0,
+                "message": f"❌ Error: {error[:50]}...",
+            },
+        )
+
+        # Log error message
+        await self.send(
+            recipient="tui",
+            action="LOG_MESSAGE",
+            payload={"type": "system", "content": f"❌ **Line Cook Error**: {error}"},
+        )
+
+        # Notify Sous Chef of the error
+        await self.send(
+            recipient="sous_chef",
+            action="TASK_ERROR",
+            payload={"ticket_id": self._current_task, "error": error},
+        )
+
+        self._current_task = None

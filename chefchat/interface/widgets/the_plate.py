@@ -256,3 +256,41 @@ class ThePlate(TabbedContent):
             The current code content
         """
         return self.current_code
+
+    def show_current_plate(self) -> None:
+        """Switch focus to the Code tab and display current plate content.
+
+        Shows the user what's currently on the plate (code tab).
+        """
+        # Switch to Code tab
+        self.active = "tab-code"
+
+        # If no code is plated, show a helpful message
+        if not self.current_code:
+            self.notify(
+                "The plate is empty - no code generated yet.", severity="warning"
+            )
+        else:
+            self.notify(
+                f"Showing {len(self.current_code)} chars of {self.current_language} code."
+            )
+
+    def update_code_content(self, content: str) -> None:
+        """Update the code content in place (for streaming).
+
+        Args:
+            content: The updated code content
+        """
+        # For streaming updates, we update the reactive property
+        self.current_code = content
+
+        # If there's a code block, update it
+        try:
+            scroll_container = self.query_one("#plate-code-scroll")
+            code_blocks = list(scroll_container.query(CodeBlock))
+            if code_blocks:
+                # Update the last code block
+                code_blocks[-1].code = content
+                code_blocks[-1].refresh()
+        except Exception:
+            pass  # Ignore if widget not found
