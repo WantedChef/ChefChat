@@ -16,6 +16,8 @@ from collections.abc import AsyncIterator
 import os
 from typing import TYPE_CHECKING, Any
 
+from chefchat.core.config import VibeConfig, load_api_keys_from_env
+
 if TYPE_CHECKING:
     from chefchat.config import LLMConfig
 
@@ -233,14 +235,15 @@ class SimulatedAdapter(LLMAdapter):
         """Generate simulated response."""
         return f"""# Simulated Response
 
-> No API key configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.
+> No API key configured. Set MISTRAL_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY.
 
 **Your request:** {prompt[:200]}...
 
-To enable real LLM responses, configure your `.chef/palate.toml`:
+To enable real LLM responses, either configure your `.vibe/.env` (recommended)
+or configure your `.chef/palate.toml`:
 ```toml
 [llm]
-provider = "openai"  # or "anthropic"
+provider = "mistral"  # or "openai" / "anthropic"
 ```
 
 And set the appropriate environment variable.
@@ -301,10 +304,25 @@ Keep it under 300 words. Make it sting, but make it useful."""
             config: LLM configuration (loads from palate.toml if None)
         """
         if config is None:
-            from chefchat.config import load_palate_config
+            # Prefer the main CLI config (.vibe/config.toml) so kitchen "cook" uses
+            # the same provider/model as the rest of the app.
+            try:
+                load_api_keys_from_env()
+                vibe = VibeConfig.load()
+                active_model = vibe.get_active_model()
+                provider = vibe.get_provider_for_model(active_model)
+                config = LLMConfig(
+                    provider=provider.name,
+                    model=active_model.name,
+                    temperature=active_model.temperature,
+                    max_tokens=active_model.max_tokens or 4096,
+                )
+            except Exception:
+                # Fallback to the kitchen-specific palate config.
+                from chefchat.config import load_palate_config
 
-            palate = load_palate_config()
-            config = palate.llm
+                palate = load_palate_config()
+                config = palate.llm
 
         self.config = config
         self._adapter: LLMAdapter | None = None
