@@ -11,10 +11,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import logging
+
+import httpx
+
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePriority
 
 if TYPE_CHECKING:
     pass
+
+logger = logging.getLogger(__name__)
 
 
 class Sommelier(BaseStation):
@@ -75,11 +81,28 @@ class Sommelier(BaseStation):
             },
         )
 
-        # TODO: Implement actual PyPI API verification
-        # For now, simulate verification
+        exists = False
+        is_safe = True
+        recommended_version = "latest"
 
-        exists = True  # Placeholder
-        is_safe = True  # Placeholder - would check for known vulnerabilities
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"https://pypi.org/pypi/{package_name}/json"
+                )
+                if response.status_code == 200:
+                    exists = True
+                    data = response.json()
+                    recommended_version = data.get("info", {}).get("version", "latest")
+                elif response.status_code == 404:
+                    exists = False
+                    logger.info("Package %s not found on PyPI", package_name)
+                else:
+                    logger.warning(
+                        "PyPI returned %s for %s", response.status_code, package_name
+                    )
+        except Exception as e:
+            logger.error("Error checking PyPI for %s: %s", package_name, e)
 
         if exists:
             self._verified_packages.add(package_name)
@@ -92,7 +115,7 @@ class Sommelier(BaseStation):
                 "package": package_name,
                 "exists": exists,
                 "is_safe": is_safe,
-                "recommended_version": "latest",
+                "recommended_version": recommended_version,
             },
         )
 
