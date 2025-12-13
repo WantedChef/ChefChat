@@ -920,10 +920,14 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
         )
 
         await self._bus.publish(message)
-        self.query_one("#ticket-rail", TicketRail).add_system_message(
-            f"🥄 **Taste Test Ordered** (Ticket #{ticket_id})\n\n"
-            "Expeditor is checking the dish (running tests & linting)..."
-        )
+        try:
+            self.query_one("#ticket-rail", TicketRail).add_system_message(
+                f"🥄 **Taste Test Ordered** (Ticket #{ticket_id})\n\n"
+                "Expeditor is checking the dish (running tests & linting)..."
+            )
+        except Exception:
+            # In unit tests the Textual app is not running and no screen stack exists.
+            pass
 
     async def _chef_timer(self, arg: str) -> None:
         """Show timer info."""

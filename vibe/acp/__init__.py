@@ -1,3 +1,5 @@
 from __future__ import annotations
 
-__all__: list[str] = []
+from . import acp_agent as acp_agent
+
+__all__ = ["acp_agent"]

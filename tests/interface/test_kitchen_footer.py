@@ -52,7 +52,7 @@ def test_kitchen_footer_auto_status_classes(mode_manager):
 
     auto_value_widget = widgets[2]  # Third widget is the auto value
     assert "auto-on" in auto_value_widget.classes
-    assert auto_value_widget.renderable == "ON"
+    assert str(auto_value_widget.render()) == "ON"
 
     # Test with auto-approve OFF
     mode_manager.state.auto_approve = False
@@ -61,7 +61,7 @@ def test_kitchen_footer_auto_status_classes(mode_manager):
 
     auto_value_widget2 = widgets2[2]
     assert "auto-off" in auto_value_widget2.classes
-    assert auto_value_widget2.renderable == "OFF"
+    assert str(auto_value_widget2.render()) == "OFF"
 
 
 def test_kitchen_footer_refresh_mode(mode_manager):

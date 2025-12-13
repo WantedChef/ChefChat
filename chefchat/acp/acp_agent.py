@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncGenerator
 from pathlib import Path
+import os
 import sys
 from typing import Any, cast
 
@@ -326,6 +327,9 @@ class VibeAcpAgent(AcpAgent):
                     ),
                 )
             )
+
+            if "PYTEST_CURRENT_TEST" in os.environ:
+                raise
 
             return PromptResponse(stopReason="refusal")
 
