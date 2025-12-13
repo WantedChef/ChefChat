@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
 
 if TYPE_CHECKING:
-    from chefchat.kitchen.brain import KitchenBrain
+    from chefchat.kitchen.manager import KitchenManager
 
 
 class LineCook(BaseStation):
@@ -28,15 +28,15 @@ class LineCook(BaseStation):
     - Result reporting
     """
 
-    def __init__(self, bus: KitchenBus, brain: KitchenBrain) -> None:
+    def __init__(self, bus: KitchenBus, manager: KitchenManager) -> None:
         """Initialize the Line Cook station.
 
         Args:
             bus: The kitchen bus to connect to
-            brain: The kitchen brain for LLM operations
+            manager: The kitchen manager for AI operations
         """
         super().__init__("line_cook", bus)
-        self.brain = brain
+        self.manager = manager
         self._current_task: str | None = None
 
     async def handle(self, message: ChefMessage) -> None:
@@ -87,10 +87,10 @@ class LineCook(BaseStation):
         )
 
         try:
-            # Generate code using the Brain with streaming updates
+            # Generate code using the Manager with streaming updates
             generated_code = ""
-            async for chunk in self.brain.stream_response(
-                f"Implement this plan:\n{task}", system=self.brain.CODE_SYSTEM_PROMPT
+            async for chunk in self.manager.stream_response(
+                f"Implement this plan:\n{task}", system=self.manager.CODE_SYSTEM_PROMPT
             ):
                 generated_code += chunk
                 # Throttle updates to avoid flooding TUI
