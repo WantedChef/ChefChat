@@ -157,6 +157,13 @@ ENV/
 env.bak/
 venv.bak/
 
+# Project-local Vibe/ChefChat config
+/.vibe/.env
+/.vibe/chefchat.log
+/.vibe/logs/
+/.vibe/tui_prefs.json
+/.vibe/vibehistory
+
 # Spyder project settings
 .spyderproject
 .spyproject

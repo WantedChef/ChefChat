@@ -47,27 +47,28 @@ class WhiskLoader(Horizontal):
             return
 
         self.add_class("visible")
+
+        async def _animate_worker() -> None:
+            try:
+                while True:
+                    self._frame_index = (self._frame_index + 1) % len(WHISK_FRAMES)
+                    try:
+                        spinner = self.query_one(".whisk-spinner", Static)
+                        spinner.update(WHISK_FRAMES[self._frame_index])
+                    except Exception:
+                        break
+                    await asyncio.sleep(0.15)
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self.remove_class("visible")
+
         self._worker = self.run_worker(
-            self._animate(),
+            _animate_worker(),
             exclusive=True,
             group="whisk_animation",
             exit_on_error=False,
         )
-
-    async def _animate(self) -> None:
-        try:
-            while True:
-                self._frame_index = (self._frame_index + 1) % len(WHISK_FRAMES)
-                try:
-                    spinner = self.query_one(".whisk-spinner", Static)
-                    spinner.update(WHISK_FRAMES[self._frame_index])
-                except Exception:
-                    break
-                await asyncio.sleep(0.15)
-        except asyncio.CancelledError:
-            pass
-        finally:
-            self.remove_class("visible")
 
     def stop(self) -> None:
         if self._worker:

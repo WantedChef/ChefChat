@@ -81,6 +81,11 @@ from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 import pytest
 
+from unittest.mock import ANY
+
+if not hasattr(pytest, "any"):
+    pytest.any = ANY
+
 _in_mem_config: dict[str, Any] = {}
 
 

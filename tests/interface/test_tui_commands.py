@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -44,7 +44,7 @@ async def test_handle_command_unknown(app):
         msg_mock = MagicMock()
         mock_query.return_value = msg_mock
         await app._handle_command("/unknowncmd")
-        mock_query.assert_called_with("#ticket-rail", pytest.any)
+        mock_query.assert_called_with("#ticket-rail", ANY)
         # Note: actual class is imported inside method, so we check string ID
 
 

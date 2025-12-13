@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import ClassVar
 
 from textual.app import ComposeResult
@@ -73,6 +74,16 @@ class WelcomeScreen(OnboardingScreen):
     def on_mount(self) -> None:
         self._welcome_text = self.query_one("#welcome-text", Static)
         self._enter_hint = self.query_one("#enter-hint", Static)
+
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            self._char_index = len(WELCOME_TEXT)
+            self._typing_done = True
+            self._welcome_text.update(self._render_text(self._char_index))
+            self._enter_hint.update(BUTTON_TEXT)
+            self._enter_hint.remove_class("hidden")
+            self.focus()
+            return
+
         self._typing_timer = self.set_interval(0.04, self._type_next_char)
         self.focus()
 

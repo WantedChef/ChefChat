@@ -146,7 +146,7 @@ class ApiKeyScreen(OnboardingScreen):
             _save_api_key_to_env_file(self.env_var, api_key)
 
             # Also update local config to use this provider's model as active
-            active_model = "devstral-2"  # Default fallback
+            active_model = "devstral-2512"  # Default fallback
             if self.provider_name == "openai":
                 active_model = "gpt4o"
             elif self.provider_name == "anthropic":

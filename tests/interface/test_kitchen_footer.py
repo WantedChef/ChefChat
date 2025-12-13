@@ -29,8 +29,8 @@ def test_kitchen_footer_compose(mode_manager):
     footer = KitchenFooter(mode_manager)
     widgets = list(footer.compose())
 
-    # Should yield 6 Static widgets
-    assert len(widgets) == 6
+    # Should yield 7 Static widgets
+    assert len(widgets) == 7
     assert all(isinstance(w, Static) for w in widgets)
 
     # Check classes
@@ -40,13 +40,13 @@ def test_kitchen_footer_compose(mode_manager):
     assert "footer-sep" in widgets[3].classes
     assert "key-hint" in widgets[4].classes
     assert "key-hint" in widgets[5].classes
-    assert "key-hint" in widgets[6 - 1].classes
+    assert "key-hint" in widgets[6].classes
 
 
 def test_kitchen_footer_auto_status_classes(mode_manager):
     """Test auto-approve status class assignment."""
     # Test with auto-approve ON
-    mode_manager._auto_approve = True
+    mode_manager.state.auto_approve = True
     footer = KitchenFooter(mode_manager)
     widgets = list(footer.compose())
 
@@ -55,7 +55,7 @@ def test_kitchen_footer_auto_status_classes(mode_manager):
     assert auto_value_widget.renderable == "ON"
 
     # Test with auto-approve OFF
-    mode_manager._auto_approve = False
+    mode_manager.state.auto_approve = False
     footer2 = KitchenFooter(mode_manager)
     widgets2 = list(footer2.compose())
 

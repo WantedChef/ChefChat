@@ -325,6 +325,21 @@ def main() -> None:
             os.environ.setdefault("FORCE_COLOR", "1")
             os.environ.setdefault("TERM", "xterm-256color")
 
+            if not sys.stdin.isatty():
+                try:
+                    tty = open("/dev/tty")
+                    if tty.isatty():
+                        sys.stdin = tty
+                except OSError:
+                    pass
+
+            if not sys.stdin.isatty():
+                rprint(
+                    "[red]❌ TUI requires an interactive terminal (TTY). "
+                    "Run ChefChat in a real terminal or use `--repl`.[/]"
+                )
+                sys.exit(1)
+
             # Late import to avoid heavy dependencies if only doing --help or programmatic
             from chefchat.interface.tui import run as run_tui
 

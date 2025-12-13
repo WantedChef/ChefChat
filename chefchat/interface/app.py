@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
+from enum import Enum, auto
 import logging
 import os
 from pathlib import Path
@@ -81,6 +83,34 @@ def sanitize_markdown_input(text: str) -> str:
     return sanitized
 
 
+class AppStateKind(Enum):
+    IDLE = auto()
+    RUNNING = auto()
+    CANCELLING = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class AppState:
+    kind: AppStateKind
+    ticket_id: str | None = None
+
+    @classmethod
+    def idle(cls) -> AppState:
+        return cls(kind=AppStateKind.IDLE, ticket_id=None)
+
+    @classmethod
+    def running(cls, ticket_id: str | None) -> AppState:
+        return cls(kind=AppStateKind.RUNNING, ticket_id=ticket_id)
+
+    @classmethod
+    def cancelling(cls, ticket_id: str | None) -> AppState:
+        return cls(kind=AppStateKind.CANCELLING, ticket_id=ticket_id)
+
+    @property
+    def is_processing(self) -> bool:
+        return self.kind in {AppStateKind.RUNNING, AppStateKind.CANCELLING}
+
+
 class ChefChatApp(App):
     """The main ChefChat TUI application."""
 
@@ -104,8 +134,12 @@ class ChefChatApp(App):
         StatusString.COOKING.value: StationStatus.WORKING,
         StatusString.TESTING.value: StationStatus.WORKING,
         StatusString.REFACTORING.value: StationStatus.WORKING,
+        "verifying": StationStatus.WORKING,
+        "researching": StationStatus.WORKING,
+        "auditing": StationStatus.WORKING,
         StatusString.COMPLETE.value: StationStatus.COMPLETE,
         StatusString.ERROR.value: StationStatus.ERROR,
+        "ready": StationStatus.COMPLETE,
     }
 
     def __init__(
@@ -114,7 +148,7 @@ class ChefChatApp(App):
         super().__init__()
         self._bus: KitchenBus | None = None
         self._brigade: Brigade | None = None
-        self._processing = False
+        self._state = AppState.idle()
         self._mode_manager = ModeManager(initial_mode=VibeMode.NORMAL)
         self._command_registry = CommandRegistry()
         self._layout = layout
@@ -276,7 +310,8 @@ class ChefChatApp(App):
     async def _handle_bus_message(self, message: ChefMessage) -> None:
         """Handle incoming messages from the bus."""
         try:
-            match message.action:
+            action = str(message.action).upper()
+            match action:
                 case BusAction.STATUS_UPDATE.value:
                     await self._update_station_status(message.payload)
                 case BusAction.LOG_MESSAGE.value:
@@ -289,8 +324,42 @@ class ChefChatApp(App):
                     await self._add_terminal_log(message.payload)
                 case BusAction.PLAN.value:
                     await self._add_plan(message.payload)
+                case BusAction.TICKET_DONE.value:
+                    await self._on_ticket_done(message.payload)
         except Exception as exc:
             logger.exception("Error handling bus message: %s", exc)
+
+    def _enter_running(self, ticket_id: str | None) -> None:
+        self._state = AppState.running(ticket_id)
+
+    def _enter_cancelling(self) -> None:
+        self._state = AppState.cancelling(self._state.ticket_id)
+
+    def _enter_idle(self) -> None:
+        self._state = AppState.idle()
+
+    async def _on_ticket_done(self, payload: dict) -> None:
+        """Finalize the current ticket lifecycle.
+
+        This must be safe to call multiple times and should always end
+        the "Cooking..." state.
+        """
+        ticket_id = str(payload.get(PayloadKey.TICKET_ID, "") or "")
+
+        if self._state.ticket_id and ticket_id and ticket_id != self._state.ticket_id:
+            return
+
+        self._enter_idle()
+
+        try:
+            self.query_one(WhiskLoader).stop()
+        except Exception:
+            pass
+
+        try:
+            self.query_one("#ticket-rail", TicketRail).finish_streaming_message()
+        except Exception:
+            pass
 
     async def _update_station_status(self, payload: dict) -> None:
         # ThePass only exists in FULL_KITCHEN layout
@@ -308,6 +377,10 @@ class ChefChatApp(App):
 
         station_board = self.query_one("#the-pass", ThePass)
         station_board.update_station(station_id, status, progress, message)
+
+        # Failsafe: if we are processing and a station enters ERROR, force stop.
+        if self._state.is_processing and status == StationStatus.ERROR:
+            await self._on_ticket_done({PayloadKey.TICKET_ID: self._state.ticket_id or ""})
 
     async def _add_log_message(self, payload: dict) -> None:
         content = str(
@@ -359,21 +432,27 @@ class ChefChatApp(App):
     @on(Input.Submitted)
     async def handle_input(self, event: Input.Submitted) -> None:
         """Handle user input submission."""
-        val = event.value.strip()
-        if not val:
-            return
+        try:
+            if getattr(event.input, "id", None) != "command-input":
+                return
 
-        user_input = sanitize_markdown_input(val)
-        if not user_input.strip():
-            return
+            val = event.value.strip()
+            if not val:
+                return
 
-        # Clear input immediately for better UX
-        self.query_one("#command-input", CommandInput).value = ""
+            user_input = sanitize_markdown_input(val)
+            if not user_input.strip():
+                return
 
-        if user_input.startswith("/"):
-            await self._handle_command(user_input)
-        else:
-            await self._submit_ticket(user_input)
+            event.input.value = ""
+
+            if user_input.startswith("/"):
+                await self._handle_command(user_input)
+            else:
+                await self._submit_ticket(user_input)
+        except Exception as e:
+            logger.exception("Error handling input submission: %s", e)
+            self.notify(f"Input error: {e}", severity="error")
 
     @work(exclusive=True)
     async def _run_agent_loop(self, request: str) -> None:
@@ -391,6 +470,7 @@ class ChefChatApp(App):
         # UI Updates directly (we are on main loop)
         loader.start("Thinking...")
         ticket_rail.start_streaming_message()
+        self._enter_running(None)
 
         try:
             async for event in self._agent.act(request):
@@ -428,7 +508,7 @@ class ChefChatApp(App):
         finally:
             ticket_rail.finish_streaming_message()
             loader.stop()
-            self._processing = False
+            self._enter_idle()
 
     async def _submit_ticket(self, request: str) -> None:
         """Submit a new ticket to the kitchen via the bus."""
@@ -452,7 +532,7 @@ class ChefChatApp(App):
 
             # Start the loader
             self.query_one(WhiskLoader).start("Cooking...")
-            self._processing = True
+            self._enter_running(ticket_id)
 
             await self._bus.publish(message)
             return
@@ -482,7 +562,7 @@ class ChefChatApp(App):
 
         # Start the loader
         self.query_one(WhiskLoader).start("Processing ticket...")
-        self._processing = True
+        self._enter_running(ticket_id)
 
         await self._bus.publish(message)
 
@@ -888,9 +968,38 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
         self.exit()
 
     def action_cancel(self) -> None:
-        self._processing = False
+        if not self._state.is_processing:
+            return
+
+        self._enter_cancelling()
+
+        # Request cancellation from backend first (best effort).
+        try:
+            if self._bus and self._state.ticket_id:
+                cancel_msg = ChefMessage(
+                    sender="tui",
+                    recipient="sous_chef",
+                    action=BusAction.CANCEL_TICKET.value,
+                    payload={PayloadKey.TICKET_ID: self._state.ticket_id},
+                    priority=MessagePriority.HIGH,
+                )
+                asyncio.create_task(self._bus.publish(cancel_msg))
+        except Exception:
+            pass
+
+        self._enter_idle()
         try:
             self.query_one(WhiskLoader).stop()
+        except Exception:
+            pass
+
+        try:
+            self.query_one("#ticket-rail", TicketRail).finish_streaming_message()
+        except Exception:
+            pass
+
+        try:
+            self.notify("Cancelled. Kitchen stopped.", timeout=2)
         except Exception:
             pass
 
@@ -898,6 +1007,10 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
         asyncio.create_task(self._handle_clear())
 
     def action_focus_input(self) -> None:
+        if self._state.is_processing:
+            self.action_cancel()
+            return
+
         self.query_one("#command-input", CommandInput).focus()
 
     def action_cycle_mode(self) -> None:
@@ -909,9 +1022,14 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
             if config is None:
                 return
 
+            if self._agent:
+                self._agent.auto_approve = self._mode_manager.auto_approve
+
             # Update the KitchenFooter silently
             try:
-                self.query_one("#kitchen-footer", KitchenFooter).refresh_mode()
+                footer = self.query_one("#kitchen-footer", KitchenFooter)
+                footer.refresh_mode()
+                footer.refresh()
             except Exception:
                 pass
 
@@ -930,8 +1048,6 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
         """Initialize the full Brigade for active mode."""
         # Load API keys from .env files
         try:
-            from chefchat.core.utils import load_api_keys_from_env
-
             load_api_keys_from_env()
         except Exception as e:
             logger.warning("Could not load API keys from .env: %s", e)

@@ -289,7 +289,30 @@ class BaseStation(ABC):
         while self._running:
             try:
                 message = await asyncio.wait_for(self._inbox.get(), timeout=0.1)
-                await self.handle(message)
+                try:
+                    await self.handle(message)
+                except Exception as exc:
+                    logger.exception("Station %s crashed handling message: %s", self.name, exc)
+                    await self.send(
+                        recipient="tui",
+                        action="STATUS_UPDATE",
+                        payload={
+                            "station": self.name,
+                            "status": "error",
+                            "progress": 100,
+                            "message": f"❌ {self.name} crashed: {exc}",
+                        },
+                        priority=MessagePriority.CRITICAL,
+                    )
+                    await self.send(
+                        recipient="tui",
+                        action="LOG_MESSAGE",
+                        payload={
+                            "type": "system",
+                            "content": f"❌ **{self.name} crashed**: {exc}",
+                        },
+                        priority=MessagePriority.CRITICAL,
+                    )
             except TimeoutError:
                 continue
             except asyncio.CancelledError:

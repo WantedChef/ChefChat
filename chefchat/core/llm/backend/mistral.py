@@ -47,7 +47,6 @@ class MistralMapper:
                             ),
                             id=tc.id,
                             type=tc.type,
-                            index=tc.index,
                         )
                         for tc in msg.tool_calls or []
                     ],
@@ -74,7 +73,12 @@ class MistralMapper:
         self, tool_choice: StrToolChoice | AvailableTool
     ) -> mistralai.ChatCompletionStreamRequestToolChoice:
         if isinstance(tool_choice, str):
-            return cast(mistralai.ToolChoiceEnum, tool_choice)
+            # Mistral tool_choice supports: auto | any | none
+            # Our internal union may include additional values (e.g. "required").
+            normalized = "any" if tool_choice == "required" else tool_choice
+            if normalized not in {"auto", "any", "none"}:
+                normalized = "auto"
+            return cast(mistralai.ToolChoiceEnum, normalized)
 
         return mistralai.ToolChoice(
             type="function",
@@ -106,7 +110,7 @@ class MistralMapper:
                     if isinstance(tool_call.function.arguments, str)
                     else json.dumps(tool_call.function.arguments),
                 ),
-                index=tool_call.index,
+                index=getattr(tool_call, "index", None),
             )
             for tool_call in tool_calls
         ]

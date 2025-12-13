@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from rich.console import RenderableType
 from rich.panel import Panel
 from rich.syntax import Syntax
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
@@ -72,7 +73,7 @@ class CodeBlock(Static):
         return syntax
 
 
-class ThePlate(TabbedContent):
+class ThePlate(Static):
     """The code output panel showing generated/modified code.
 
     Organized into tabs:
@@ -85,23 +86,36 @@ class ThePlate(TabbedContent):
 
     BORDER_TITLE = "🍽️ The Plate"
 
+    _DOUBLE_CLICK_CHAIN: int = 2
+
     # Track the current code content
     current_code: reactive[str] = reactive("", init=False)
     current_language: reactive[str] = reactive("python", init=False)
 
     def compose(self) -> ComposeResult:
         """Compose the tabbed interface."""
-        with TabPane("Code", id="tab-code"):
-            yield VerticalScroll(
-                Static("🍽️ Waiting for the dish to be plated...", id="plate-empty"),
-                id="plate-code-scroll",
-            )
+        with TabbedContent(id="plate-tabs"):
+            with TabPane("Code", id="tab-code"):
+                yield VerticalScroll(
+                    Static(
+                        "🍽️ Waiting for the dish to be plated...", id="plate-empty"
+                    ),
+                    id="plate-code-scroll",
+                )
 
-        with TabPane("Terminal", id="tab-terminal"):
-            yield RichLog(id="plate-terminal", highlight=True, markup=True)
+            with TabPane("Terminal", id="tab-terminal"):
+                yield RichLog(id="plate-terminal", highlight=True, markup=True)
 
-        with TabPane("Notes", id="tab-notes"):
-            yield TextArea(language="markdown", id="plate-notes")
+            with TabPane("Notes", id="tab-notes"):
+                yield TextArea(language="markdown", id="plate-notes")
+
+    def on_click(self, event: events.Click) -> None:
+        if event.chain >= self._DOUBLE_CLICK_CHAIN:
+            event.stop()
+
+    @property
+    def _tabs(self) -> TabbedContent:
+        return self.query_one("#plate-tabs", TabbedContent)
 
     def plate_code(
         self,
@@ -166,7 +180,7 @@ class ThePlate(TabbedContent):
             scroll_container.scroll_end(animate=True)
 
         # Switch to Code tab
-        self.active = "tab-code"
+        self._tabs.active = "tab-code"
 
         return block
 
@@ -263,7 +277,7 @@ class ThePlate(TabbedContent):
         Shows the user what's currently on the plate (code tab).
         """
         # Switch to Code tab
-        self.active = "tab-code"
+        self._tabs.active = "tab-code"
 
         # If no code is plated, show a helpful message
         if not self.current_code:

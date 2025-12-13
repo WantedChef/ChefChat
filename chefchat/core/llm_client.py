@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import AsyncGenerator
+import logging
 import time
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,9 @@ from chefchat.core.utils import get_user_agent
 
 if TYPE_CHECKING:
     from chefchat.core.tools.manager import ToolManager
+
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
@@ -119,9 +123,17 @@ class LLMClient:
             return result
 
         except Exception as e:
-            # Check if this is a BackendError with context-too-long
             from chefchat.core.llm.exceptions import BackendError
 
+            if isinstance(e, BackendError):
+                logger.error(
+                    "LLM backend error (%s): %s\n%s",
+                    provider.name,
+                    e.parsed_error or e.reason or "N/A",
+                    e.body_text[:2000] if e.body_text else "",
+                )
+
+            # Check if this is a BackendError with context-too-long
             if isinstance(e, BackendError) and e.is_context_too_long():
                 # Convert to user-friendly error with recovery hints
                 error_msg = f"""**Prompt Too Long Error**
@@ -144,6 +156,12 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                 raise RuntimeError(error_msg) from e
 
             # For other errors, use the original error message
+            if isinstance(e, BackendError):
+                detail = e.parsed_error or e.reason or "N/A"
+                raise RuntimeError(
+                    f"API error from {provider.name} (model: {active_model.name}): {detail}"
+                ) from e
+
             raise RuntimeError(
                 f"API error from {provider.name} (model: {active_model.name}): {e}"
             ) from e
@@ -199,6 +217,14 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
             # Check if this is a BackendError with context-too-long
             from chefchat.core.llm.exceptions import BackendError
 
+            if isinstance(e, BackendError):
+                logger.error(
+                    "LLM backend streaming error (%s): %s\n%s",
+                    provider.name,
+                    e.parsed_error or e.reason or "N/A",
+                    e.body_text[:2000] if e.body_text else "",
+                )
+
             if isinstance(e, BackendError) and e.is_context_too_long():
                 # Convert to user-friendly error with recovery hints
                 error_msg = f"""**Prompt Too Long Error**
@@ -221,6 +247,12 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                 raise RuntimeError(error_msg) from e
 
             # For other errors, use the original error message
+            if isinstance(e, BackendError):
+                detail = e.parsed_error or e.reason or "N/A"
+                raise RuntimeError(
+                    f"API error from {provider.name} (model: {active_model.name}): {detail}"
+                ) from e
+
             raise RuntimeError(
                 f"API error from {provider.name} (model: {active_model.name}): {e}"
             ) from e
