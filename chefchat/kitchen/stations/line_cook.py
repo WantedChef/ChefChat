@@ -146,6 +146,8 @@ class LineCook(BaseStation):
         Args:
             payload: Error details from Expeditor
         """
+        import pathlib
+
         ticket_id = payload.get("ticket_id", "unknown")
         attempt = payload.get("attempt", 1)
         max_attempts = payload.get("max_attempts", 3)
@@ -174,33 +176,84 @@ class LineCook(BaseStation):
             },
         )
 
-        # Simulate fix attempt
-        await asyncio.sleep(1.5)
+        # Read the file content
+        try:
+            file_path = pathlib.Path(path)
+            if not file_path.is_absolute():
+                # Assuming relative to current working directory for now
+                file_path = pathlib.Path.cwd() / path
 
-        # TODO: Connect to LLM to actually fix the errors
-        # For now, simulate a fix attempt
+            if not file_path.exists():
+                raise FileNotFoundError(f"File not found: {path}")
 
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "complete",
-                "progress": 100,
-                "message": "✅ Fix applied",
-            },
+            code_content = file_path.read_text()
+
+        except Exception as e:
+            await self._send_error(f"Could not read file to fix: {e}")
+            return
+
+        # Construct prompt for the LLM
+        error_list = "\n".join(errors)
+        prompt = (
+            f"Please fix the following code which has errors.\n\n"
+            f"FILE: {path}\n"
+            f"ERRORS:\n{error_list}\n\n"
+            f"CODE:\n```python\n{code_content}\n```\n\n"
+            f"Return ONLY the fixed code block."
         )
 
-        # Report back to Expeditor
-        await self.send(
-            recipient="expeditor",
-            action="healing_result",
-            payload={
-                "ticket_id": ticket_id,
-                "success": True,  # Simulated success
-                "path": path,
-            },
-        )
+        try:
+            # Generate code using the Manager with streaming updates
+            generated_code = ""
+            async for chunk in self.manager.stream_response(
+                prompt, system=self.manager.CODE_SYSTEM_PROMPT
+            ):
+                generated_code += chunk
+                # Throttle updates to avoid flooding TUI
+                if len(generated_code) % 50 == 0:
+                    await self.send(
+                        recipient="tui",
+                        action="STREAM_UPDATE",
+                        payload={"content": chunk, "full_content": generated_code},
+                    )
+
+            # Clean up code (remove markdown code blocks if present)
+            cleaned_code = generated_code
+            if "```python" in cleaned_code:
+                cleaned_code = cleaned_code.split("```python")[1]
+            if "```" in cleaned_code:
+                cleaned_code = cleaned_code.split("```")[0]
+
+            cleaned_code = cleaned_code.strip()
+
+            # Write back to file
+            file_path.write_text(cleaned_code)
+
+            await self.send(
+                recipient="tui",
+                action="STATUS_UPDATE",
+                payload={
+                    "station": self.name,
+                    "status": "complete",
+                    "progress": 100,
+                    "message": "✅ Fix applied",
+                },
+            )
+
+            # Report back to Expeditor
+            await self.send(
+                recipient="expeditor",
+                action="healing_result",
+                payload={"ticket_id": ticket_id, "success": True, "path": path},
+            )
+
+        except Exception as e:
+            await self._send_error(f"Failed to fix code: {e}")
+            await self.send(
+                recipient="expeditor",
+                action="healing_result",
+                payload={"ticket_id": ticket_id, "success": False, "path": path},
+            )
 
         self._current_task = None
 

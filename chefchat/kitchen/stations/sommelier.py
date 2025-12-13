@@ -9,7 +9,11 @@ The Sommelier knows all about the wine cellar (packages). They:
 
 from __future__ import annotations
 
+import asyncio
+import json
 from typing import TYPE_CHECKING
+
+import httpx
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePriority
 
@@ -75,14 +79,41 @@ class Sommelier(BaseStation):
             },
         )
 
-        # TODO: Implement actual PyPI API verification
-        # For now, simulate verification
+        exists = False
+        is_safe = True
+        latest_version = None
+        yanked = False
+        info_msg = ""
 
-        exists = True  # Placeholder
-        is_safe = True  # Placeholder - would check for known vulnerabilities
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"https://pypi.org/pypi/{package_name}/json", timeout=10.0
+                )
 
-        if exists:
-            self._verified_packages.add(package_name)
+                if response.status_code == 200:
+                    data = response.json()
+                    exists = True
+                    info = data.get("info", {})
+                    latest_version = info.get("version")
+                    yanked = info.get("yanked", False)
+
+                    if yanked:
+                        is_safe = False
+                        info_msg = f"Package '{package_name}' is YANKED on PyPI."
+                    else:
+                        info_msg = f"Found '{package_name}' v{latest_version}."
+                        self._verified_packages.add(package_name)
+                elif response.status_code == 404:
+                    exists = False
+                    info_msg = f"Package '{package_name}' not found on PyPI."
+                else:
+                    exists = False
+                    info_msg = f"PyPI returned status {response.status_code}."
+
+        except Exception as e:
+            exists = False
+            info_msg = f"Error checking PyPI: {e}"
 
         # Report back to requester
         await self.send(
@@ -92,9 +123,31 @@ class Sommelier(BaseStation):
                 "package": package_name,
                 "exists": exists,
                 "is_safe": is_safe,
-                "recommended_version": "latest",
+                "recommended_version": latest_version or "unknown",
+                "message": info_msg,
             },
         )
+
+        # Also log to TUI for visibility
+        if exists:
+            log_type = (
+                "system" if is_safe else "system"
+            )  # Use system for both for now, maybe error for unsafe
+            content = f"🍷 **Sommelier**: {info_msg}"
+            if not is_safe:
+                content = f"⚠️ **Sommelier**: {info_msg}"
+
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={"type": log_type, "content": content},
+            )
+        elif not exists and package_name:
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={"type": "system", "content": f"🍷 **Sommelier**: {info_msg}"},
+            )
 
     async def _recommend_packages(self, payload: dict, requester: str) -> None:
         """Recommend packages for a given use case.
@@ -116,14 +169,15 @@ class Sommelier(BaseStation):
         )
 
         # TODO: Implement actual package recommendation
-        # Could use LLM or curated database
+        # For now, we only implemented verification.
 
         await self.send(
             recipient=requester,
             action="package_recommendations",
             payload={
                 "use_case": use_case,
-                "recommendations": [],  # Placeholder
+                "recommendations": [],
+                "message": "Recommendation engine not yet fully trained (Phase 2).",
             },
         )
 
@@ -146,16 +200,79 @@ class Sommelier(BaseStation):
             },
         )
 
-        # TODO: Implement actual vulnerability checking
-        # Could use safety, pip-audit, or vulnerability databases
+        vulnerabilities = []
+        all_clear = True
+        tool_used = "none"
+
+        # Try using pip-audit if installed
+        try:
+            # Check if pip-audit is available first or just try running it
+            # We assume uv is available since this is a uv project
+            process = await asyncio.create_subprocess_exec(
+                "uv",
+                "run",
+                "pip-audit",
+                "-f",
+                "json",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+
+            if (
+                process.returncode == 0 or process.returncode == 1
+            ):  # 1 means vulnerabilities found but tool ran ok
+                tool_used = "pip-audit"
+                try:
+                    audit_data = json.loads(stdout.decode())
+                    if "dependencies" in audit_data:
+                        for dep in audit_data["dependencies"]:
+                            if dep.get("vulns"):
+                                for vuln in dep["vulns"]:
+                                    vulnerabilities.append({
+                                        "package": dep.get("name"),
+                                        "version": dep.get("version"),
+                                        "id": vuln.get("id"),
+                                        "description": vuln.get("description"),
+                                    })
+                                    all_clear = False
+                except json.JSONDecodeError:
+                    pass  # Failed to parse json
+            else:
+                # pip-audit might not be installed or failed
+                pass
+
+        except FileNotFoundError:
+            # uv not found
+            pass
+
+        if tool_used == "none":
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={
+                    "type": "system",
+                    "content": "⚠️ **Sommelier**: `pip-audit` not found. Skipping deep security scan.",
+                },
+            )
+        elif not all_clear:
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={
+                    "type": "system",
+                    "content": f"⚠️ **Sommelier**: Found {len(vulnerabilities)} vulnerabilities!",
+                },
+            )
 
         await self.send(
             recipient=requester,
             action="security_report",
             payload={
                 "packages_checked": len(packages),
-                "vulnerabilities": [],  # Placeholder
-                "all_clear": True,
+                "vulnerabilities": vulnerabilities,
+                "all_clear": all_clear,
+                "tool_used": tool_used,
             },
             priority=MessagePriority.HIGH,
         )

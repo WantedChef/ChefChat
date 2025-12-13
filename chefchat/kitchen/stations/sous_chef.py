@@ -44,11 +44,18 @@ class SousChef(BaseStation):
             project_root: Root directory for Knowledge Graph and Recipes
         """
         super().__init__("sous_chef", bus)
+
+        # Late import to avoid circular dependency if any
+        from chefchat.kitchen.manager import KitchenManager
+
         self.project_root = Path(project_root) if project_root else Path.cwd()
         self._current_ticket: str | None = None
         self._pending_tasks: list[dict] = []
         self._ingredients: IngredientsManager | None = None
         self._recipe_executor: RecipeExecutor | None = None
+
+        # Initialize the Manager for planning
+        self.manager = KitchenManager()
 
     async def handle(self, message: ChefMessage) -> None:
         """Process incoming messages.
@@ -83,7 +90,9 @@ class SousChef(BaseStation):
         ticket_id = str(message.payload.get("ticket_id", "") or "")
 
         # Nothing to cancel (id mismatch or idle)
-        if not self._current_ticket or (ticket_id and ticket_id != self._current_ticket):
+        if not self._current_ticket or (
+            ticket_id and ticket_id != self._current_ticket
+        ):
             await self.send(
                 recipient="tui",
                 action="TICKET_DONE",
@@ -614,23 +623,14 @@ class SousChef(BaseStation):
             },
         )
 
-        # Simulate planning time
-        await asyncio.sleep(0.5)
+        # Generate plan using the Manager
+        # NOTE: self.manager is initialized in __init__
+        try:
+            plan_content = await self.manager.generate_plan(request)
+        except Exception as e:
+            await self._send_error(f"Failed to generate plan: {e}")
+            plan_content = f"Implement: {request}"
 
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "planning",
-                "progress": 50,
-                "message": "🔪 Mise en place...",
-            },
-        )
-
-        await asyncio.sleep(0.5)
-
-        # Plan complete - update UI
         await self.send(
             recipient="tui",
             action="STATUS_UPDATE",
@@ -638,7 +638,17 @@ class SousChef(BaseStation):
                 "station": self.name,
                 "status": "complete",
                 "progress": 100,
-                "message": "✅ Order planned",
+                "message": "✅ Plan generated",
+            },
+        )
+
+        # Share plan with user
+        await self.send(
+            recipient="tui",
+            action="LOG_MESSAGE",
+            payload={
+                "type": "assistant",
+                "content": f"📋 **Plan for Ticket #{ticket_id}**:\n\n{plan_content}",
             },
         )
 
@@ -646,10 +656,7 @@ class SousChef(BaseStation):
         await self.send(
             recipient="tui",
             action="LOG_MESSAGE",
-            payload={
-                "type": "system",
-                "content": f"📋 **Ticket #{ticket_id}** received. Delegating to Line Cook...",
-            },
+            payload={"type": "system", "content": "📋 Delegating to Line Cook..."},
         )
 
         # Delegate to Line Cook with PLAN
@@ -658,7 +665,7 @@ class SousChef(BaseStation):
             action="PLAN",
             payload={
                 "ticket_id": ticket_id,
-                "task": request,
+                "task": plan_content,
                 "plan": {"type": "implement", "description": request},
             },
             priority=MessagePriority.HIGH,
@@ -737,7 +744,9 @@ class SousChef(BaseStation):
 
     async def _ensure_snapshot(self, reason: str) -> None:
         """Create a git snapshot before potentially destructive work."""
-        result = await create_snapshot(self.project_root, message=f"ChefChat snapshot - {reason}")
+        result = await create_snapshot(
+            self.project_root, message=f"ChefChat snapshot - {reason}"
+        )
         icon = "🗂️" if result.success else "⚠️"
         await self.send(
             recipient="tui",
