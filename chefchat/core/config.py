@@ -48,8 +48,12 @@ def resolve_config_file() -> Path:
 
 
 def load_api_keys_from_env() -> None:
-    if GLOBAL_ENV_FILE.is_file():
-        env_vars = dotenv_values(GLOBAL_ENV_FILE)
+    project_env_file = CONFIG_DIR / ".env"
+    for env_file in (project_env_file, GLOBAL_ENV_FILE):
+        if not env_file.is_file():
+            continue
+
+        env_vars = dotenv_values(env_file)
         for key, value in env_vars.items():
             if value:
                 os.environ.setdefault(key, value)
@@ -287,6 +291,13 @@ DEFAULT_MODELS = [
     ModelConfig(
         name="mistral-vibe-cli-latest",
         provider="mistral",
+        alias="devstral-2512",
+        input_price=0.4,
+        output_price=2.0,
+    ),
+    ModelConfig(
+        name="mistral-vibe-cli-latest",
+        provider="mistral",
         alias="devstral-2",
         input_price=0.4,
         output_price=2.0,
@@ -341,7 +352,7 @@ DEFAULT_MODELS = [
 
 
 class VibeConfig(BaseSettings):
-    active_model: str = "devstral-2"
+    active_model: str = "devstral-2512"
     vim_keybindings: bool = False
     disable_welcome_banner_animation: bool = False
     displayed_workdir: str = ""
@@ -417,7 +428,7 @@ class VibeConfig(BaseSettings):
 
     def get_active_model(self) -> ModelConfig:
         for model in self.models:
-            if model.alias == self.active_model:
+            if model.alias == self.active_model or model.name == self.active_model:
                 return model
         raise ValueError(
             f"Active model '{self.active_model}' not found in configuration."

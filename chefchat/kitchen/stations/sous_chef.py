@@ -56,7 +56,7 @@ class SousChef(BaseStation):
         Args:
             message: The message to process
         """
-        action = message.action
+        action = str(message.action).upper()
 
         if action == "NEW_TICKET":
             # New user request - check if it's a chef command
@@ -67,14 +67,59 @@ class SousChef(BaseStation):
             else:
                 await self._process_new_ticket(message)
 
-        elif action == "task_complete":
+        elif action == "TASK_COMPLETE":
             await self._handle_completion(message)
 
-        elif action == "task_error":
+        elif action == "TASK_ERROR":
             await self._handle_error(message)
 
-        elif action == "status_request":
+        elif action == "CANCEL_TICKET":
+            await self._handle_cancel_ticket(message)
+
+        elif action == "STATUS_REQUEST":
             await self._report_status(message.sender)
+
+    async def _handle_cancel_ticket(self, message: ChefMessage) -> None:
+        ticket_id = str(message.payload.get("ticket_id", "") or "")
+
+        # Nothing to cancel (id mismatch or idle)
+        if not self._current_ticket or (ticket_id and ticket_id != self._current_ticket):
+            await self.send(
+                recipient="tui",
+                action="TICKET_DONE",
+                payload={
+                    "ticket_id": ticket_id,
+                    "status": "cancel_ignored",
+                    "message": "Nothing to cancel.",
+                },
+                priority=MessagePriority.HIGH,
+            )
+            return
+
+        cancelled = self._current_ticket
+        self._current_ticket = None
+        self._pending_tasks.clear()
+
+        await self.send(
+            recipient="tui",
+            action="LOG_MESSAGE",
+            payload={
+                "type": "system",
+                "content": f"🛑 **Ticket #{cancelled}** cancelled by user.",
+            },
+            priority=MessagePriority.HIGH,
+        )
+
+        await self.send(
+            recipient="tui",
+            action="TICKET_DONE",
+            payload={
+                "ticket_id": cancelled,
+                "status": "cancelled",
+                "message": "Cancelled.",
+            },
+            priority=MessagePriority.HIGH,
+        )
 
     async def _handle_chef_command(self, message: ChefMessage, command: str) -> None:
         """Handle /chef commands.
@@ -622,6 +667,7 @@ class SousChef(BaseStation):
     async def _handle_completion(self, message: ChefMessage) -> None:
         """Handle task completion from a station."""
         sender = message.sender
+        ticket_id = str(message.payload.get("ticket_id", "") or "")
 
         await self.send(
             recipient="tui",
@@ -632,12 +678,25 @@ class SousChef(BaseStation):
             },
         )
 
+        finished_ticket = self._current_ticket or ticket_id
         self._current_ticket = None
+
+        await self.send(
+            recipient="tui",
+            action="TICKET_DONE",
+            payload={
+                "ticket_id": finished_ticket,
+                "status": "success",
+                "message": "Completed.",
+            },
+            priority=MessagePriority.HIGH,
+        )
 
     async def _handle_error(self, message: ChefMessage) -> None:
         """Handle errors from other stations."""
         error = message.payload.get("error", "Unknown error")
         sender = message.sender
+        ticket_id = str(message.payload.get("ticket_id", "") or "")
 
         await self.send(
             recipient="tui",
@@ -648,7 +707,19 @@ class SousChef(BaseStation):
             },
         )
 
+        failed_ticket = self._current_ticket or ticket_id
         self._current_ticket = None
+
+        await self.send(
+            recipient="tui",
+            action="TICKET_DONE",
+            payload={
+                "ticket_id": failed_ticket,
+                "status": "error",
+                "message": str(error),
+            },
+            priority=MessagePriority.HIGH,
+        )
 
     async def _report_status(self, requester: str) -> None:
         """Report current status to requester."""

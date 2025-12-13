@@ -28,16 +28,16 @@ from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.text import Text
 
-from vibe.cli.easter_eggs import (
+from chefchat.cli.easter_eggs import (
     get_kitchen_status,
     get_modes_display,
     get_random_roast,
     get_random_wisdom,
 )
-from vibe.cli.mode_errors import create_write_blocked_error
-from vibe.cli.mode_manager import MODE_CONFIGS, MODE_TIPS, ModeManager, VibeMode
-from vibe.cli.plating import generate_plating, generate_taste_test
-from vibe.cli.ui_components import (
+from chefchat.cli.mode_errors import create_write_blocked_error
+from chefchat.cli.mode_manager import MODE_CONFIGS, MODE_TIPS, ModeManager, VibeMode
+from chefchat.cli.plating import generate_plating, generate_taste_test
+from chefchat.cli.ui_components import (
     COLORS,
     ApprovalDialog,
     HeaderData,

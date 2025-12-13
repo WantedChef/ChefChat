@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import AsyncGenerator
+import json
+import logging
+import os
 import time
 from typing import TYPE_CHECKING
 
@@ -23,6 +26,9 @@ from chefchat.core.utils import get_user_agent
 
 if TYPE_CHECKING:
     from chefchat.core.tools.manager import ToolManager
+
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
@@ -77,11 +83,56 @@ class LLMClient:
             tokens_per_second=self.stats.tokens_per_second,
         )
 
+    def _load_mock_chunks_from_env(self) -> list[LLMChunk] | None:
+        """Load mock LLM chunks from the test harness.
+
+        Tests can set VIBE_MOCK_LLM_DATA to a JSON list of LLMChunk-like dicts.
+        When present, we bypass network calls entirely.
+        """
+
+        if (raw := os.environ.get("VIBE_MOCK_LLM_DATA")) is None:
+            return None
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+
+        if not isinstance(data, list):
+            return None
+
+        chunks: list[LLMChunk] = []
+        for item in data:
+            if isinstance(item, dict):
+                try:
+                    chunks.append(LLMChunk.model_validate(item))
+                except Exception:
+                    continue
+        return chunks or None
+
+    def _apply_usage_from_chunk(self, chunk: LLMChunk) -> None:
+        usage = chunk.usage
+        if usage is None:
+            return
+
+        self.stats.last_turn_prompt_tokens = usage.prompt_tokens
+        self.stats.last_turn_completion_tokens = usage.completion_tokens
+        self.stats.session_prompt_tokens += usage.prompt_tokens
+        self.stats.session_completion_tokens += usage.completion_tokens
+        self.stats.context_tokens = usage.prompt_tokens + usage.completion_tokens
+
     async def chat(
         self, messages: list[LLMMessage], max_tokens: int | None = None
     ) -> LLMChunk:
         active_model = self.config.get_active_model()
         provider = self.config.get_provider_for_model(active_model)
+
+        if (mock_chunks := self._load_mock_chunks_from_env()) is not None:
+            # Deterministic test harness: return the last chunk as the final answer.
+            self.stats.last_turn_duration = 0.0
+            self.last_chunk = mock_chunks[-1]
+            self._apply_usage_from_chunk(self.last_chunk)
+            return self.last_chunk
 
         try:
             start_time = time.perf_counter()
@@ -119,9 +170,17 @@ class LLMClient:
             return result
 
         except Exception as e:
-            # Check if this is a BackendError with context-too-long
             from chefchat.core.llm.exceptions import BackendError
 
+            if isinstance(e, BackendError):
+                logger.error(
+                    "LLM backend error (%s): %s\n%s",
+                    provider.name,
+                    e.parsed_error or e.reason or "N/A",
+                    e.body_text[:2000] if e.body_text else "",
+                )
+
+            # Check if this is a BackendError with context-too-long
             if isinstance(e, BackendError) and e.is_context_too_long():
                 # Convert to user-friendly error with recovery hints
                 error_msg = f"""**Prompt Too Long Error**
@@ -144,6 +203,12 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                 raise RuntimeError(error_msg) from e
 
             # For other errors, use the original error message
+            if isinstance(e, BackendError):
+                detail = e.parsed_error or e.reason or "N/A"
+                raise RuntimeError(
+                    f"API error from {provider.name} (model: {active_model.name}): {detail}"
+                ) from e
+
             raise RuntimeError(
                 f"API error from {provider.name} (model: {active_model.name}): {e}"
             ) from e
@@ -153,6 +218,16 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
     ) -> AsyncGenerator[LLMChunk]:
         active_model = self.config.get_active_model()
         provider = self.config.get_provider_for_model(active_model)
+
+        if (mock_chunks := self._load_mock_chunks_from_env()) is not None:
+            # Deterministic test harness: yield provided chunks and update stats.
+            self.stats.last_turn_duration = 0.0
+            for chunk in mock_chunks:
+                yield chunk
+                self.last_chunk = chunk
+            if self.last_chunk is not None:
+                self._apply_usage_from_chunk(self.last_chunk)
+            return
 
         available_tools = self.format_handler.get_available_tools(
             self.tool_manager, self.config
@@ -199,6 +274,14 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
             # Check if this is a BackendError with context-too-long
             from chefchat.core.llm.exceptions import BackendError
 
+            if isinstance(e, BackendError):
+                logger.error(
+                    "LLM backend streaming error (%s): %s\n%s",
+                    provider.name,
+                    e.parsed_error or e.reason or "N/A",
+                    e.body_text[:2000] if e.body_text else "",
+                )
+
             if isinstance(e, BackendError) and e.is_context_too_long():
                 # Convert to user-friendly error with recovery hints
                 error_msg = f"""**Prompt Too Long Error**
@@ -221,6 +304,12 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                 raise RuntimeError(error_msg) from e
 
             # For other errors, use the original error message
+            if isinstance(e, BackendError):
+                detail = e.parsed_error or e.reason or "N/A"
+                raise RuntimeError(
+                    f"API error from {provider.name} (model: {active_model.name}): {detail}"
+                ) from e
+
             raise RuntimeError(
                 f"API error from {provider.name} (model: {active_model.name}): {e}"
             ) from e
@@ -231,7 +320,7 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
         chunks: list[LLMChunk] = []
         content_buffer = ""
         chunks_with_content = 0
-        BATCH_SIZE = 5
+        BATCH_SIZE = 1 if self._load_mock_chunks_from_env() is not None else 5
 
         async for chunk in self._chat_streaming(messages):
             chunks.append(chunk)

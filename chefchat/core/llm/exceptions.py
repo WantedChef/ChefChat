@@ -186,10 +186,17 @@ class BackendErrorBuilder:
         has_tools: bool,
         tool_choice: StrToolChoice | AvailableTool | None,
     ) -> BackendError:
+        body_text: str | None
         try:
             body_text = response.text
-        except Exception:  # On streaming responses, we can't read the body
-            body_text = None
+        except Exception:
+            # Streaming / already-consumed responses may raise here.
+            # Best-effort: attempt to read buffered bytes and decode.
+            try:
+                body = response.read()
+                body_text = body.decode("utf-8", errors="replace") if body else None
+            except Exception:
+                body_text = None
 
         error = BackendError(
             provider=provider,

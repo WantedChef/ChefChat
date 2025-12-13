@@ -1,21 +1,22 @@
 /* ===================================================================
-   ChefChat - Dark Kitchen Theme
-   The Professional Kitchen Aesthetic: Slate & Saffron
+   ChefChat - Modern Premium Theme
+   Inspired by Claude Code / Linear / GitHub Dark
    =================================================================== */
 
-/* CSS Variables - Dark Kitchen Color Palette */
-$primary-bg: #1a1b26;
-$secondary-bg: #24283b;
-$surface: #2f3549;
-$panel-border: #414868;
-$text-primary: #c0caf5;
-$text-muted: #565f89;
-$accent: #e0af68;
-$accent-dim: #b8954d;
-$success: #9ece6a;
-$warning: #ff9e64;
-$error: #f7768e;
-$info: #7aa2f7;
+/* CSS Variables - Premium Dark Palette */
+$primary-bg: #0d1117;
+$secondary-bg: #161b22;
+$surface: #21262d;
+$panel-border: #30363d;
+$text-primary: #e6edf3;
+$text-muted: #7d8590;
+$accent: #58a6ff;
+$accent-dim: #388bfd;
+$success: #3fb950;
+$warning: #d29922;
+$error: #f85149;
+$info: #58a6ff;
+$purple: #a371f7;
 
 /* ===================================================================
    Main Application Layout
@@ -30,233 +31,515 @@ Screen {
 #kitchen-grid {
     layout: grid;
     grid-size: 2 2;
-    grid-columns: 2fr 1fr;
-    grid-rows: 2fr 1fr;
-    padding: 1;
+    grid-columns: 35% 1fr;
+    grid-rows: 1fr 3fr;
     grid-gutter: 1;
+    padding: 0 1;
+    margin-top: 1;
+    height: 1fr;
 }
 
 /* ===================================================================
-   The Ticket Rail - Chat History (Top Left)
-   Where orders come in from the Head Chef
+   The Ticket Rail - Chat History (Left Side)
    =================================================================== */
 
 #ticket-rail {
     column-span: 1;
-    row-span: 1;
+    row-span: 2;
     background: $secondary-bg;
-    border: solid $panel-border;
-    border-title-color: $accent;
-    border-title-style: bold;
+    border: round $panel-border;
+    /* border-title-color: $text-muted; */
+    /* border-title-align: center; */
     padding: 1 2;
     overflow-y: auto;
+    scrollbar-color: $accent;
+    scrollbar-background: $primary-bg;
 }
 
 #ticket-rail:focus {
-    border: solid $accent;
+    border: round $accent;
 }
 
-.ticket {
+/* Chat-only mode - full width chat */
+#ticket-rail.chat-only {
+    width: 100%;
+    height: 1fr;
+    margin: 1 2;
+    /* border-title-align: left; */
+}
+
+/* Chat Messages - User (right aligned), Assistant (left aligned) */
+Ticket.user {
     background: $surface;
-    margin: 0 0 1 0;
-    padding: 1;
-    border: round $panel-border;
-}
-
-.ticket-user {
-    border-left: thick $accent;
-}
-
-.ticket-assistant {
-    border-left: thick $info;
-}
-
-/* ===================================================================
-   The Pass - Agent Status Panel (Top Right)
-   Where the Brigade reports their progress
-   =================================================================== */
-
-#the-pass {
-    column-span: 1;
-    row-span: 1;
-    background: $secondary-bg;
-    border: solid $panel-border;
-    border-title-color: $accent;
-    border-title-style: bold;
+    color: $text-primary;
     padding: 1 2;
-    overflow-y: auto;
+    margin: 0 0 1 6;
+    border-right: thick $accent;
+    text-align: right;
 }
 
-#the-pass:focus {
-    border: solid $accent;
+Ticket.assistant {
+    background: $surface;
+    color: $text-primary;
+    padding: 1 2;
+    margin: 0 6 1 0;
+    border-left: thick $purple;
+    text-align: left;
 }
 
-.station-row {
-    height: 3;
-    margin: 0 0 1 0;
-}
-
-.station-label {
+Ticket.system {
+    background: transparent;
     color: $text-muted;
     text-style: italic;
-    width: 14;
-}
-
-.station-progress {
-    width: 1fr;
-    margin: 0 1;
-}
-
-ProgressBar > .bar--bar {
-    color: $accent;
-}
-
-ProgressBar > .bar--complete {
-    color: $success;
-}
-
-/* Station-specific colors */
-.sous-chef-bar > .bar--bar {
-    color: $info;
-}
-
-.line-cook-bar > .bar--bar {
-    color: $warning;
-}
-
-.sommelier-bar > .bar--bar {
-    color: #bb9af7;  /* Purple for sommelier */
-}
-
-/* ===================================================================
-   The Plate - Code Output (Bottom, Full Width)
-   Where the final dish is presented
-   =================================================================== */
-
-#the-plate {
-    column-span: 2;
-    row-span: 1;
-    background: $secondary-bg;
-    border: solid $panel-border;
-    border-title-color: $accent;
-    border-title-style: bold;
     padding: 1 2;
-    overflow: auto;
+    margin: 0 2 1 2;
+    text-align: center;
 }
 
-#the-plate:focus {
-    border: solid $accent;
-}
-
-.code-block {
-    background: $primary-bg;
-    border: round $panel-border;
-    padding: 1;
-    margin: 1 0;
-}
-
-/* ===================================================================
-   Whisk Loader - The Signature Loading Animation
-   =================================================================== */
-
-#whisk-loader {
-    dock: bottom;
-    height: 3;
+/* Legacy Static message classes (fallback) */
+Static.user-message {
     background: $surface;
-    border-top: solid $panel-border;
-    padding: 0 2;
+    padding: 1 2;
+    margin: 0 0 1 2;
+    border-right: thick $accent;
+}
+
+Static.system-message {
+    color: $text-muted;
+    text-style: italic;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
+Static.assistant-message {
+    background: $surface;
+    padding: 1 2;
+    margin: 0 2 1 0;
+    border-left: thick $purple;
+}
+
+.hidden {
     display: none;
-}
-
-#whisk-loader.visible {
-    display: block;
-}
-
-.whisk-spinner {
-    color: $accent;
-    text-style: bold;
-}
-
-.whisk-message {
-    color: $text-muted;
-    margin-left: 2;
-}
-
-/* ===================================================================
-   Header - Kitchen Name Plate
-   =================================================================== */
-
-#header {
-    dock: top;
-    height: 3;
-    background: $surface;
-    border-bottom: solid $accent;
-    padding: 0 2;
-    content-align: center middle;
-}
-
-#header-title {
-    color: $accent;
-    text-style: bold;
-}
-
-#header-status {
-    color: $text-muted;
-    dock: right;
-}
-
-/* ===================================================================
-   Footer - Command Bar
-   =================================================================== */
-
-#footer {
-    dock: bottom;
-    height: 1;
-    background: $surface;
-    padding: 0 2;
-}
-
-#command-input {
-    background: $primary-bg;
-    border: none;
-    padding: 0 1;
-}
-
-#command-input:focus {
-    border: none;
-}
-
-/* ===================================================================
-   Utility Classes
-   =================================================================== */
-
-.success {
-    color: $success;
-}
-
-.warning {
-    color: $warning;
-}
-
-.error {
-    color: $error;
 }
 
 .muted {
     color: $text-muted;
 }
 
-.accent {
-    color: $accent;
+/* ===================================================================
+   The Pass - Brigade Status (Top Right)
+   =================================================================== */
+
+#the-pass {
+    column-span: 1;
+    row-span: 1;
+    background: $secondary-bg;
+    border: round $panel-border;
+    /* border-title-color: $text-muted; */
+    /* border-title-align: center; */
+    padding: 1 2;
 }
 
-/* Message styling */
-.mise-en-place {
-    color: $info;
+#the-pass:focus {
+    border: round $accent;
+}
+
+#pass-header {
+    color: $text-muted;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.station-row {
+    height: 3;
+    margin-bottom: 1;
+    padding: 0 1;
+    background: $surface;
+}
+
+.station-row:hover {
+    background: $secondary-bg;
+}
+
+.station-name {
+    color: $text-primary;
+    text-style: bold;
+    width: 14;
+    padding: 0 1;
+}
+
+.station-progress {
+    width: 1fr;
+    margin: 0 2;
+}
+
+.station-status {
+    color: $text-muted;
+    width: 10;
+    text-align: right;
+    padding-right: 1;
+}
+
+/* Station state colors */
+.station-row.working .station-name {
+    color: $warning;
+}
+
+.station-row.complete .station-name {
+    color: $success;
+}
+
+.station-row.error .station-name {
+    color: $error;
+}
+
+/* Progress bar styling */
+ProgressBar {
+    height: 1;
+}
+
+ProgressBar > Bar {
+    width: 1fr;
+    background: $panel-border;
+}
+
+ProgressBar > Bar > .bar--bar {
+    background: $accent;
+}
+
+ProgressBar > Bar > .bar--indeterminate {
+    background: $warning;
+}
+
+ProgressBar > Bar > .bar--complete {
+    background: $success;
+}
+
+/* Progress bar in working state */
+.station-row.working ProgressBar > Bar > .bar--bar {
+    background: $warning;
+}
+
+.station-row.error ProgressBar > Bar > .bar--bar {
+    background: $error;
+}
+
+/* ===================================================================
+   The Plate - Code Output (Bottom Right)
+   =================================================================== */
+
+#the-plate {
+    column-span: 1;
+    row-span: 1;
+    background: $secondary-bg;
+    border: round $panel-border;
+    /* border-title-color: $text-muted; */
+    /* border-title-align: center; */
+    padding: 0;
+    overflow: auto;
+    scrollbar-color: $accent;
+    scrollbar-background: $primary-bg;
+}
+
+#the-plate:focus {
+    border: round $accent;
+}
+
+/* TabbedContent styling */
+TabbedContent {
+    background: $secondary-bg;
+}
+
+TabPane {
+    padding: 1;
+}
+
+Tabs {
+    background: $surface;
+}
+
+Tab {
+    background: $surface;
+    color: $text-muted;
+    padding: 0 2;
+}
+
+Tab:hover {
+    background: $secondary-bg;
+    color: $text-primary;
+}
+
+Tab.-active {
+    background: $secondary-bg;
+    color: $accent;
+    text-style: bold;
+}
+
+#plate-code-scroll {
+    background: $primary-bg;
+    padding: 1;
+}
+
+#plate-empty {
+    color: $text-muted;
     text-style: italic;
 }
 
-/* Hidden elements */
-.hidden {
+.file-path {
+    color: $accent;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#plate-terminal {
+    background: $primary-bg;
+    padding: 1;
+}
+
+#plate-notes {
+    background: $primary-bg;
+}
+
+/* ===================================================================
+   Header - Minimalist Kitchen Name Plate
+   =================================================================== */
+
+KitchenHeader {
+    dock: top;
+    height: 3;
+    background: $secondary-bg;
+    border-bottom: solid $panel-border;
+    color: $text-primary;
+    content-align: center middle;
+    text-style: bold;
+}
+
+.header-title {
+    color: $text-primary;
+}
+
+/* ===================================================================
+   Whisk Loader - Smooth Loading Animation
+   =================================================================== */
+
+WhiskLoader {
+    dock: bottom;
+    height: 3;
+    background: $secondary-bg;
+    border-top: solid $panel-border;
+    padding: 0 2;
     display: none;
+}
+
+WhiskLoader.visible {
+    display: block;
+}
+
+WhiskLoader .whisk-spinner {
+    color: $accent;
+    text-style: bold;
+    width: 6;
+}
+
+WhiskLoader .whisk-message {
+    color: $text-muted;
+    margin-left: 2;
+}
+
+/* ===================================================================
+   Footer & Input - Modern Command Bar
+   =================================================================== */
+
+Footer {
+    display: none;  /* Hide default ugly footer */
+}
+
+/* Kitchen Footer - Compact 1-line status bar */
+KitchenFooter {
+    dock: bottom;
+    height: 1;
+    background: $secondary-bg;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+KitchenFooter .footer-mode {
+    color: $text-primary;
+    text-style: bold;
+    min-width: 15;
+}
+
+KitchenFooter .footer-label {
+    color: $text-muted;
+    margin-left: 2;
+}
+
+KitchenFooter .footer-value {
+    margin-left: 1;
+}
+
+KitchenFooter .footer-sep {
+    color: $panel-border;
+    padding: 0 1;
+}
+
+KitchenFooter .key-hint {
+    background: $surface;
+    color: $text-muted;
+    padding: 0 1;
+    margin-left: 1;
+}
+
+KitchenFooter .auto-on {
+    color: $success;
+    text-style: bold;
+}
+
+KitchenFooter .auto-off {
+    color: $warning;
+    text-style: bold;
+}
+
+CommandInput {
+    dock: bottom;
+    height: 3;
+    background: $primary-bg;
+    border: solid $panel-border;
+    /* border-title: "Command or Message"; - Not supported in Textual 6.x */
+    /* border-title-align: left; */
+    padding: 0 1;
+    color: $text-primary;
+}
+
+CommandInput:focus {
+    border: solid $accent;
+    background: $surface;
+    tint: $accent 10%;
+}
+
+/* ===================================================================
+   Command Palette
+   =================================================================== */
+
+CommandPalette {
+    align: center middle;
+}
+
+#command-palette-container {
+    background: $secondary-bg;
+    border: round $panel-border;
+    padding: 1 2;
+    width: 60;
+    max-height: 20;
+}
+
+/* ===================================================================
+   Notifications & Toasts
+   =================================================================== */
+
+Toast {
+    background: $surface;
+    border: solid $panel-border;
+    padding: 1 2;
+}
+
+Toast.-information {
+    border-left: thick $info;
+}
+
+Toast.-warning {
+    border-left: thick $warning;
+}
+
+Toast.-error {
+    border-left: thick $error;
+}
+
+/* ===================================================================
+   Scrollbars
+   =================================================================== */
+
+Vertical {
+    scrollbar-color: $accent;
+    scrollbar-background: $primary-bg;
+}
+
+VerticalScroll {
+    scrollbar-color: $accent;
+    scrollbar-background: $primary-bg;
+}
+
+/* ===================================================================
+   New Modal Screens (Active Mode)
+   =================================================================== */
+
+OnboardingScreen {
+    align: center middle;
+}
+
+#onboarding-container {
+    width: 60;
+    height: auto;
+    background: $surface;
+    border: round $accent;
+    padding: 1 2;
+}
+
+#onboarding-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $accent;
+}
+
+#onboarding-desc {
+    text-align: center;
+    margin-bottom: 2;
+    color: $text-muted;
+}
+
+ModelSelectionScreen {
+    align: center middle;
+}
+
+#models-container {
+    width: 60;
+    height: auto;
+    max-height: 80%;
+    background: $surface;
+    border: round $accent;
+    padding: 1 2;
+}
+
+#models-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $accent;
+}
+
+ToolApprovalScreen {
+    align: center middle;
+}
+
+#approval-container {
+    width: 70;
+    height: auto;
+    background: $surface;
+    border: round $warning;
+    padding: 1 2;
+}
+
+#approval-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $warning;
+}
+
+#tool-name {
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
 }

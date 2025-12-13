@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, RLock
+import os
 
 from chefchat.core.autocompletion.file_indexer.ignore_rules import IgnoreRules
 from chefchat.core.autocompletion.file_indexer.store import (
@@ -71,7 +72,10 @@ class FileIndexer:
             self._start_background_rebuild(resolved_root)
             self._wait_for_rebuild(resolved_root)
 
-        self._watcher.start(resolved_root)
+        # Under pytest we avoid starting watch threads; they can linger and
+        # trigger noisy thread dumps / instability in CI.
+        if "PYTEST_CURRENT_TEST" not in os.environ:
+            self._watcher.start(resolved_root)
 
         with self._lock:  # ensure root reference is fresh before snapshotting
             return self._store.snapshot()

@@ -14,7 +14,7 @@ Each presentation is mode-aware and themed with professional kitchen energy!
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -110,7 +110,7 @@ def generate_plating(
     style = PRESENTATION_STYLES.get(mode_name, PRESENTATION_STYLES["normal"])
 
     # Current time for presentation
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     time_str = now.strftime("%H:%M")
 
     # Get stats if available
@@ -144,22 +144,22 @@ def generate_plating(
     content.append("\n\n")
 
     # Service info
-    content.append("🕐 Served at: ", style=COLORS['silver'])
+    content.append("🕐 Served at: ", style=COLORS["silver"])
     content.append(time_str, style=f"bold {COLORS['cream']}")
     content.append("\n")
 
-    content.append("🍽️ Style: ", style=COLORS['silver'])
-    content.append(style["style"], style=COLORS['cream'])
+    content.append("🍽️ Style: ", style=COLORS["silver"])
+    content.append(style["style"], style=COLORS["cream"])
     content.append("\n\n")
 
     # Separator
-    content.append("─" * 56, style=COLORS['ash'])
+    content.append("─" * 56, style=COLORS["ash"])
     content.append("\n\n")
 
     # Metrics table
     metrics_table = Table(show_header=False, box=None, padding=(0, 2))
-    metrics_table.add_column("metric", style=COLORS['silver'], width=24)
-    metrics_table.add_column("value", style=COLORS['cream'])
+    metrics_table.add_column("metric", style=COLORS["silver"], width=24)
+    metrics_table.add_column("value", style=COLORS["cream"])
 
     metrics_table.add_row("📊 Preparations (steps)", steps)
     metrics_table.add_row("🔤 Ingredients (tokens)", tokens)
@@ -171,7 +171,7 @@ def generate_plating(
         content,
         metrics_table,
         Text(),
-        Text("─" * 56, style=COLORS['ash']),
+        Text("─" * 56, style=COLORS["ash"]),
         Text(),
         Text(flourish, style=f"italic {COLORS['lavender']}"),
         Text(),
@@ -189,19 +189,19 @@ def generate_plating(
         elements.extend([
             Text(),
             Text(),
-            Text("─" * 56, style=COLORS['ash']),
+            Text("─" * 56, style=COLORS["ash"]),
             Text(),
             Text("📝 What We Prepared", style=f"bold {COLORS['gold']}"),
             Text(),
-            Text(work_summary, style=COLORS['cream']),
+            Text(work_summary, style=COLORS["cream"]),
         ])
 
     return Panel(
         Group(*elements),
         title=f"[{COLORS['fire']}]{style['emoji']} Plating[/{COLORS['fire']}]",
-        border_style=COLORS['gold'],
+        border_style=COLORS["gold"],
         box=box.ROUNDED,
-        padding=(1, 2)
+        padding=(1, 2),
     )
 
 
@@ -243,13 +243,12 @@ def generate_recipe(
     else:
         difficulty = "🔴 Advanced"
 
-    # Build content
-    content = Text()
+    # Build sections
 
     # Metadata table
     meta_table = Table(show_header=False, box=None, padding=(0, 2))
     meta_table.add_column("label", style=f"bold {COLORS['silver']}", width=15)
-    meta_table.add_column("value", style=COLORS['cream'])
+    meta_table.add_column("value", style=COLORS["cream"])
 
     meta_table.add_row("⏱️ Prep Time", prep_time)
     meta_table.add_row("🍳 Cook Time", cook_time)
@@ -260,14 +259,14 @@ def generate_recipe(
     ingredients_text = Text()
     ingredients_text.append("🥗 Ingredients\n\n", style=f"bold {COLORS['gold']}")
     for ing in ingredients:
-        ingredients_text.append(f"  • {ing}\n", style=COLORS['silver'])
+        ingredients_text.append(f"  • {ing}\n", style=COLORS["silver"])
 
     # Steps section
     steps_text = Text()
     steps_text.append("\n👨‍🍳 Method\n\n", style=f"bold {COLORS['gold']}")
     for i, step in enumerate(steps, 1):
         steps_text.append(f"  {i}. ", style=f"bold {COLORS['fire']}")
-        steps_text.append(f"{step}\n", style=COLORS['cream'])
+        steps_text.append(f"{step}\n", style=COLORS["cream"])
 
     # Random chef tip
     tips = [
@@ -286,29 +285,31 @@ def generate_recipe(
 
     # Footer
     footer_text = Text()
-    footer_text.append(f"\nRecipe from the ChefChat Kitchen • Mode: {mode_name.upper()}",
-                      style=COLORS['smoke'])
+    footer_text.append(
+        f"\nRecipe from the ChefChat Kitchen • Mode: {mode_name.upper()}",
+        style=COLORS["smoke"],
+    )
 
     # Combine all elements
     elements = [
         meta_table,
         Text(),
-        Text("─" * 56, style=COLORS['ash']),
+        Text("─" * 56, style=COLORS["ash"]),
         Text(),
         ingredients_text,
         steps_text,
         tip_text,
         Text(),
-        Text("─" * 56, style=COLORS['ash']),
+        Text("─" * 56, style=COLORS["ash"]),
         footer_text,
     ]
 
     return Panel(
         Group(*elements),
         title=f"[{COLORS['fire']}]📖 Recipe: {task_name}[/{COLORS['fire']}]",
-        border_style=COLORS['steel'],
+        border_style=COLORS["steel"],
         box=box.ROUNDED,
-        padding=(1, 2)
+        padding=(1, 2),
     )
 
 
@@ -411,16 +412,16 @@ def generate_taste_test(
     # Header
     content.append(header_text, style=f"bold {COLORS['cream']}")
     content.append("\n\n")
-    content.append("─" * 56, style=COLORS['ash'])
+    content.append("─" * 56, style=COLORS["ash"])
     content.append("\n\n")
 
     # Overall rating
     content.append("Overall Rating\n\n", style=f"bold {COLORS['gold']}")
-    content.append(stars, style=COLORS['honey'])
+    content.append(stars, style=COLORS["honey"])
     content.append(f" {verdict}\n", style=f"bold {COLORS['fire']}")
     content.append(f"{description}\n\n", style=f"italic {COLORS['silver']}")
 
-    content.append("─" * 56, style=COLORS['ash'])
+    content.append("─" * 56, style=COLORS["ash"])
     content.append("\n\n")
 
     # Flavor profile table
@@ -428,7 +429,7 @@ def generate_taste_test(
 
     profile_table = Table(show_header=False, box=None, padding=(0, 1))
     profile_table.add_column("aspect", style=f"bold {COLORS['silver']}", width=18)
-    profile_table.add_column("notes", style=COLORS['cream'])
+    profile_table.add_column("notes", style=COLORS["cream"])
 
     profile_table.add_row("📖 Readability", aspects["readability"])
     profile_table.add_row("🏗️ Structure", aspects["structure"])
@@ -439,22 +440,20 @@ def generate_taste_test(
     footer = Text()
     if mode_note:
         footer.append(f"\n{mode_note}\n", style=f"italic {COLORS['smoke']}")
-    footer.append("\nTaste test by Chef's AI • Not a substitute for real code review!",
-                 style=COLORS['smoke'])
+    footer.append(
+        "\nTaste test by Chef's AI • Not a substitute for real code review!",
+        style=COLORS["smoke"],
+    )
 
     # Combine elements
-    elements = [
-        content,
-        profile_table,
-        footer,
-    ]
+    elements = [content, profile_table, footer]
 
     return Panel(
         Group(*elements),
         title=f"[{COLORS['fire']}]🍽️ Taste Test Results[/{COLORS['fire']}]",
-        border_style=COLORS['honey'],
+        border_style=COLORS["honey"],
         box=box.ROUNDED,
-        padding=(1, 2)
+        padding=(1, 2),
     )
 
 
@@ -532,15 +531,15 @@ def format_kitchen_timer(task_description: str) -> Panel:
     content = Text()
 
     content.append("Task: ", style=f"bold {COLORS['silver']}")
-    content.append(f"{task_description}\n\n", style=COLORS['cream'])
+    content.append(f"{task_description}\n\n", style=COLORS["cream"])
 
-    content.append("─" * 56, style=COLORS['ash'])
+    content.append("─" * 56, style=COLORS["ash"])
     content.append("\n\n")
 
     # Time table
     time_table = Table(show_header=False, box=None, padding=(0, 2))
     time_table.add_column("label", style=f"bold {COLORS['silver']}", width=18)
-    time_table.add_column("value", style=COLORS['cream'])
+    time_table.add_column("value", style=COLORS["cream"])
 
     time_table.add_row("🔪 Prep Time", est["prep_time"])
     time_table.add_row("🍳 Cook Time", est["cook_time"])
@@ -554,24 +553,23 @@ def format_kitchen_timer(task_description: str) -> Panel:
 
     # Footer
     footer = Text()
-    footer.append("\n\nEstimates based on complexity heuristics. Actual time may vary!",
-                 style=COLORS['smoke'])
-    footer.append("\nRemember: good code takes time to simmer. 🍲",
-                 style=f"italic {COLORS['smoke']}")
+    footer.append(
+        "\n\nEstimates based on complexity heuristics. Actual time may vary!",
+        style=COLORS["smoke"],
+    )
+    footer.append(
+        "\nRemember: good code takes time to simmer. 🍲",
+        style=f"italic {COLORS['smoke']}",
+    )
 
-    elements = [
-        content,
-        time_table,
-        tip,
-        footer,
-    ]
+    elements = [content, time_table, tip, footer]
 
     return Panel(
         Group(*elements),
         title=f"[{COLORS['fire']}]⏱️ Kitchen Timer[/{COLORS['fire']}]",
-        border_style=COLORS['honey'],
+        border_style=COLORS["honey"],
         box=box.ROUNDED,
-        padding=(1, 2)
+        padding=(1, 2),
     )
 
 
