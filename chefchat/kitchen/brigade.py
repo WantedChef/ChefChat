@@ -115,7 +115,7 @@ async def create_default_brigade() -> Brigade:
         A fully configured Brigade ready to open
     """
     # Imports kept inside to avoid circulars at module import time
-    from chefchat.kitchen.brain import KitchenBrain
+    from chefchat.kitchen.manager import KitchenManager
     from chefchat.kitchen.stations.expeditor import Expeditor
     from chefchat.kitchen.stations.line_cook import LineCook
     from chefchat.kitchen.stations.sommelier import Sommelier
@@ -123,15 +123,15 @@ async def create_default_brigade() -> Brigade:
 
     brigade = Brigade()
 
-    # Initialize the brain
-    brain = KitchenBrain()
+    # Initialize the manager
+    manager = KitchenManager()
 
     # The planning station (orchestrator)
     sous_chef = SousChef(brigade.bus)
     brigade.register(sous_chef)
 
-    # The coding station (needs brain)
-    line_cook = LineCook(brigade.bus, brain)
+    # The coding station (needs manager)
+    line_cook = LineCook(brigade.bus, manager)
     brigade.register(line_cook)
 
     # The dependency/package station

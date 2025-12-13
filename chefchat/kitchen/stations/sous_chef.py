@@ -509,7 +509,7 @@ class SousChef(BaseStation):
         """
         from pathlib import Path
 
-        from chefchat.kitchen.brain import KitchenBrain
+        from chefchat.kitchen.manager import KitchenManager
 
         target = Path(target_path)
         if not target.is_absolute():
@@ -552,8 +552,8 @@ class SousChef(BaseStation):
             await self._send_error(f"Could not read file: {e}")
             return
 
-        # Initialize brain and get roast
-        brain = KitchenBrain()
+        # Initialize manager and get roast
+        manager = KitchenManager()
 
         await self.send(
             recipient="tui",
@@ -566,7 +566,7 @@ class SousChef(BaseStation):
             },
         )
 
-        roast = await brain.roast_code(code, target_path)
+        roast = await manager.roast_code(code, target_path)
 
         await self.send(
             recipient="tui",
