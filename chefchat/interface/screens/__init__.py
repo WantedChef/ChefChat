@@ -1,11 +1,11 @@
-from .confirm_restart import ConfirmRestartScreen
-from .models import ModelSelectionScreen
+from .active_model_picker import ActiveModelPickerScreen
+from .models import ModelManagerScreen
 from .onboarding import OnboardingScreen
 from .tool_approval import ToolApprovalScreen
 
 __all__ = [
-    "ConfirmRestartScreen",
-    "ModelSelectionScreen",
+    "ActiveModelPickerScreen",
+    "ModelManagerScreen",
     "OnboardingScreen",
     "ToolApprovalScreen",
 ]

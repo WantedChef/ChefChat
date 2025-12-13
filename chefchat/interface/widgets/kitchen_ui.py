@@ -104,6 +104,7 @@ class KitchenFooter(Horizontal):
     def __init__(
         self,
         mode_manager: ModeManager,
+        active_model: str = "Unknown",
         *,
         name: str | None = None,
         id: str | None = None,
@@ -111,6 +112,7 @@ class KitchenFooter(Horizontal):
     ) -> None:
         super().__init__(name=name, id=id, classes=classes)
         self._mode_manager = mode_manager
+        self._active_model = active_model
 
     def compose(self) -> ComposeResult:
         mode = self._mode_manager.current_mode
@@ -120,6 +122,9 @@ class KitchenFooter(Horizontal):
 
         # Mode Section
         yield Static(f"{config.emoji} {mode.value.upper()}", classes="footer-mode")
+
+        # Model Info (New)
+        yield Static(f" 🤖 {self._active_model} ", classes="footer-label footer-model")
 
         # Status Section
         yield Static("Auto: ", classes="footer-label")
@@ -155,3 +160,10 @@ class KitchenFooter(Horizontal):
 
         except Exception:
             pass
+
+    def refresh_model(self, active_model: str) -> None:
+        self._active_model = active_model
+        try:
+             self.query_one(".footer-model", Static).update(f" 🤖 {active_model} ")
+        except Exception:
+             pass
