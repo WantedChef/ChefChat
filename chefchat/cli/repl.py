@@ -47,6 +47,7 @@ from chefchat.cli.easter_eggs import (
 # =============================================================================
 # CHEFCHAT INTEGRATIONS
 # =============================================================================
+from chefchat.bots.cli_handler import handle_bot_command
 from chefchat.cli.mode_manager import MODE_TIPS, ModeManager, VibeMode
 
 # Plating Integration (visual formatting)
@@ -136,6 +137,8 @@ class ChefChatREPL:
             ("/clear", "Clear history"),
             ("/status", "Show status"),
             ("/stats", "Show statistics"),
+            ("/telegram", "Manage Telegram bot"),
+            ("/discord", "Manage Discord bot"),
             ("/exit", "Exit application"),
             ("/quit", "Exit application"),
         ]
@@ -695,6 +698,9 @@ class ChefChatREPL:
         elif cmd == "/stats":
             # Session statistics - Today's Service
             self._show_stats()
+
+        elif cmd.startswith(("/telegram", "/discord")):
+            await handle_bot_command(self, cmd)
 
         else:
             self.console.print(

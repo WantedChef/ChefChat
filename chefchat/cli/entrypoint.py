@@ -101,6 +101,11 @@ Examples:
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose debug output"
     )
+    parser.add_argument(
+        "--bot",
+        choices=["telegram", "discord", "all"],
+        help="Run in headless bot mode",
+    )
     return parser.parse_args()
 
 
@@ -308,6 +313,50 @@ def main() -> None:
                 sys.exit(1)
 
         # === Interactive Mode ===
+
+        # 0. Bot Mode requested
+        if args.bot:
+            if not config:
+                config = load_config_or_exit(agent=args.agent)
+
+            import asyncio
+            from chefchat.bots.manager import BotManager
+
+            async def run_bots():
+                manager = BotManager(config)
+                if args.bot in ("telegram", "all"):
+                    try:
+                        await manager.start_bot("telegram")
+                        rprint("[green]🚀 Telegram bot started[/]")
+                    except Exception as e:
+                        rprint(f"[red]Failed to start Telegram bot: {e}[/]")
+
+                if args.bot in ("discord", "all"):
+                    try:
+                        await manager.start_bot("discord")
+                        rprint("[green]🚀 Discord bot started[/]")
+                    except Exception as e:
+                        rprint(f"[red]Failed to start Discord bot: {e}[/]")
+
+                if not manager.running_tasks:
+                    rprint("[red]No bots running. Exiting.[/]")
+                    return
+
+                rprint("[dim]Press Ctrl+C to stop.[/]")
+                try:
+                    # Wait forever
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    pass
+                finally:
+                    for bot in list(manager.running_tasks.keys()):
+                        await manager.stop_bot(bot)
+
+            try:
+                asyncio.run(run_bots())
+            except KeyboardInterrupt:
+                rprint("\n[dim]👋 Bye![/]")
+            return
 
         # 1. Classic REPL Mode requested
         if args.repl:
