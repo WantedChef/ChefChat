@@ -432,3 +432,78 @@ class ModelManagerScreen(ModalScreen):
     def on_name_change(self, event: Input.Changed) -> None:
         if self._selected_provider and event.value:
              self._selected_provider.name = event.value
+
+
+class ModelSelectionScreen(ModalScreen[str | None]):
+    """Screen for selecting an active model."""
+
+    CSS = """
+    ModelSelectionScreen {
+        align: center middle;
+    }
+
+    #dialog {
+        width: 60;
+        height: 80%;
+        background: $surface;
+        border: round $accent;
+        padding: 1 2;
+        layout: vertical;
+    }
+
+    #header {
+        text-align: center;
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+        border-bottom: solid $panel-border;
+    }
+
+    ListView {
+        height: 1fr;
+        border: solid $panel-border;
+        margin-bottom: 1;
+    }
+
+    Button {
+        width: 100%;
+    }
+    """
+
+    def __init__(self, config: VibeConfig) -> None:
+        super().__init__()
+        self._config = config
+        self._models = config.models
+
+    def compose(self) -> ComposeResult:
+        with Container(id="dialog"):
+            yield Label("Select Active Model", id="header")
+            yield ListView(
+                *[
+                    ListItem(
+                        Label(f"{m.alias} ({m.provider})"),
+                        id=f"model-{m.alias}"
+                    )
+                    for m in self._models
+                ],
+                id="model-list"
+            )
+            yield Button("Cancel", variant="error", id="cancel-btn")
+
+    def on_mount(self) -> None:
+        # Highlight current
+        list_view = self.query_one(ListView)
+        for index, item in enumerate(list_view.children):
+            if item.id == f"model-{self._config.active_model}":
+                list_view.index = index
+                break
+
+    @on(ListView.Selected)
+    def on_selection(self, event: ListView.Selected) -> None:
+        if event.item and event.item.id:
+            alias = event.item.id.replace("model-", "")
+            self.dismiss(alias)
+
+    @on(Button.Pressed, "#cancel-btn")
+    def cancel(self) -> None:
+        self.dismiss(None)

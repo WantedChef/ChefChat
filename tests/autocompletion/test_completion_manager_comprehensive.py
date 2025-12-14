@@ -206,6 +206,7 @@ class TestControllerSwitching:
 
         # Should not have extra resets
         assert manager.active_controller is manager._slash_controller
+        assert view.reset_count == initial_reset_count
 
 
 class TestOnKeyWithNoController:
