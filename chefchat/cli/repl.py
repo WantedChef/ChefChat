@@ -145,6 +145,7 @@ class ChefChatREPL:
             ("/modes", "List modes"),
             ("/theme", "Switch UI theme"),
             ("/compact", "Compact conversation history"),
+            ("/summarize", "Compact conversation history"),
             ("/clear", "Clear history"),
             ("/status", "Show status"),
             ("/stats", "Show statistics"),

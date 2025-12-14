@@ -679,7 +679,17 @@ class ChefChatApp(App):
                     await handler()
                 return
 
-        if name in {"/layout", "/fortune", "/api", "/model", "/mcp"}:
+        if name in {
+            "/layout",
+            "/fortune",
+            "/api",
+            "/model",
+            "/mcp",
+            "/git-setup",
+            "/telegram",
+            "/discord",
+            "/summarize",
+        }:
             if name == "/layout":
                 await self._handle_layout_command(arg)
             elif name == "/fortune":
@@ -690,6 +700,13 @@ class ChefChatApp(App):
                 await self._handle_model_command()
             elif name == "/mcp":
                 await self._handle_mcp_command()
+            elif name == "/git-setup":
+                await self._handle_git_setup()
+            elif name in {"/telegram", "/discord"}:
+                await self._handle_bot_command(name, arg)
+            elif name == "/summarize":
+                # Alias for compact
+                await self._compact_history()
             return
 
         self.query_one("#ticket-rail", TicketRail).add_system_message(
@@ -794,6 +811,188 @@ class ChefChatApp(App):
 • `/layout kitchen` — Full 3-panel kitchen view
 """
         self.query_one("#ticket-rail", TicketRail).add_system_message(help_text)
+
+    async def _handle_git_setup(self) -> None:
+        """Handle /git-setup command."""
+        from chefchat.interface.screens.input_modal import InputModal
+
+        def on_token_input(token: str | None) -> None:
+            if not token:
+                self.notify("Cancelled.", severity="warning")
+                return
+
+            try:
+                from pathlib import Path
+
+                env_path = Path(".env")
+                lines = []
+                if env_path.exists():
+                    lines = env_path.read_text().splitlines()
+
+                new_lines = []
+                found = False
+                for line in lines:
+                    if line.startswith("GITHUB_TOKEN="):
+                        new_lines.append(f"GITHUB_TOKEN={token}")
+                        found = True
+                    else:
+                        new_lines.append(line)
+
+                if not found:
+                    new_lines.append(f"GITHUB_TOKEN={token}")
+
+                env_path.write_text("\n".join(new_lines) + "\n")
+                os.environ["GITHUB_TOKEN"] = token
+                self.notify("GITHUB_TOKEN saved to .env", severity="information")
+
+            except Exception as e:
+                self.notify(f"Failed to save token: {e}", severity="error")
+
+        await self.push_screen(
+            InputModal(
+                title="GitHub Setup",
+                description="Enter your GitHub Token (hidden)",
+                password=True,
+            ),
+            on_token_input,
+        )
+
+    async def _handle_bot_command(self, cmd_name: str, arg_str: str) -> None:
+        """Handle /telegram and /discord commands."""
+        MIN_ARGS_FOR_SUBCOMMAND = 2  # Minimum args needed for allow/token commands
+        bot_type = cmd_name.strip("/").lower()
+        args = arg_str.split()
+        action = args[0] if args else "help"
+
+        from chefchat.bots.manager import BotManager
+
+        # We need to attach manager to app if not exists
+        if not hasattr(self, "_bot_manager"):
+            self._bot_manager = BotManager(self._config or VibeConfig.load())
+        manager = self._bot_manager
+
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+
+        if action == "help":
+            ticket_rail.add_system_message(
+                f"🤖 **{bot_type.title()} Bot Commands**\n\n"
+                f"• `/{bot_type} setup` - Interactive setup\n"
+                f"• `/{bot_type} start` - Start the bot\n"
+                f"• `/{bot_type} stop` - Stop the bot\n"
+                f"• `/{bot_type} status` - Check status\n"
+                f"• `/{bot_type} allow <id>` - Allow a user ID\n"
+                f"• `/{bot_type} token <tok>` - Set token manually"
+            )
+            return
+
+        elif action == "setup":
+            from chefchat.interface.screens.input_modal import InputModal
+
+            # 1. Ask for token
+            def on_token(token: str | None) -> None:
+                if not token:
+                    self.notify("Setup cancelled.", severity="warning")
+                    return
+
+                manager.update_env(f"{bot_type.upper()}_BOT_TOKEN", token)
+                self.notify(f"{bot_type.title()} token saved!", severity="information")
+
+                # 2. Ask for user ID (nested)
+                def on_userid(uid: str | None) -> None:
+                    if uid:
+                        manager.add_allowed_user(bot_type, uid)
+                        self.notify(f"User {uid} allowed!", severity="information")
+
+                    ticket_rail.add_system_message(
+                        f"✅ **{bot_type.title()} Setup Complete**\nRun `/{bot_type} start` to launch."
+                    )
+
+                self.push_screen(
+                    InputModal(
+                        title=f"{bot_type.title()} Setup (2/2)",
+                        description="Enter your User ID (optional) to allow access:",
+                        placeholder="12345678",
+                    ),
+                    on_userid,
+                )
+
+            await self.push_screen(
+                InputModal(
+                    title=f"{bot_type.title()} Setup (1/2)",
+                    description=f"Enter your {bot_type.title()} Bot Token:",
+                    password=True,
+                ),
+                on_token,
+            )
+
+        elif action == "start":
+            if manager.is_running(bot_type):
+                self.notify(
+                    f"{bot_type.title()} bot is already running.", severity="warning"
+                )
+                return
+            try:
+                await manager.start_bot(bot_type)
+                self.notify(f"Started {bot_type} bot!", severity="information")
+                ticket_rail.add_system_message(f"🚀 **{bot_type.title()} Bot Started**")
+            except Exception as e:
+                self.notify(f"Failed to start bot: {e}", severity="error")
+
+        elif action == "stop":
+            if not manager.is_running(bot_type):
+                self.notify(
+                    f"{bot_type.title()} bot is not running.", severity="warning"
+                )
+                return
+            await manager.stop_bot(bot_type)
+            self.notify(f"Stopped {bot_type} bot.", severity="information")
+            ticket_rail.add_system_message(f"🛑 **{bot_type.title()} Bot Stopped**")
+
+        elif action == "status":
+            running = manager.is_running(bot_type)
+            status_icon = "🟢 RUNNING" if running else "🔴 STOPPED"
+            allowed = manager.get_allowed_users(bot_type)
+            ticket_rail.add_system_message(
+                f"**{bot_type.title()} Bot Status**\n"
+                f"Status: {status_icon}\n"
+                f"Allowed Users: {', '.join(allowed) if allowed else 'None'}"
+            )
+
+        elif action == "allow":
+            if len(args) < MIN_ARGS_FOR_SUBCOMMAND:
+                self.notify(f"Usage: /{bot_type} allow <user_id>", severity="error")
+                return
+            uid = args[1]
+            manager.add_allowed_user(bot_type, uid)
+            self.notify(f"User {uid} allowed.", severity="information")
+
+        elif action == "token":
+            if len(args) < MIN_ARGS_FOR_SUBCOMMAND:
+                self.notify(f"Usage: /{bot_type} token <token>", severity="error")
+                return
+            token = args[1]
+            manager.update_env(f"{bot_type.upper()}_BOT_TOKEN", token)
+            self.notify(f"{bot_type.title()} token updated.", severity="information")
+
+        else:
+            self.notify(f"Unknown action: {action}", severity="error")
+
+    async def _compact_history(self) -> None:
+        """Compact history via agent."""
+        if not self._agent:
+            self.notify("Agent not active.", severity="warning")
+            return
+
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        ticket_rail.add_system_message("🔄 **Compacting history...**")
+
+        try:
+            summary = await self._agent.compact()
+            ticket_rail.add_system_message(
+                f"✅ **History Compacted**\nSummary: {summary[:200]}..."
+            )
+        except Exception as e:
+            self.notify(f"Compaction failed: {e}", severity="error")
 
     async def _handle_layout_command(self, arg: str) -> None:
         """Handle layout switching command."""
@@ -1004,15 +1203,6 @@ Active Model: `{self._config.active_model if self._config else "Unknown"}`
         self._mode_manager = ModeManager(initial_mode=self._mode_manager.current_mode)
         self.query_one("#ticket-rail", TicketRail).add_system_message(
             "🔄 **Configuration Reloaded**"
-        )
-
-    async def _compact_history(self) -> None:
-        self.query_one("#ticket-rail", TicketRail).add_system_message(
-            "🗜️ **Compacting History**"
-        )
-        await asyncio.sleep(1)
-        self.query_one("#ticket-rail", TicketRail).add_system_message(
-            "✅ History compacted."
         )
 
     async def _shutdown(self) -> None:

@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from rich import box
 from rich.console import Group, RenderableType
 from rich.panel import Panel
 from rich.table import Table
@@ -162,9 +163,10 @@ class HeaderDisplay:
         model_text = Text(self.data.model, style=palette["text"])
 
         # Truncate path if needed
+        MAX_PATH_LENGTH = 25
         workdir = self.data.workdir
-        if len(workdir) > 25:
-            workdir = "~" + workdir[-(24):]
+        if len(workdir) > MAX_PATH_LENGTH:
+            workdir = "~" + workdir[-(MAX_PATH_LENGTH - 1) :]
         path_text = Text()
         path_text.append("📂 ", style="dim")
         path_text.append(workdir, style=palette["muted"])
@@ -369,7 +371,12 @@ class ResponseDisplay:
             text.append("    ✗ ", style=palette["error"])
             if message:
                 # Truncate long messages
-                msg = message[:50] + "..." if len(message) > 50 else message
+                MAX_ERROR_MSG_LENGTH = 50
+                msg = (
+                    message[:MAX_ERROR_MSG_LENGTH] + "..."
+                    if len(message) > MAX_ERROR_MSG_LENGTH
+                    else message
+                )
                 text.append(msg, style=palette["error"])
         return text
 
@@ -440,41 +447,87 @@ class HelpDisplay:
     def render(ctx: RenderContext | None = None) -> Panel:
         """Render the help panel."""
         palette = _palette(ctx)
-        table = Table(show_header=False, box=None, padding=(0, 3))
-        table.add_column("key", style=f"bold {palette['primary']}")
-        table.add_column("desc", style=palette["text"])
 
-        commands = [
-            ("/help", "Show this help"),
-            ("/model", "Switch AI model"),
-            ("/modes", "List all available modes"),
+        # Create a grid for the layout
+        grid = Table.grid(expand=True, padding=(0, 2))
+        grid.add_column(ratio=1)
+        grid.add_column(ratio=1)
+
+        def create_category_table(title: str, items: list[tuple[str, str]]) -> Panel:
+            t = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+            t.add_column("Key", style=f"bold {palette['primary']}", no_wrap=True)
+            t.add_column("Desc", style=palette["text"])
+
+            for key, desc in items:
+                t.add_row(key, desc)
+
+            return Panel(
+                t,
+                title=f"[{palette['muted']}]{title}[/{palette['muted']}]",
+                title_align="left",
+                border_style=palette["secondary"],
+                box=box.ROUNDED if ctx and ctx.theme.emoji_enabled else box.ASCII,
+            )
+
+        # 1. Essential Commands
+        essentials = [
+            ("/help", "Show this help menu"),
             ("/clear", "Clear conversation history"),
+            ("/compact", "Compact/summarize history"),
+            ("/exit", "Exit ChefChat"),
+            ("Ctrl+C", "Cancel / Stop generation"),
+        ]
+
+        # 2. Configuration & Status
+        config = [
+            ("/model", "Switch AI model"),
+            ("/mode", "Show current mode info"),
+            ("/modes", "List available modes"),
+            ("/theme", "Switch UI theme"),
             ("/status", "Show session status"),
             ("/stats", "Show session statistics"),
-            ("/exit", "Exit ChefChat"),
-            ("", ""),
-            ("Shift+Tab", "Cycle through modes"),
-            ("Ctrl+C", "Cancel current operation"),
-            ("", ""),
-            ("[dim]Chef's Specials[/dim]", ""),
+            ("Shift+Tab", "Cycle modes (Normal/Auto)"),
+        ]
+
+        # 3. Integrations (New!)
+        integrations = [
+            ("/git-setup", "Configure GitHub config"),
+            ("/telegram", "Manage Telegram bot"),
+            ("/discord", "Manage Discord bot"),
+        ]
+
+        # 4. Chef's Specials (Easter Eggs)
+        specials = [
             ("/chef", "Kitchen status report"),
             ("/wisdom", "Daily chef wisdom"),
             ("/roast", "Get roasted by Gordon"),
-            ("/plate", "View current plating (stats)"),
+            ("/plate", "Visual plating status"),
             ("/fortune", "Developer fortune cookie"),
         ]
 
-        for key, desc in commands:
-            if key:
-                table.add_row(key, desc)
-            else:
-                table.add_row("", "")
+        # Add to grid
+        # Left column: Essentials + Integrations
+        left_col = Group(
+            create_category_table("🚀 Essentials", essentials),
+            Text(""),  # Spacer
+            create_category_table("🔌 Integrations", integrations),
+        )
+
+        # Right column: Config + Specials
+        right_col = Group(
+            create_category_table("⚙️  Configuration", config),
+            Text(""),  # Spacer
+            create_category_table("👨‍🍳 Chef's Specials", specials),
+        )
+
+        grid.add_row(left_col, right_col)
 
         return Panel(
-            table,
-            title=f"[{palette['primary']}]🍳 Commands[/{palette['primary']}]",
-            border_style=palette["secondary"],
+            grid,
+            title=f"[{palette['primary']}]🍳 ChefChat Command Menu[/{palette['primary']}]",
+            border_style=palette["primary"],
             padding=(1, 2),
+            subtitle=f"[{palette['muted']}]Type any command to execute[/{palette['muted']}]",
         )
 
 
@@ -528,13 +581,19 @@ def get_greeting() -> tuple[str, str]:
     """
     from datetime import datetime
 
+    # Time boundaries for greetings
+    MORNING_START = 5
+    AFTERNOON_START = 12
+    EVENING_START = 17
+    NIGHT_START = 21
+
     hour = datetime.now().hour
 
-    if 5 <= hour < 12:
+    if MORNING_START <= hour < AFTERNOON_START:
         return ("Good morning", "☀️")
-    elif 12 <= hour < 17:
+    elif AFTERNOON_START <= hour < EVENING_START:
         return ("Good afternoon", "🌤️")
-    elif 17 <= hour < 21:
+    elif EVENING_START <= hour < NIGHT_START:
         return ("Good evening", "🌆")
     else:
         return ("Welcome back", "🌙")

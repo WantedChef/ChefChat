@@ -1,14 +1,16 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 import os
-import asyncio
 from typing import Any
 
 import discord
 from discord.ext import commands
 
-from chefchat.core.config import VibeConfig
-from chefchat.bots.session import BotSession
 from chefchat.bots.manager import BotManager
+from chefchat.bots.session import BotSession
+from chefchat.core.config import VibeConfig
 from chefchat.core.utils import ApprovalResponse
 
 logger = logging.getLogger(__name__)

@@ -56,9 +56,13 @@ class CommandInput(Input):
             ("/mode", "Current mode info"),
             ("/modes", "List modes"),
             ("/compact", "Compact conversation history"),
+            ("/summarize", "Compact conversation history"),
             ("/clear", "Clear history"),
             ("/status", "Show status"),
             ("/stats", "Show statistics"),
+            ("/git-setup", "Configure Git settings"),
+            ("/telegram", "Manage Telegram bot"),
+            ("/discord", "Manage Discord bot"),
             ("/exit", "Exit application"),
             ("/quit", "Exit application"),
         ]
