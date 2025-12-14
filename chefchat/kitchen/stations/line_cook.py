@@ -63,6 +63,53 @@ class LineCook(BaseStation):
             # Fix errors from Expeditor (self-healing loop)
             await self._fix_errors(message.payload)
 
+    STREAM_UPDATE_INTERVAL_LINES = 5
+
+    async def _generate_code(self, task: str) -> str:
+        """Generate code for the task using the LLM.
+
+        Handles streaming updates to the TUI.
+        Updates are sent only every STREAM_UPDATE_INTERVAL_LINES lines of code generated.
+
+        Args:
+            task: The task description
+
+        Returns:
+            Generated Python code
+        """
+        generated_code = ""
+        pending_content = ""
+        last_line_count = 0
+
+        async for chunk in self.brain.stream_response(
+            f"Implement this plan:\n{task}", system=self.brain.CODE_SYSTEM_PROMPT
+        ):
+            generated_code += chunk
+            pending_content += chunk
+
+            current_lines = generated_code.count("\n")
+            if current_lines - last_line_count >= self.STREAM_UPDATE_INTERVAL_LINES:
+                await self.send(
+                    recipient="tui",
+                    action="STREAM_UPDATE",
+                    payload={
+                        "content": pending_content,
+                        "full_content": generated_code,
+                    },
+                )
+                pending_content = ""
+                last_line_count = current_lines
+
+        # Final update
+        if pending_content:
+            await self.send(
+                recipient="tui",
+                action="STREAM_UPDATE",
+                payload={"content": pending_content, "full_content": generated_code},
+            )
+
+        return generated_code
+
     async def _execute_plan(self, plan: dict) -> None:
         """Execute the implementation plan.
 

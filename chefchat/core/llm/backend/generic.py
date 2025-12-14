@@ -92,10 +92,7 @@ class OpenAIAdapter(APIAdapter):
         payload = {
             "model": model_name,
             "messages": [
-                {
-                    **msg,
-                    "role": self._map_role(msg["role"])
-                }
+                {**msg, "role": self._map_role(msg["role"])}
                 for msg in converted_messages
             ],
             "temperature": temperature,
@@ -440,9 +437,9 @@ class GenericBackend:
         if tools:
             # Rough estimate for tools definition
             for tool in tools:
-                 # Estimate based on function definition
-                 # Very rough: 1 token per 4 chars of json dump
-                 total += count_tokens(json.dumps(tool.model_dump()), model.name)
+                # Estimate based on function definition
+                # Very rough: 1 token per 4 chars of json dump
+                total += count_tokens(json.dumps(tool.model_dump()), model.name)
 
         return total
 

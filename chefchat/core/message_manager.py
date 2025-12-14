@@ -86,42 +86,54 @@ class MessageManager:
         while i < len(self.messages):
             msg = self.messages[i]
 
-            if msg.role == Role.assistant and msg.tool_calls:
-                expected_responses = len(msg.tool_calls)
+            # Skip if not an assistant message with tool calls
+            if msg.role != Role.assistant or not msg.tool_calls:
+                i += 1
+                continue
 
-                if expected_responses > 0:
-                    actual_responses = 0
-                    j = i + 1
-                    while j < len(self.messages) and self.messages[j].role == Role.tool:
-                        actual_responses += 1
-                        j += 1
+            expected_responses = len(msg.tool_calls)
+            if expected_responses <= 0:
+                i += 1
+                continue
 
-                    if actual_responses < expected_responses:
-                        insertion_point = i + 1 + actual_responses
+            # Count actual tool responses
+            actual_responses = 0
+            j = i + 1
+            while j < len(self.messages) and self.messages[j].role == Role.tool:
+                actual_responses += 1
+                j += 1
 
-                        for call_idx in range(actual_responses, expected_responses):
-                            tool_call_data = msg.tool_calls[call_idx]
+            if actual_responses >= expected_responses:
+                i = j
+                continue
 
-                            empty_response = LLMMessage(
-                                role=Role.tool,
-                                tool_call_id=tool_call_data.id or "",
-                                name=(tool_call_data.function.name or "")
-                                if tool_call_data.function
-                                else "",
-                                content=str(
-                                    get_user_cancellation_message(
-                                        CancellationReason.TOOL_NO_RESPONSE
-                                    )
-                                ),
-                            )
+            # Fill missing responses
+            insertion_point = i + 1 + actual_responses
+            for call_idx in range(actual_responses, expected_responses):
+                tool_call_data = msg.tool_calls[call_idx]
+                tool_name = (
+                    tool_call_data.function.name
+                    if tool_call_data.function and tool_call_data.function.name
+                    else ""
+                )
 
-                            self.messages.insert(insertion_point, empty_response)
-                            insertion_point += 1
+                empty_response = LLMMessage(
+                    role=Role.tool,
+                    tool_call_id=tool_call_data.id or "",
+                    name=tool_name,
+                    content=str(
+                        get_user_cancellation_message(
+                            CancellationReason.TOOL_NO_RESPONSE
+                        )
+                    ),
+                )
 
-                    i = i + 1 + expected_responses
-                    continue
+                self.messages.insert(insertion_point, empty_response)
+                insertion_point += 1
 
-            i += 1
+            # Advance outer loop past the newly inserted messages
+            insertion_count = expected_responses - actual_responses
+            i = j + insertion_count
 
     def _ensure_assistant_after_tools(self) -> None:
         """Ensure conversation ends with assistant message if last was tool."""

@@ -356,6 +356,10 @@ class VibeConfig(BaseSettings):
     vim_keybindings: bool = False
     disable_welcome_banner_animation: bool = False
     displayed_workdir: str = ""
+    fun_mode: bool = True
+    color_enabled: bool = True
+    emoji_enabled: bool = True
+    ui_theme: str = "chef-dark"
     auto_compact_threshold: int = 200_000
     context_warnings: bool = False
     textual_theme: str = "textual-dark"
@@ -366,6 +370,8 @@ class VibeConfig(BaseSettings):
     include_model_info: bool = True
     include_project_context: bool = True
     include_prompt_detail: bool = True
+    file_indexer_parallel_walk: bool = True
+    file_indexer_max_workers: int | None = 4
     enable_update_checks: bool = True
     api_timeout: float = 720.0
     providers: list[ProviderConfig] = Field(

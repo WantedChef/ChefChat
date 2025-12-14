@@ -171,16 +171,7 @@ def _is_retryable_http_error(e: Exception) -> bool:
     return False
 
 
-try:
-    from typing import ParamSpec, TypeVar
-except ImportError:
-    from typing_extensions import ParamSpec, TypeVar
-
-T = TypeVar("T")
-P = ParamSpec("P")
-
-
-def async_retry(
+def async_retry[**P, T](
     tries: int = 3,
     delay_seconds: float = 0.5,
     backoff_factor: float = 2.0,
@@ -222,7 +213,7 @@ def async_retry(
     return decorator
 
 
-def async_generator_retry(
+def async_generator_retry[**P, T](
     tries: int = 3,
     delay_seconds: float = 0.5,
     backoff_factor: float = 2.0,
@@ -274,7 +265,7 @@ class ConversationLimitException(Exception):
     pass
 
 
-def run_sync(coro: Coroutine[Any, Any, T]) -> T:
+def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     """Run an async coroutine synchronously, handling nested event loops.
 
     If called from within an async context (running event loop), runs the
@@ -293,3 +284,17 @@ def run_sync(coro: Coroutine[Any, Any, T]) -> T:
 
 def is_windows() -> bool:
     return sys.platform == "win32"
+
+
+def get_subprocess_encoding() -> str:
+    """Determine the appropriate encoding for subprocess output.
+
+    Returns:
+        Encoding string (e.g., 'utf-8', 'cp1252', etc.)
+    """
+    if is_windows():
+        # Windows console uses OEM code page (e.g., cp850, cp1252)
+        import ctypes
+
+        return f"cp{ctypes.windll.kernel32.GetOEMCP()}"
+    return "utf-8"

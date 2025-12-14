@@ -19,15 +19,6 @@ from chefchat.core.tools.base import (
 from chefchat.core.utils import is_windows
 
 
-def _get_subprocess_encoding() -> str:
-    if sys.platform == "win32":
-        # Windows console uses OEM code page (e.g., cp850, cp1252)
-        import ctypes
-
-        return f"cp{ctypes.windll.kernel32.GetOEMCP()}"
-    return "utf-8"
-
-
 def _get_base_env() -> dict[str, str]:
     base_env = {
         **os.environ,

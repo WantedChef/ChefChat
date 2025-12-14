@@ -9,7 +9,7 @@ delegating each step to the appropriate kitchen station.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 import yaml
 
 
-class StepType(str, Enum):
+class StepType(StrEnum):
     """Types of steps in a recipe."""
 
     ANALYZE = "analyze"  # Analyze code/context
@@ -50,6 +50,9 @@ class RecipeStep(BaseModel):
     on_error: str = Field(
         default="abort",
         description="What to do on error: 'abort', 'continue', or 'retry'",
+    )
+    max_retries: int = Field(
+        default=3, description="Maximum number of retries if on_error is 'retry'"
     )
 
 
@@ -249,54 +252,61 @@ class RecipeExecutor:
         for i, step in enumerate(recipe.steps):
             self._current_step = i
 
-            try:
-                if on_step:
-                    await on_step(i, step, len(recipe.steps))
+            retries = 0
+            while True:
+                try:
+                    if on_step:
+                        await on_step(i, step, len(recipe.steps))
 
-                # Create step payload
-                {
-                    "step_index": i,
-                    "step_name": step.name,
-                    "step_type": step.type.value,
-                    "prompt": self._interpolate(step.prompt or ""),
-                    "inputs": self._interpolate_dict(step.inputs),
-                    "recipe_name": recipe.name,
-                }
+                    # Create step payload
+                    payload = {
+                        "step_index": i,
+                        "step_name": step.name,
+                        "step_type": step.type.value,
+                        "prompt": self._interpolate(step.prompt or ""),
+                        "inputs": self._interpolate_dict(step.inputs),
+                        "recipe_name": recipe.name,
+                    }
 
-                # For now, simulate step execution
-                # In real implementation, this would send to bus
-                await asyncio.sleep(0.5)  # Simulate work
+                    result = await self._execute_step(i, step, recipe.name)
+                    results.append(result)
 
-                result = {
-                    "step": i,
-                    "name": step.name,
-                    "status": "success",
-                    "outputs": {},
-                }
-                results.append(result)
+                    # Store outputs in context
+                    for output in step.outputs:
+                        self._context[output] = result.get("outputs", {}).get(output)
 
-                # Store outputs in context
-                for output in step.outputs:
-                    self._context[output] = result.get("outputs", {}).get(output)
-
-            except Exception as e:
-                error_result = {
-                    "step": i,
-                    "name": step.name,
-                    "status": "error",
-                    "error": str(e),
-                }
-                results.append(error_result)
-
-                if on_error:
-                    await on_error(i, step, e)
-
-                if step.on_error == "abort":
+                    # Break inner loop on success
                     break
-                elif step.on_error == "retry":
-                    # TODO: Implement retry logic
-                    pass
-                # else: continue to next step
+
+                except Exception as e:
+                    # Check if we should retry
+                    if step.on_error == "retry" and retries < step.max_retries:
+                        retries += 1
+                        continue
+
+                    error_result = {
+                        "step": i,
+                        "name": step.name,
+                        "status": "error",
+                        "error": str(e),
+                    }
+                    results.append(error_result)
+
+                    if on_error:
+                        await on_error(i, step, e)
+
+                    if step.on_error == "abort" or step.on_error == "retry":
+                        # If we're here and on_error is retry, it means retries exhausted
+                        # So we abort the recipe
+                        return {
+                            "recipe": recipe.name,
+                            "total_steps": len(recipe.steps),
+                            "completed_steps": len(results),
+                            "results": results,
+                        }
+
+                    # If on_error is "continue", we break inner loop and continue to next step
+                    break
 
         self._current_recipe = None
 
@@ -308,6 +318,32 @@ class RecipeExecutor:
             "total_steps": len(recipe.steps),
             "completed_steps": len(results),
             "results": results,
+        }
+
+    async def _execute_step(
+        self, i: int, step: RecipeStep, recipe_name: str
+    ) -> dict[str, Any]:
+        """Execute a single step.
+
+        Args:
+            i: Step index
+            step: The RecipeStep object
+            recipe_name: Name of the recipe
+
+        Returns:
+            Result dictionary
+        """
+        import asyncio
+
+        # For now, simulate step execution
+        # In real implementation, this would send to bus
+        await asyncio.sleep(0.5)  # Simulate work
+
+        return {
+            "step": i,
+            "name": step.name,
+            "status": "success",
+            "outputs": {},
         }
 
     def _interpolate(self, text: str) -> str:

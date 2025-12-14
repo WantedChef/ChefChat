@@ -23,12 +23,23 @@ class _RebuildTask:
 
 
 class FileIndexer:
-    def __init__(self, mass_change_threshold: int = 200) -> None:
+    def __init__(
+        self,
+        mass_change_threshold: int = 200,
+        max_depth: int | None = None,
+        parallel_walk: bool = True,
+        max_workers: int | None = None,
+    ) -> None:
         self._lock = RLock()  # guards _store snapshot access and watcher callbacks.
         self._stats = FileIndexStats()
         self._ignore_rules = IgnoreRules()
         self._store = FileIndexStore(
-            self._ignore_rules, self._stats, mass_change_threshold=mass_change_threshold
+            self._ignore_rules,
+            self._stats,
+            mass_change_threshold=mass_change_threshold,
+            max_depth=max_depth,
+            parallel_walk=parallel_walk,
+            max_workers=max_workers,
         )
         self._watcher = WatchController(self._handle_watch_changes)
         self._rebuild_executor = ThreadPoolExecutor(
@@ -45,7 +56,7 @@ class FileIndexer:
     def stats(self) -> FileIndexStats:
         return self._stats
 
-    def get_index(self, root: Path) -> list[IndexEntry]:
+    def get_index(self, root: Path, wait: bool = True) -> list[IndexEntry]:
         resolved_root = root.resolve()
 
         with self._lock:  # read current root without blocking rebuild bookkeeping
@@ -57,11 +68,16 @@ class FileIndexer:
             self._watcher.stop()
             with self._rebuild_lock:  # cancel rebuilds targeting other roots
                 self._target_root = resolved_root
-                for other_root, task in self._active_rebuilds.items():
-                    if other_root != resolved_root:
+                stale_roots = [
+                    other_root
+                    for other_root in self._active_rebuilds
+                    if other_root != resolved_root
+                ]
+                for other_root in stale_roots:
+                    task = self._active_rebuilds.pop(other_root, None)
+                    if task:
                         task.cancel_event.set()
                         task.done_event.set()
-                        self._active_rebuilds.pop(other_root, None)
 
         with self._lock:
             needs_rebuild = self._store.root != resolved_root
@@ -70,7 +86,8 @@ class FileIndexer:
             with self._rebuild_lock:
                 self._target_root = resolved_root
             self._start_background_rebuild(resolved_root)
-            self._wait_for_rebuild(resolved_root)
+            if wait:
+                self._wait_for_rebuild(resolved_root)
 
         # Under pytest we avoid starting watch threads; they can linger and
         # trigger noisy thread dumps / instability in CI.
@@ -160,16 +177,27 @@ class FileIndexer:
         with self._rebuild_lock:
             task = self._active_rebuilds.get(root)
         if task:
-            task.done_event.wait()
+            completed = task.done_event.wait(timeout=30)
+            if not completed:
+                task.cancel_event.set()
 
     def _handle_watch_changes(
         self, root: Path, raw_changes: Iterable[tuple[Change, str]]
     ) -> None:
-        normalized: list[tuple[Change, Path]] = []
+        normalized: dict[tuple[Change, Path], None] = {}
         for change, path_str in raw_changes:
             if change not in {Change.added, Change.deleted, Change.modified}:
                 continue
-            normalized.append((change, Path(path_str).resolve()))
+
+            try:
+                resolved = Path(path_str).resolve(strict=False)
+            except OSError:
+                continue
+
+            if not str(resolved):
+                continue
+
+            normalized[(change, resolved)] = None
 
         if not normalized:
             return
@@ -177,4 +205,4 @@ class FileIndexer:
         with self._lock:  # make watcher ignore stale roots
             if self._store.root != root:
                 return
-            self._store.apply_changes(normalized)
+            self._store.apply_changes(list(normalized))

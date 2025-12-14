@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from concurrent.futures import Future, ThreadPoolExecutor, wait, FIRST_COMPLETED
+import math
 import os
 from pathlib import Path
 
@@ -30,10 +32,20 @@ class FileIndexStore:
         ignore_rules: IgnoreRules,
         stats: FileIndexStats,
         mass_change_threshold: int = 200,
+        max_depth: int | None = None,
+        parallel_walk: bool = True,
+        max_workers: int | None = None,
     ) -> None:
         self._ignore_rules = ignore_rules
         self._stats = stats
         self._mass_change_threshold = mass_change_threshold
+        self._max_depth = max_depth
+        self._parallel_walk = parallel_walk
+        self._max_workers = (
+            max_workers
+            if max_workers and max_workers > 0
+            else self._default_worker_count()
+        )
         self._entries_by_rel: dict[str, IndexEntry] = {}
         self._ordered_entries: list[IndexEntry] | None = None
         self._root: Path | None = None
@@ -52,7 +64,22 @@ class FileIndexStore:
     ) -> None:
         resolved_root = root.resolve()
         self._ignore_rules.ensure_for_root(resolved_root)
-        entries = self._walk_directory(resolved_root, cancel_check=should_cancel)
+        executor: ThreadPoolExecutor | None = None
+        try:
+            if self._parallel_walk and self._max_workers > 1:
+                executor = ThreadPoolExecutor(
+                    max_workers=self._max_workers, thread_name_prefix="file-walk"
+                )
+
+            entries = self._walk_directory(
+                resolved_root,
+                cancel_check=should_cancel,
+                depth=0,
+                executor=executor,
+            )
+        finally:
+            if executor:
+                executor.shutdown(wait=False, cancel_futures=True)
         self._entries_by_rel = {entry.rel: entry for entry in entries}
         self._ordered_entries = entries
         self._root = resolved_root
@@ -100,7 +127,7 @@ class FileIndexStore:
                 if dir_entry:
                     self._entries_by_rel[rel_str] = dir_entry
                     modified = True
-                for entry in self._walk_directory(path, rel_str):
+                for entry in self._walk_directory(path, rel_str, depth=rel_str.count("/")):
                     self._entries_by_rel[entry.rel] = entry
                     modified = True
             else:
@@ -127,11 +154,18 @@ class FileIndexStore:
         directory: Path,
         rel_prefix: str = "",
         cancel_check: Callable[[], bool] | None = None,
+        depth: int = 0,
+        executor: ThreadPoolExecutor | None = None,
     ) -> list[IndexEntry]:
         results: list[IndexEntry] = []
+        if self._max_depth is not None and depth > self._max_depth:
+            return results
+
+        futures: set[Future[list[IndexEntry]]] = set()
         try:
             with os.scandir(directory) as iterator:
-                for entry in iterator:
+                entries: Iterable[os.DirEntry[str]] = iterator
+                for entry in entries:
                     if cancel_check and cancel_check():
                         break
 
@@ -146,14 +180,54 @@ class FileIndexStore:
 
                     results.append(index_entry)
 
-                    if is_dir:
-                        results.extend(
-                            self._walk_directory(path, rel_str, cancel_check)
+                    if (
+                        not is_dir
+                        or (self._max_depth is not None and depth >= self._max_depth)
+                    ):
+                        continue
+
+                    if executor and self._parallel_walk:
+                        futures.add(
+                            executor.submit(
+                                self._walk_directory,
+                                path,
+                                rel_str,
+                                cancel_check,
+                                depth + 1,
+                                executor,
+                            )
                         )
+                    else:
+                        results.extend(
+                            self._walk_directory(
+                                path,
+                                rel_str,
+                                cancel_check,
+                                depth=depth + 1,
+                                executor=None,
+                            )
+                        )
+
+            while futures:
+                done, futures = wait(futures, return_when=FIRST_COMPLETED)
+                if cancel_check and cancel_check():
+                    for future in futures:
+                        future.cancel()
+                    break
+                for future in done:
+                    try:
+                        results.extend(future.result())
+                    except Exception:
+                        continue
         except (PermissionError, OSError):
             pass
 
         return results
+
+    def _default_worker_count(self) -> int:
+        cpus = os.cpu_count() or 2
+        # keep conservative to avoid IO thrash
+        return max(1, min(8, math.ceil(cpus / 2)))
 
     def _remove_entry(self, rel_str: str) -> bool:
         entry = self._entries_by_rel.pop(rel_str, None)

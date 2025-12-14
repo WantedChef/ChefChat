@@ -47,6 +47,8 @@ dependencies = [
     "typing_extensions>=4.0.0",
     "networkx>=3.2.0",
     "pyyaml>=6.0.0",
+    "python-telegram-bot>=22.5",
+    "discord-py>=2.6.4",
 ]
 [project.urls]
 Homepage = "https://github.com/mistralai/mistral-vibe"
@@ -93,17 +95,17 @@ dev = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 reportMissingTypeStubs = false
 reportPrivateImportUsage = false
-include = ["vibe/**/*.py", "tests/**/*.py"]
+include = ["chefchat/**/*.py", "vibe/**/*.py", "tests/**/*.py"]
 venvPath = "."
 venv = ".venv"
 
 [tool.ruff]
-include = ["vibe/**/*.py", "tests/**/*.py"]
+include = ["chefchat/**/*.py", "vibe/**/*.py", "tests/**/*.py"]
 line-length = 88
-target-version = "py310"
+target-version = "py312"
 preview = true
 
 [tool.ruff.format]

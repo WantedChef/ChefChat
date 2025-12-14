@@ -81,7 +81,9 @@ class ChefErrorHandler:
 
             if isinstance(error, BackendError):
                 # Format BackendError with structured details
-                content.append("API Error Details:\n\n", style=f"bold {COLORS['warning']}")
+                content.append(
+                    "API Error Details:\n\n", style=f"bold {COLORS['warning']}"
+                )
 
                 # Status and basic info
                 if error.status:

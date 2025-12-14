@@ -17,18 +17,15 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
-
-T = TypeVar("T")
 
 # Shared console instance
 _console = Console()
 
 
-async def run_with_spinner(
+async def run_with_spinner[T](
     coro: Awaitable[T], message: str = "Processing...", console: Console | None = None
 ) -> T:
     """Run an async task with a Rich spinner.
@@ -66,7 +63,7 @@ async def run_with_spinner(
         return result
 
 
-async def batch_execute(
+async def batch_execute[T](
     tasks: list[Callable[[], Awaitable[T]]], max_concurrent: int = 5
 ) -> list[T | Exception]:
     """Execute multiple async tasks with concurrency limit.
@@ -104,7 +101,7 @@ async def batch_execute(
     return [r[1] for r in results]  # type: ignore
 
 
-async def run_with_progress(
+async def run_with_progress[T](
     coro: Awaitable[T],
     total: int,
     description: str = "Working...",

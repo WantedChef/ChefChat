@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-import sys
-
-if sys.version_info >= (3, 11):
+try:
     from enum import StrEnum
-else:
+except ImportError:
     from enum import Enum
 
     class StrEnum(str, Enum):
-        """Enum where members are also (and must be) strings."""
+        """Enum where members are also (and must be) strings"""
+
+        def __str__(self) -> str:
+            return str(self.value)
+
+
+__all__ = ["StrEnum"]

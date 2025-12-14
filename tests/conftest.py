@@ -1,44 +1,15 @@
 from __future__ import annotations
 
-import sys
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
-
-# Mock tomli_w for tests environment
-sys.modules["tomli_w"] = MagicMock()
-
-# Mock aiofiles for tests environment
-sys.modules["aiofiles"] = MagicMock()
-sys.modules["aiofiles.os"] = MagicMock()
-
-# Mock mistralai for tests environment
-sys.modules["mistralai"] = MagicMock()
-sys.modules["mistralai.models"] = MagicMock()
-sys.modules["mistralai.client"] = MagicMock()
-
-# Mock mistralai.Mistral to return an AsyncMock instance for its chat client
-mock_mistral_client = AsyncMock()
-mock_mistral_client.chat = AsyncMock()
-mock_mistral_client.chat.complete_async = AsyncMock()
-mock_mistral_client.chat.stream_async = AsyncMock()
-sys.modules["mistralai"].Mistral = MagicMock(return_value=mock_mistral_client)
-
-
-# Ensure SDKError inherits from Exception so it can be caught in try/except blocks
-class MockSDKError(Exception):
-    def __init__(self, message="", raw_response=None):
-        super().__init__(message)
-        self.raw_response = raw_response
-
-
-sys.modules["mistralai"].SDKError = MockSDKError
-sys.modules["mistralai.models"].SDKError = MockSDKError
-
 import json
 import os
-from unittest.mock import AsyncMock, MagicMock
+import sys
+from typing import Any
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 from pydantic import ValidationError
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
+import pytest
 
 from chefchat.core.types import LLMChunk
 from tests.mock.utils import MOCK_DATA_ENV_VAR
@@ -56,7 +27,6 @@ sys.modules["mistralai.models"] = MagicMock()
 sys.modules["mistralai.client"] = MagicMock()
 
 # Mock mistralai.Mistral to return an AsyncMock instance for its chat client
-# This will be configured dynamically by the _configure_mistral_mocks fixture
 mock_mistral_client = AsyncMock()
 mock_mistral_client.chat = AsyncMock()
 mock_mistral_client.chat.complete_async = AsyncMock()
@@ -73,21 +43,6 @@ class MockSDKError(Exception):
 
 sys.modules["mistralai"].SDKError = MockSDKError
 sys.modules["mistralai.models"].SDKError = MockSDKError
-
-import enum
-
-if not hasattr(enum, "StrEnum"):
-
-    class StrEnum(str, enum.Enum):
-        pass
-
-    enum.StrEnum = StrEnum
-
-from unittest.mock import ANY
-
-from pydantic.fields import FieldInfo
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
-import pytest
 
 if not hasattr(pytest, "any"):
     pytest.any = ANY

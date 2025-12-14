@@ -207,3 +207,21 @@ result-*
 
 .gemini/
 gha-creds-*.json
+
+# Specifieke documenten en notities
+vibe/core/prompts/dangerous_directory.md
+TESTING_MENU.md
+REFACTORING_SUMMARY.md
+MASTERPLAN.md
+IMPLEMENTATION_SUMMARY.md
+Need_to_
+opus_prompts.md
+
+# Mappen
+docs/
+
+# Configuratie bestanden
+.gemini
+.github/
+
+

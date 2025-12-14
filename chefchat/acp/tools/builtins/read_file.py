@@ -12,6 +12,7 @@ from chefchat.core.tools.builtins.read_file import (
     ReadFileArgs,
     ReadFileResult,
     ReadFileState,
+    ReadFileToolConfig,
     _ReadResult,
 )
 
@@ -22,9 +23,11 @@ class AcpReadFileState(ReadFileState, AcpToolState):
     pass
 
 
-class ReadFile(CoreReadFileTool, BaseAcpTool[AcpReadFileState]):
+class ReadFile(CoreReadFileTool, BaseAcpTool[ReadFileArgs, ReadFileResult, ReadFileToolConfig, AcpReadFileState]):
     state: AcpReadFileState
-    prompt_path = CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "read_file.md"
+    prompt_path = (
+        CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "read_file.md"
+    )
 
     @classmethod
     def _get_tool_state_class(cls) -> type[AcpReadFileState]:

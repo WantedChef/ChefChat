@@ -9,18 +9,21 @@ chef_theme = Theme({
     "warning": "yellow",
     "error": "bold red",
     "success": "bold green",
-    "chef": "bold magenta"
+    "chef": "bold magenta",
 })
 
 console = Console(theme=chef_theme)
+
 
 def print_chef(msg: str) -> None:
     """Spreek de chef aan."""
     console.print(f"[chef]CHEF:[/chef] {msg}")
 
+
 def print_success(msg: str) -> None:
     """Also het gelukt is."""
     console.print(f"[success]LEKKA:[/success] {msg}")
+
 
 def print_error(msg: str):  # noqa: ANN201
     """Also het misgaat."""
