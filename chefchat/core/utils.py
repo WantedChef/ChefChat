@@ -293,3 +293,17 @@ def run_sync(coro: Coroutine[Any, Any, T]) -> T:
 
 def is_windows() -> bool:
     return sys.platform == "win32"
+
+
+def get_subprocess_encoding() -> str:
+    """Determine the appropriate encoding for subprocess output.
+
+    Returns:
+        Encoding string (e.g., 'utf-8', 'cp1252', etc.)
+    """
+    if is_windows():
+        # Windows console uses OEM code page (e.g., cp850, cp1252)
+        import ctypes
+
+        return f"cp{ctypes.windll.kernel32.GetOEMCP()}"
+    return "utf-8"
