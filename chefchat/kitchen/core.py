@@ -33,7 +33,7 @@ class ChefBrain(ABC):
     @abstractmethod
     async def cook_recipe(
         self, ingredients: dict[str, Any], preferences: dict[str, Any] | None = None
-    ) -> str | AsyncIterator[str]:
+    ) -> str | AsyncIterator[str] | Any:
         """Execute a generation task (the "recipe").
 
         Args:
@@ -42,13 +42,13 @@ class ChefBrain(ABC):
             preferences: Optional configuration (e.g., model parameters, system prompt).
 
         Returns:
-            Generated text or an async iterator for streaming.
+            Generated text, an async iterator for streaming, or a response object (for tools).
         """
 
     @abstractmethod
     async def chat(
         self, user_input: str, history: list[dict[str, str]]
-    ) -> str | AsyncIterator[str]:
+    ) -> str | AsyncIterator[str] | Any:
         """Conduct a conversation step.
 
         Args:
@@ -56,5 +56,5 @@ class ChefBrain(ABC):
             history: List of prior messages [{"role": "user", "content": "..."}, ...].
 
         Returns:
-            The assistant's response (string or stream).
+            The assistant's response (string, stream, or object).
         """

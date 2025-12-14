@@ -9,6 +9,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from chefchat.kitchen.core import ChefBrain
+from chefchat.core.tools.utils_mistral import tool_to_mistral_format
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -42,7 +43,7 @@ class DevstralChef(ChefBrain):
 
     async def cook_recipe(
         self, ingredients: dict[str, Any], preferences: dict[str, Any] | None = None
-    ) -> str | AsyncIterator[str]:
+    ) -> str | AsyncIterator[str] | Any:
         """Cook (generate) using Mistral."""
         if not self._client:
             if not self.connect():
@@ -54,6 +55,13 @@ class DevstralChef(ChefBrain):
         model = prefs.get("model", self._model)
         temperature = prefs.get("temperature", 0.7)
         stream = prefs.get("stream", False)
+
+        tools = ingredients.get("tools")
+        mistral_tools = None
+        if tools:
+            mistral_tools = [tool_to_mistral_format(t) for t in tools]
+            # Disable streaming when using tools to simplify handling
+            stream = False
 
         messages = ingredients.get("messages")
         if not messages:
@@ -67,11 +75,11 @@ class DevstralChef(ChefBrain):
         if stream:
             return self._stream_response(model, messages, temperature)
         else:
-            return await self._generate_response(model, messages, temperature)
+            return await self._generate_response(model, messages, temperature, mistral_tools)
 
     async def chat(
         self, user_input: str, history: list[dict[str, str]]
-    ) -> str | AsyncIterator[str]:
+    ) -> str | AsyncIterator[str] | Any:
         """Chat using Mistral."""
         # Chat is just a specific recipe
         ingredients = {"messages": history + [{"role": "user", "content": user_input}]}
@@ -80,12 +88,24 @@ class DevstralChef(ChefBrain):
         return await self.cook_recipe(ingredients, preferences)
 
     async def _generate_response(
-        self, model: str, messages: list[dict], temperature: float
-    ) -> str:
+        self, model: str, messages: list[dict], temperature: float, tools: list[dict] | None = None
+    ) -> Any:
         """Internal generation helper."""
-        response = await self._client.chat.complete_async(
-            model=model, messages=messages, temperature=temperature
-        )
+        kwargs = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+
+        response = await self._client.chat.complete_async(**kwargs)
+
+        # If tools were used and tool calls exist, return the full message
+        if tools and response.choices[0].message.tool_calls:
+            return response.choices[0].message
+
         return response.choices[0].message.content or ""
 
     async def _stream_response(

@@ -2,30 +2,32 @@
 
 The Line Cook is where the actual cooking happens. They:
 - Receive PLAN messages from the Sous Chef
-- Generate code using the LLM (simulated for now)
-- Send progress updates (0-100%) back to the bus
-- Report results to The Plate
+- Execute tasks autonomously using available tools
+- Generate code, write files, run commands
+- Send progress updates to the bus
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
+from chefchat.core.tools.manager import ToolManager
+from chefchat.core.config import get_config
 
 if TYPE_CHECKING:
     from chefchat.kitchen.manager import KitchenManager
 
 
 class LineCook(BaseStation):
-    """The code generation and execution station.
+    """The autonomous code execution station.
 
     Handles:
-    - Code generation via LLM
-    - Progress updates during work
-    - Code delivery to The Plate
-    - Result reporting
+    - Task execution via LLM loop
+    - Tool usage (write_file, bash, etc.)
+    - Progress reporting
     """
 
     def __init__(self, bus: KitchenBus, manager: KitchenManager) -> None:
@@ -39,6 +41,10 @@ class LineCook(BaseStation):
         self.manager = manager
         self._current_task: str | None = None
 
+        # Initialize ToolManager
+        config = get_config()
+        self.tool_manager = ToolManager(config)
+
     async def handle(self, message: ChefMessage) -> None:
         """Process incoming messages.
 
@@ -51,67 +57,13 @@ class LineCook(BaseStation):
             # Implementation request from Sous Chef
             await self._execute_plan(message.payload)
 
-        elif action == "test":
-            # Run tests on code
-            await self._run_tests(message.payload)
-
-        elif action == "refactor":
-            # Refactor existing code
-            await self._refactor(message.payload)
-
         elif action == "FIX_ERRORS":
             # Fix errors from Expeditor (self-healing loop)
-            await self._fix_errors(message.payload)
-
-    STREAM_UPDATE_INTERVAL_LINES = 5
-
-    async def _generate_code(self, task: str) -> str:
-        """Generate code for the task using the LLM.
-
-        Handles streaming updates to the TUI.
-        Updates are sent only every STREAM_UPDATE_INTERVAL_LINES lines of code generated.
-
-        Args:
-            task: The task description
-
-        Returns:
-            Generated Python code
-        """
-        generated_code = ""
-        pending_content = ""
-        last_line_count = 0
-
-        async for chunk in self.brain.stream_response(
-            f"Implement this plan:\n{task}", system=self.brain.CODE_SYSTEM_PROMPT
-        ):
-            generated_code += chunk
-            pending_content += chunk
-
-            current_lines = generated_code.count("\n")
-            if current_lines - last_line_count >= self.STREAM_UPDATE_INTERVAL_LINES:
-                await self.send(
-                    recipient="tui",
-                    action="STREAM_UPDATE",
-                    payload={
-                        "content": pending_content,
-                        "full_content": generated_code,
-                    },
-                )
-                pending_content = ""
-                last_line_count = current_lines
-
-        # Final update
-        if pending_content:
-            await self.send(
-                recipient="tui",
-                action="STREAM_UPDATE",
-                payload={"content": pending_content, "full_content": generated_code},
-            )
-
-        return generated_code
+            # Re-route to autonomous execution with context
+            await self._fix_errors_autonomous(message.payload)
 
     async def _execute_plan(self, plan: dict) -> None:
-        """Execute the implementation plan.
+        """Execute the implementation plan autonomously.
 
         Args:
             plan: The implementation plan from Sous Chef
@@ -129,24 +81,13 @@ class LineCook(BaseStation):
                 "station": self.name,
                 "status": "cooking",
                 "progress": 0,
-                "message": "🍳 Firing up the grill...",
+                "message": "🍳 Firing up the grill (Autonomous Mode)...",
             },
         )
 
         try:
-            # Generate code using the Manager with streaming updates
-            generated_code = ""
-            async for chunk in self.manager.stream_response(
-                f"Implement this plan:\n{task}", system=self.manager.CODE_SYSTEM_PROMPT
-            ):
-                generated_code += chunk
-                # Throttle updates to avoid flooding TUI
-                if len(generated_code) % 50 == 0:
-                    await self.send(
-                        recipient="tui",
-                        action="STREAM_UPDATE",
-                        payload={"content": chunk, "full_content": generated_code},
-                    )
+            # Run the autonomous loop
+            await self._autonomous_loop(task, ticket_id)
 
             # Complete!
             await self.send(
@@ -156,19 +97,7 @@ class LineCook(BaseStation):
                     "station": self.name,
                     "status": "complete",
                     "progress": 100,
-                    "message": "✅ Plated!",
-                },
-            )
-
-            # Send final code to The Plate
-            await self.send(
-                recipient="tui",
-                action="PLATE_CODE",
-                payload={
-                    "code": generated_code,
-                    "language": "python",
-                    "file_path": f"solution_{ticket_id[:5]}.py",
-                    "ticket_id": ticket_id,
+                    "message": "✅ Order Up!",
                 },
             )
 
@@ -178,191 +107,145 @@ class LineCook(BaseStation):
                 action="TASK_COMPLETE",
                 payload={
                     "ticket_id": ticket_id,
-                    "result": "Code generated successfully",
+                    "result": "Task completed autonomously",
                 },
             )
 
         except Exception as e:
             await self._send_error(str(e))
 
-    async def _fix_errors(self, payload: dict) -> None:
-        """Attempt to fix errors reported by Expeditor.
-
-        Part of the self-healing loop.
+    async def _autonomous_loop(self, task: str, ticket_id: str) -> None:
+        """Run the main agent loop.
 
         Args:
-            payload: Error details from Expeditor
+            task: The task description
+            ticket_id: Ticket ID for context
         """
-        import pathlib
+        # Load available tools
+        tools = list(self.tool_manager.available_tools().values())
+        tool_instances = {t_cls.get_name(): self.tool_manager.get(t_cls.get_name()) for t_cls in tools}
 
-        ticket_id = payload.get("ticket_id", "unknown")
-        attempt = payload.get("attempt", 1)
-        max_attempts = payload.get("max_attempts", 3)
-        errors = payload.get("errors", [])
-        path = payload.get("path", ".")
+        # System prompt for autonomous agent
+        system_prompt = self.manager.CODE_SYSTEM_PROMPT + """
 
-        self._current_task = ticket_id
+You are an autonomous coding agent. You have access to tools to interact with the file system and run commands.
+Use these tools to complete the user's task.
 
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "cooking",
-                "progress": 0,
-                "message": f"🔧 Fixing errors (attempt {attempt}/{max_attempts})...",
-            },
-        )
+GUIDELINES:
+1. Break down the task into steps.
+2. Use `write_file` to create or modify code.
+3. Use `bash` to run commands if needed (e.g. `mkdir`, `ls`).
+4. You don't need to ask for permission. Just do it.
+5. When you have completed the task, output a final message starting with "Task Complete:".
+"""
 
-        await self.send(
-            recipient="tui",
-            action="LOG_MESSAGE",
-            payload={
-                "type": "system",
-                "content": f"🔧 **Line Cook**: Attempting repair {attempt}/{max_attempts}...",
-            },
-        )
+        history = [
+            {"role": "user", "content": f"Please implement this task:\n{task}"}
+        ]
 
-        # Read the file content
-        try:
-            file_path = pathlib.Path(path)
-            if not file_path.is_absolute():
-                # Assuming relative to current working directory for now
-                file_path = pathlib.Path.cwd() / path
+        max_turns = 20
+        turn = 0
 
-            if not file_path.exists():
-                raise FileNotFoundError(f"File not found: {path}")
-
-            code_content = file_path.read_text()
-
-        except Exception as e:
-            await self._send_error(f"Could not read file to fix: {e}")
-            return
-
-        # Construct prompt for the LLM
-        error_list = "\n".join(errors)
-        prompt = (
-            f"Please fix the following code which has errors.\n\n"
-            f"FILE: {path}\n"
-            f"ERRORS:\n{error_list}\n\n"
-            f"CODE:\n```python\n{code_content}\n```\n\n"
-            f"Return ONLY the fixed code block."
-        )
-
-        try:
-            # Generate code using the Manager with streaming updates
-            generated_code = ""
-            async for chunk in self.manager.stream_response(
-                prompt, system=self.manager.CODE_SYSTEM_PROMPT
-            ):
-                generated_code += chunk
-                # Throttle updates to avoid flooding TUI
-                if len(generated_code) % 50 == 0:
-                    await self.send(
-                        recipient="tui",
-                        action="STREAM_UPDATE",
-                        payload={"content": chunk, "full_content": generated_code},
-                    )
-
-            # Clean up code (remove markdown code blocks if present)
-            cleaned_code = generated_code
-            if "```python" in cleaned_code:
-                cleaned_code = cleaned_code.split("```python")[1]
-            if "```" in cleaned_code:
-                cleaned_code = cleaned_code.split("```")[0]
-
-            cleaned_code = cleaned_code.strip()
-
-            # Write back to file
-            file_path.write_text(cleaned_code)
-
+        while turn < max_turns:
+            turn += 1
             await self.send(
                 recipient="tui",
                 action="STATUS_UPDATE",
                 payload={
                     "station": self.name,
-                    "status": "complete",
-                    "progress": 100,
-                    "message": "✅ Fix applied",
+                    "status": "cooking",
+                    "progress": int((turn / max_turns) * 100),
+                    "message": f"🍳 Step {turn}...",
                 },
             )
 
-            # Report back to Expeditor
-            await self.send(
-                recipient="expeditor",
-                action="healing_result",
-                payload={"ticket_id": ticket_id, "success": True, "path": path},
+            # Call Chef with tools
+            response = await self.manager.chef.cook_recipe(
+                ingredients={
+                    "messages": history,
+                    "tools": list(tool_instances.values()),
+                    "system": system_prompt
+                },
+                preferences={"stream": False} # Tool use requires non-streaming for now
             )
 
-        except Exception as e:
-            await self._send_error(f"Failed to fix code: {e}")
-            await self.send(
-                recipient="expeditor",
-                action="healing_result",
-                payload={"ticket_id": ticket_id, "success": False, "path": path},
-            )
+            # Check if response is a tool call or text
+            if hasattr(response, "tool_calls") and response.tool_calls:
+                # Append assistant message with tool calls to history
+                history.append(response)
 
-        self._current_task = None
+                # Execute tool calls
+                for tool_call in response.tool_calls:
+                    function_name = tool_call.function.name
+                    arguments_str = tool_call.function.arguments
+                    tool_call_id = tool_call.id
 
-    async def _run_tests(self, payload: dict) -> None:
-        """Run tests on generated code.
+                    await self.send(
+                        recipient="tui",
+                        action="LOG_MESSAGE",
+                        payload={
+                            "type": "system",
+                            "content": f"🛠️ **Tool Call**: `{function_name}`",
+                        },
+                    )
 
-        Args:
-            payload: The test request details
-        """
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "testing",
-                "progress": 50,
-                "message": "🧪 Running tests...",
-            },
+                    try:
+                        arguments = json.loads(arguments_str)
+                        tool_instance = tool_instances.get(function_name)
+
+                        if not tool_instance:
+                            result_content = f"Error: Tool {function_name} not found"
+                        else:
+                            # Invoke tool
+                            result = await tool_instance.invoke(**arguments)
+
+                            # Handle different result types (some might return Pydantic models)
+                            if hasattr(result, "model_dump_json"):
+                                result_content = result.model_dump_json()
+                            else:
+                                result_content = str(result)
+
+                    except Exception as e:
+                        result_content = f"Error executing tool: {e}"
+
+                    # Add tool result to history
+                    history.append({
+                        "role": "tool",
+                        "name": function_name,
+                        "content": result_content,
+                        "tool_call_id": tool_call_id
+                    })
+
+            else:
+                # Text response
+                content = str(response)
+                history.append({"role": "assistant", "content": content})
+
+                await self.send(
+                    recipient="tui",
+                    action="LOG_MESSAGE",
+                    payload={
+                        "type": "assistant",
+                        "content": content,
+                    },
+                )
+
+                if "Task Complete" in content or "Task complete" in content:
+                    return
+
+    async def _fix_errors_autonomous(self, payload: dict) -> None:
+        """Fix errors using autonomous loop."""
+        ticket_id = payload.get("ticket_id", "unknown")
+        errors = payload.get("errors", [])
+        path = payload.get("path", ".")
+
+        task = (
+            f"Fix the following errors in file {path}:\n"
+            f"{json.dumps(errors, indent=2)}\n"
+            f"Use tools to read the file, analyze it, and write the fix."
         )
 
-        await asyncio.sleep(1)
-
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "complete",
-                "progress": 100,
-                "message": "✅ Tests passed!",
-            },
-        )
-
-    async def _refactor(self, payload: dict) -> None:
-        """Refactor existing code.
-
-        Args:
-            payload: The refactor request details
-        """
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "refactoring",
-                "progress": 50,
-                "message": "🔄 Refactoring...",
-            },
-        )
-
-        await asyncio.sleep(1)
-
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "complete",
-                "progress": 100,
-                "message": "✅ Refactored!",
-            },
-        )
+        await self._execute_plan({"task": task, "ticket_id": ticket_id})
 
     async def _send_error(self, error: str) -> None:
         """Send an error message to the TUI and Sous Chef.
