@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from http import HTTPStatus
 import json
+import logging
 from typing import TYPE_CHECKING
 
 import httpx
@@ -20,6 +21,8 @@ from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePr
 
 if TYPE_CHECKING:
     from chefchat.kitchen.manager import KitchenManager
+
+logger = logging.getLogger(__name__)
 
 
 class Sommelier(BaseStation):
