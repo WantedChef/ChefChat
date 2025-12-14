@@ -14,7 +14,7 @@ Each presentation is mode-aware and themed with professional kitchen energy!
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -110,7 +110,7 @@ def generate_plating(
     style = PRESENTATION_STYLES.get(mode_name, PRESENTATION_STYLES["normal"])
 
     # Current time for presentation
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     time_str = now.strftime("%H:%M")
 
     # Get stats if available

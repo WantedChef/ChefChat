@@ -252,7 +252,12 @@ def main() -> None:
     # Skip CLI config loading/onboarding for TUI to allow in-app onboarding
     # unless we are in REPL or programmatic mode
     config = None
-    if not explicit_tui and not args.repl and not args.prompt and not get_prompt_from_stdin():
+    if (
+        not explicit_tui
+        and not args.repl
+        and not args.prompt
+        and not get_prompt_from_stdin()
+    ):
         # Default run (likely TUI), let TUI handle config
         pass
     else:
@@ -277,7 +282,7 @@ def main() -> None:
         stdin_prompt = get_prompt_from_stdin()
         if args.prompt or stdin_prompt:
             if not config:
-                 config = load_config_or_exit(agent=args.agent)
+                config = load_config_or_exit(agent=args.agent)
 
             programmatic_prompt = " ".join(args.prompt) if args.prompt else stdin_prompt
             if not programmatic_prompt:

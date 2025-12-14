@@ -98,7 +98,9 @@ class HistoryManager:
             lines = [json.dumps(entry) + "\n" for entry in self._entries]
             self.history_file.write_text("".join(lines), encoding="utf-8")
 
-            logger.debug("Saved %d history entries to %s", len(self._entries), self.history_file)
+            logger.debug(
+                "Saved %d history entries to %s", len(self._entries), self.history_file
+            )
 
         except OSError as e:
             logger.error("Failed to save history to %s: %s", self.history_file, e)

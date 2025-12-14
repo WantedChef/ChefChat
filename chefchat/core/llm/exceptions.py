@@ -101,8 +101,13 @@ class BackendError(LLMError):
             msg_lower = self.parsed_error.lower()
             if any(indicator in msg_lower for indicator in error_indicators):
                 # More specific check: must have both "context"/"token" AND "long"/"exceed"/"limit"
-                has_context_ref = any(word in msg_lower for word in ["context", "token", "prompt"])
-                has_size_ref = any(word in msg_lower for word in ["long", "large", "exceed", "limit", "maximum"])
+                has_context_ref = any(
+                    word in msg_lower for word in ["context", "token", "prompt"]
+                )
+                has_size_ref = any(
+                    word in msg_lower
+                    for word in ["long", "large", "exceed", "limit", "maximum"]
+                )
                 if has_context_ref and has_size_ref:
                     return True
 
@@ -110,8 +115,13 @@ class BackendError(LLMError):
         if self.body_text:
             body_lower = self.body_text.lower()
             if any(indicator in body_lower for indicator in error_indicators):
-                has_context_ref = any(word in body_lower for word in ["context", "token", "prompt"])
-                has_size_ref = any(word in body_lower for word in ["long", "large", "exceed", "limit", "maximum"])
+                has_context_ref = any(
+                    word in body_lower for word in ["context", "token", "prompt"]
+                )
+                has_size_ref = any(
+                    word in body_lower
+                    for word in ["long", "large", "exceed", "limit", "maximum"]
+                )
                 if has_context_ref and has_size_ref:
                     return True
 

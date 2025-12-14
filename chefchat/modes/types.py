@@ -15,10 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-try:
-    from enum import StrEnum
-except ImportError:
-    from strenum import StrEnum
+from enum import StrEnum
 
 from typing import Any
 

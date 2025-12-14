@@ -246,7 +246,7 @@ class Expeditor(BaseStation):
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(), timeout=self.timeout
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 process.kill()
                 return TasteTestResult(
                     test_type=test_type,
@@ -464,9 +464,11 @@ class Expeditor(BaseStation):
 
         if success:
             # Re-run tests on fixed code
-            await self._run_taste_test(
-                {"ticket_id": ticket_id, "tests": ["pytest", "ruff"], "path": path}
-            )
+            await self._run_taste_test({
+                "ticket_id": ticket_id,
+                "tests": ["pytest", "ruff"],
+                "path": path,
+            })
         else:
             # Fix failed, try again or give up
             attempts = self._healing_attempts.get(ticket_id, 0)
@@ -491,9 +493,11 @@ class Expeditor(BaseStation):
                 )
                 return
 
-            await self._run_taste_test(
-                {"ticket_id": ticket_id, "tests": ["pytest", "ruff"], "path": path}
-            )
+            await self._run_taste_test({
+                "ticket_id": ticket_id,
+                "tests": ["pytest", "ruff"],
+                "path": path,
+            })
 
     async def _verify_code(self, payload: dict) -> None:
         """Quick verification of code without full test suite.

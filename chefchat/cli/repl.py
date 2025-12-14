@@ -188,15 +188,15 @@ class ChefChatREPL:
         greeting, greeting_emoji = get_greeting()
 
         banner_text = f"""
-[bold {COLORS['fire']}]👨‍🍳 ChefChat[/bold {COLORS['fire']}] [dim]v{__version__}[/dim]
+[bold {COLORS["fire"]}]👨‍🍳 ChefChat[/bold {COLORS["fire"]}] [dim]v{__version__}[/dim]
 
-[{COLORS['cream']}]{greeting_emoji} {greeting}![/{COLORS['cream']}]
-[{COLORS['silver']}]Ready to cook up something amazing?[/{COLORS['silver']}]
+[{COLORS["cream"]}]{greeting_emoji} {greeting}![/{COLORS["cream"]}]
+[{COLORS["silver"]}]Ready to cook up something amazing?[/{COLORS["silver"]}]
 """
         panel = Panel(
             Align.center(banner_text.strip()),
             box=box.ROUNDED,
-            border_style=COLORS['fire'],
+            border_style=COLORS["fire"],
             subtitle=f"[{COLORS['smoke']}]Type /help for the menu[/{COLORS['smoke']}]",
             subtitle_align="center",
             padding=(1, 2),
@@ -204,40 +204,31 @@ class ChefChatREPL:
         self.console.print()
         self.console.print(panel)
 
-
-
     async def _handle_model_command(self) -> None:
         """Handle interactive model switching."""
         from rich.prompt import Prompt
         from rich.table import Table
 
-
         # Create a display table for models
         table = Table(
             title=f"[{COLORS['primary']}]Available Models[/{COLORS['primary']}]",
             box=box.ROUNDED,
-            border_style=COLORS['ash'],
+            border_style=COLORS["ash"],
             show_header=True,
-            header_style=f"bold {COLORS['silver']}"
+            header_style=f"bold {COLORS['silver']}",
         )
-        table.add_column("#", justify="right", style=COLORS['muted'])
+        table.add_column("#", justify="right", style=COLORS["muted"])
         table.add_column("Alias", style=f"bold {COLORS['primary']}")
-        table.add_column("Provider", style=COLORS['text'])
-        table.add_column("Model ID", style=COLORS['muted'])
+        table.add_column("Provider", style=COLORS["text"])
+        table.add_column("Model ID", style=COLORS["muted"])
 
         models = self.config.models
         for idx, model in enumerate(models, 1):
             is_active = model.alias == self.config.active_model
             marker = "★" if is_active else str(idx)
-            style = f"bold {COLORS['success']}" if is_active else COLORS['text']
+            style = f"bold {COLORS['success']}" if is_active else COLORS["text"]
 
-            table.add_row(
-                marker,
-                model.alias,
-                model.provider,
-                model.name,
-                style=style
-            )
+            table.add_row(marker, model.alias, model.provider, model.name, style=style)
 
         self.console.print()
         self.console.print(table)
@@ -247,7 +238,16 @@ class ChefChatREPL:
         try:
             choice = Prompt.ask(
                 f"[{COLORS['fire']}]Select model #[/{COLORS['fire']}]",
-                default=str(next((i for i, m in enumerate(models, 1) if m.alias == self.config.active_model), 1))
+                default=str(
+                    next(
+                        (
+                            i
+                            for i, m in enumerate(models, 1)
+                            if m.alias == self.config.active_model
+                        ),
+                        1,
+                    )
+                ),
             )
 
             if choice.strip():
@@ -264,7 +264,9 @@ class ChefChatREPL:
                             f"\n  [{COLORS['sage']}]✓ Switched to {selected_model.alias} ({selected_model.provider})[/{COLORS['sage']}]\n"
                         )
                     else:
-                        self.console.print(f"  [{COLORS['ember']}]Invalid number[/{COLORS['ember']}]")
+                        self.console.print(
+                            f"  [{COLORS['ember']}]Invalid number[/{COLORS['ember']}]"
+                        )
                 except ValueError:
                     # Check if they typed the alias directly
                     found = False
@@ -278,7 +280,9 @@ class ChefChatREPL:
                             found = True
                             break
                     if not found:
-                        self.console.print(f"  [{COLORS['ember']}]Invalid selection[/{COLORS['ember']}]")
+                        self.console.print(
+                            f"  [{COLORS['ember']}]Invalid selection[/{COLORS['ember']}]"
+                        )
 
         except KeyboardInterrupt:
             self.console.print(f"\n  [{COLORS['honey']}]Cancelled[/{COLORS['honey']}]")
@@ -303,15 +307,19 @@ class ChefChatREPL:
         if self.agent and hasattr(self.agent, "stats"):
             token_count = getattr(self.agent.stats, "total_tokens", 0)
 
-        table = Table(title="📊 Today's Service", box=box.ROUNDED, border_style=COLORS['ash'])
+        table = Table(
+            title="📊 Today's Service", box=box.ROUNDED, border_style=COLORS["ash"]
+        )
         table.add_column("Metric", style=f"bold {COLORS['silver']}", width=20)
-        table.add_column("Value", style=COLORS['cream'])
+        table.add_column("Value", style=COLORS["cream"])
 
         table.add_row("⏱️  Service Time", uptime_str)
         table.add_row("🔤 Tokens Used", f"{token_count:,}")
         table.add_row("🔧 Tools Executed", str(self.tools_executed))
         table.add_row("🎯 Current Mode", self.mode_manager.current_mode.value.upper())
-        table.add_row("⚡ Auto-Approve", "ON" if self.mode_manager.auto_approve else "OFF")
+        table.add_row(
+            "⚡ Auto-Approve", "ON" if self.mode_manager.auto_approve else "OFF"
+        )
 
         self.console.print()
         self.console.print(table)
@@ -331,7 +339,9 @@ class ChefChatREPL:
         mode_name = escape(self.mode_manager.current_mode.value.upper())
         mode_desc = escape(self.mode_manager.config.description)
         approval_status = "ON" if self.mode_manager.auto_approve else "OFF"
-        approval_color = COLORS['sage'] if self.mode_manager.auto_approve else COLORS['honey']
+        approval_color = (
+            COLORS["sage"] if self.mode_manager.auto_approve else COLORS["honey"]
+        )
 
         return HTML(
             f' <b><style fg="{COLORS["fire"]}">[Shift+Tab]</style></b> Switch Mode '
@@ -405,7 +415,9 @@ class ChefChatREPL:
                 )
                 return (ApprovalResponse.ALWAYS, None)
             case _:
-                self.console.print(f"  [{COLORS['ember']}]✗ Not today[/{COLORS['ember']}]")
+                self.console.print(
+                    f"  [{COLORS['ember']}]✗ Not today[/{COLORS['ember']}]"
+                )
                 return (
                     ApprovalResponse.NO,
                     str(
@@ -440,9 +452,7 @@ class ChefChatREPL:
         response_text = ""
 
         with Live(
-            Spinner(
-                "dots", text=f"[{COLORS['fire']}] Cooking...[/{COLORS['fire']}]"
-            ),
+            Spinner("dots", text=f"[{COLORS['fire']}] Cooking...[/{COLORS['fire']}]"),
             console=self.console,
             refresh_per_second=10,
             transient=True,

@@ -9,7 +9,7 @@ delegating each step to the appropriate kitchen station.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 import yaml
 
 
-class StepType(str, Enum):
+class StepType(StrEnum):
     """Types of steps in a recipe."""
 
     ANALYZE = "analyze"  # Analyze code/context

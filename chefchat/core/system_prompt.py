@@ -411,11 +411,13 @@ def validate_prompt_length(
             from chefchat.cli.mode_errors import create_prompt_too_long_error
             from chefchat.modes.types import VibeMode
 
-            current_mode = mode_manager.current_mode if mode_manager else VibeMode.NORMAL
+            current_mode = (
+                mode_manager.current_mode if mode_manager else VibeMode.NORMAL
+            )
             error = create_prompt_too_long_error(
                 prompt_length=len(prompt),
                 max_length=safety_threshold * CHARS_PER_TOKEN,
-                mode=current_mode
+                mode=current_mode,
             )
             # Raise as RuntimeError with the ModeError's user message
             raise RuntimeError(error.to_display_message())
@@ -499,7 +501,7 @@ def get_universal_system_prompt(
     # Validate prompt length before returning
     # Get max_tokens from active model config
     active_model = config.get_active_model()
-    if hasattr(active_model, 'max_tokens') and active_model.max_tokens:
+    if hasattr(active_model, "max_tokens") and active_model.max_tokens:
         validate_prompt_length(final_prompt, active_model.max_tokens, mode_manager)
 
     return final_prompt

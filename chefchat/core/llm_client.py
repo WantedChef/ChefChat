@@ -151,7 +151,9 @@ class LLMClient:
                         "User-Agent": get_user_agent(),
                         "x-affinity": self.session_id,
                     },
-                    max_tokens=max_tokens or active_model.max_tokens or DEFAULT_MAX_TOKENS,
+                    max_tokens=max_tokens
+                    or active_model.max_tokens
+                    or DEFAULT_MAX_TOKENS,
                 )
 
             end_time = time.perf_counter()
@@ -189,7 +191,7 @@ The system prompt exceeded the model's token limit.
 **Details:**
 - Model: {e.model}
 - Approximate size: {e.payload_summary.approx_chars:,} characters
-- Provider message: {e.parsed_error or 'N/A'}
+- Provider message: {e.parsed_error or "N/A"}
 
 **Recovery Options:**
 1. **Switch to YOLO mode** (🚀) - Uses minimal prompts
@@ -246,7 +248,9 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                         "User-Agent": get_user_agent(),
                         "x-affinity": self.session_id,
                     },
-                    max_tokens=max_tokens or active_model.max_tokens or DEFAULT_MAX_TOKENS,
+                    max_tokens=max_tokens
+                    or active_model.max_tokens
+                    or DEFAULT_MAX_TOKENS,
                 ):
                     yield chunk
                     last_chunk = chunk
@@ -290,7 +294,7 @@ The system prompt exceeded the model's token limit.
 **Details:**
 - Model: {e.model}
 - Approximate size: {e.payload_summary.approx_chars:,} characters
-- Provider message: {e.parsed_error or 'N/A'}
+- Provider message: {e.parsed_error or "N/A"}
 
 **Recovery Options:**
 1. **Switch to YOLO mode** (🚀) - Uses minimal prompts

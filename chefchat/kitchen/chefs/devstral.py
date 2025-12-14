@@ -1,5 +1,3 @@
-
-
 """Devstral Chef Implementation (Mistral AI).
 
 Specific implementation of ChefBrain for Mistral AI models (Devstral).
@@ -33,6 +31,7 @@ class DevstralChef(ChefBrain):
 
         try:
             from mistralai import Mistral
+
             self._client = Mistral(api_key=self._api_key)
             return True
         except ImportError:
@@ -47,7 +46,9 @@ class DevstralChef(ChefBrain):
         """Cook (generate) using Mistral."""
         if not self._client:
             if not self.connect():
-                raise RuntimeError("DevstralChef not connected (missing API key or package).")
+                raise RuntimeError(
+                    "DevstralChef not connected (missing API key or package)."
+                )
 
         prefs = preferences or {}
         model = prefs.get("model", self._model)
@@ -73,9 +74,7 @@ class DevstralChef(ChefBrain):
     ) -> str | AsyncIterator[str]:
         """Chat using Mistral."""
         # Chat is just a specific recipe
-        ingredients = {
-            "messages": history + [{"role": "user", "content": user_input}]
-        }
+        ingredients = {"messages": history + [{"role": "user", "content": user_input}]}
         # Default chat preferences
         preferences = {"stream": True}
         return await self.cook_recipe(ingredients, preferences)

@@ -19,6 +19,7 @@ from chefchat.core.tools.builtins.search_replace import (
     SearchReplaceArgs,
     SearchReplaceResult,
     SearchReplaceState,
+    SearchReplaceConfig,
 )
 from chefchat.core.types import ToolCallEvent, ToolResultEvent
 
@@ -27,7 +28,7 @@ class AcpSearchReplaceState(SearchReplaceState, AcpToolState):
     file_backup_content: str | None = None
 
 
-class SearchReplace(CoreSearchReplaceTool, BaseAcpTool[AcpSearchReplaceState]):
+class SearchReplace(CoreSearchReplaceTool, BaseAcpTool[SearchReplaceArgs, SearchReplaceResult, SearchReplaceConfig, AcpSearchReplaceState]):
     state: AcpSearchReplaceState
     prompt_path = (
         CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "search_replace.md"

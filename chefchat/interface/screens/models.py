@@ -70,11 +70,17 @@ class ModelSelectionScreen(ModalScreen[str | None]):
                         label = f"{model.alias} ({model.provider})"
                         # Check if this is the active model
                         is_active = model.alias == self._config.active_model
-                        yield RadioButton(label, value=is_active, id=f"model-{model.alias}")
+                        yield RadioButton(
+                            label, value=is_active, id=f"model-{model.alias}"
+                        )
 
             with Container(id="models-buttons"):
-                yield Button("Select", variant="success", id="select-btn", classes="model-btn")
-                yield Button("Cancel", variant="error", id="cancel-btn", classes="model-btn")
+                yield Button(
+                    "Select", variant="success", id="select-btn", classes="model-btn"
+                )
+                yield Button(
+                    "Cancel", variant="error", id="cancel-btn", classes="model-btn"
+                )
 
     @on(Button.Pressed, "#select-btn")
     def select_model(self) -> None:
