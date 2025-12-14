@@ -1271,6 +1271,20 @@ Use the **REPL** (`uv run vibe`) for full model configuration.
                 timeout=2,
             )
 
+            # Broadcast mode update to Kitchen Bus if active
+            if self._bus and self._bus.is_running:
+                asyncio.create_task(
+                    self._bus.publish(
+                        ChefMessage(
+                            sender="tui",
+                            recipient="ALL",
+                            action=BusAction.MODE_UPDATE.value,
+                            payload={PayloadKey.MODE: new_mode.value},
+                            priority=MessagePriority.HIGH,
+                        )
+                    )
+                )
+
         except Exception as e:
             # Catch any unexpected error so we don't crash
             self.notify(f"Mode error: {e}", severity="error", timeout=3)
