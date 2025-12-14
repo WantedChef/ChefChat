@@ -422,11 +422,38 @@ Generate the code to implement this plan."""
 ```
 
 Errors:
-{chr(10).join(f"- {e}" for e in errors)}
+{"\n".join(f"- {e}" for e in errors)}
 
 Fix all the errors and return the corrected code."""
 
         return await adapter.generate(prompt, system=self.CODE_SYSTEM_PROMPT)
+
+    async def fix_code_stream(
+        self, code: str, errors: list[str]
+    ) -> AsyncIterator[str]:
+        """Fix code based on error messages, streaming the response.
+
+        Args:
+            code: The code that failed
+            errors: List of error messages
+
+        Yields:
+            Chunks of fixed code
+        """
+        adapter = self._get_adapter()
+        prompt = f"""The following code has errors:
+
+```python
+{code}
+```
+
+Errors:
+{"\n".join(f"- {e}" for e in errors)}
+
+Fix all the errors and return the corrected code."""
+
+        async for chunk in adapter.stream(prompt, system=self.CODE_SYSTEM_PROMPT):
+            yield chunk
 
     async def roast_code(self, code: str, file_path: str = "unknown") -> str:
         """Generate a sarcastic code review.
