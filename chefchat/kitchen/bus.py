@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -54,7 +54,10 @@ class ChefMessage(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     priority: MessagePriority = Field(default=MessagePriority.NORMAL)
 
-    @pydantic.validator("payload", pre=True)
+    model_config = ConfigDict(use_enum_values=True)
+
+    @field_validator("payload", mode="before")
+    @classmethod
     def validate_payload(cls, v: Any) -> dict[str, Any]:
         """Ensure payload is always a dictionary.
 
@@ -71,11 +74,6 @@ class ChefMessage(BaseModel):
             # Let's raise ValueError to catch bad code early.
             raise ValueError(f"Payload must be a dictionary, got {type(v).__name__}")
         return v
-
-    class Config:
-        """Pydantic config."""
-
-        use_enum_values = True
 
 
 @dataclass(order=True)
@@ -153,7 +151,9 @@ class KitchenBus:
                     if asyncio.iscoroutine(result):
                         await result
                 except Exception as e:
-                    # Log but don't crash the bus
+                    # Log but don't crash the bus.
+                    # We catch all exceptions here to ensure one faulty station
+                    # doesn't bring down the entire messaging system.
                     logger.exception(
                         "Error dispatching message %s to station %s: %s",
                         message.id,
