@@ -19,9 +19,9 @@ def print_chef(msg: str) -> None:
     console.print(f"[chef]CHEF:[/chef] {msg}")
 
 def print_success(msg: str) -> None:
-    """Als het gelukt is."""
+    """Also het gelukt is."""
     console.print(f"[success]LEKKA:[/success] {msg}")
 
 def print_error(msg: str):  # noqa: ANN201
-    """Als het misgaat."""
+    """Also het misgaat."""
     console.print(f"[error]AI NEEF:[/error] {msg}")

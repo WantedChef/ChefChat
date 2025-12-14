@@ -16,8 +16,8 @@ import asyncio
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING
 import time
+from typing import TYPE_CHECKING
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePriority
 

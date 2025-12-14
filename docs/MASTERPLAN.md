@@ -11,7 +11,7 @@
 ## 🎯 1. Executive Summary: The "Vibe" Vision
 
 ### De Visie
-ChefChat is niet zomaar een fork van Mistral Vibe CLI. Het is **de definitieve AI-agent CLI-ervaring**:
+ChefChat is niet zomaar een fork van Mistral Vibe CLI. Het is **de definitive AI-agent CLI-ervaring**:
 - **Technisch superieur:** Sneller, veiliger, schonere code dan het origineel.
 - **Delightfully fun:** Een CLI die je *wilt* gebruiken — met spinners, kleuren, emoji's, interactieve prompts en Easter eggs die wél bijdragen aan de workflow.
 - **Production-ready:** Zero crashes, zero security holes, 100% testbaar.
@@ -20,7 +20,7 @@ ChefChat is niet zomaar een fork van Mistral Vibe CLI. Het is **de definitieve A
 De Mistral Vibe CLI is een solide basis, maar heeft:
 1. **Legacy code** (`textual_ui`) die niemand meer gebruikt.
 2. **Upstream divergence** die toekomstige merges pijnlijk maakt.
-3. **Visuele inconsistenties** tussen `rich` en `prompt_toolkit`.
+3. **Visuele inconsistencies** tussen `rich` en `prompt_toolkit`.
 4. **Een gebrek aan "wow-factor"** — het is functioneel, maar niet *fun*.
 
 ChefChat lost dit op. Wij bouwen de CLI die developers *verdienen*.
@@ -854,12 +854,12 @@ REMOVED:
 
 Na voltooiing van dit masterplan moet ChefChat:
 
-1. **Zero crashes** bij normale operaties
+1. **Zero crashes** bij normal operaties
 2. **< 2s startup time** op moderne hardware
 3. **100% test pass rate** (unit + integration)
 4. **Visuele "wow-factor"** — nieuwe gebruikers zeggen "This is beautiful"
 5. **Veilig** — Geen writes in PLAN mode, zero bypasses
-6. **Documented** — Elke nieuwe dev begrijpt de architectuur in < 30 min
+6. **Documented** — Elke nieuwe dev begrijpt de architecture in < 30 min
 
 ---
 
@@ -873,14 +873,14 @@ Je gaat dit plan uitvoeren in fases. Werk **sequentieel** door de tasks heen:
 3. Commit na elke logische groep taken (bijv. na Task 1.4, commit "Phase 1 complete").
 
 **Pro tips:**
-- Als een file niet bestaat en je moet hem aanmaken: gebruik `write_to_file`.
-- Als een file wél bestaat en je moet iets toevoegen: gebruik `replace_file_content` of `multi_replace`.
+- Also een file niet bestaat en je moet hem aanmaken: gebruik `write_to_file`.
+- Also een file wél bestaat en je moet iets toevoegen: gebruik `replace_file_content` of `multi_replace`.
 - Bij twijfel over waar een functie thuishoort: check de "File Structure Target" sectie.
 
 **Belangrijkste regel:**
 > Make it work, make it right, make it beautiful — in die volgorde.
 
-Veel succes! 🚀
+Veel success! 🚀
 
 ---
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test TUI environment detection."""
+from __future__ import annotations
 
 import os
 import sys
@@ -18,15 +19,15 @@ print("\n=== Textual Test ===")
 try:
     from textual.app import App
     from textual.widgets import Static
-    
+
     class TestApp(App):
         def compose(self):
             yield Static("Textual works!")
-    
+
     # Set environment for IDE
     os.environ["TEXTUAL"] = ""
     os.environ["FORCE_COLOR"] = "1"
-    
+
     print("Attempting to run Textual app...")
     app = TestApp()
     app.run()

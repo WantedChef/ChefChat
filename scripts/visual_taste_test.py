@@ -193,10 +193,6 @@ def test_approval_dialog() -> None:
     section_header("🧪 TEST 5: Approval Dialog")
 
     # Sample tool call
-    args = {
-        "path": "/home/chef/project/src/main.py",
-        "content": "def hello():\n    print('Hello, World!')",
-    }
 
     args_syntax = Syntax(
         '{\n  "path": "/home/chef/project/src/main.py",\n  "content": "def hello():..."\n}',

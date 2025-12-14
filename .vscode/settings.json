@@ -14,7 +14,7 @@
   ],
   "editor.stickyScroll.enabled": true, // Behoudt functiedefinities bij scrollen
   "python.analysis.typeCheckingMode": "strict",
-  "python.languageServer": "Pylance", // Expliciet Pylance
+  "python.languageServer": "Pylance", // Explicit Pylance
   "python.analysis.diagnosticMode": "workspace",  // Bestandsbeheer
   "files.exclude": {
     ".pytest_cache/**": true,
@@ -22,7 +22,7 @@
     "**/__pycache__": true,
     "dist/**": true,
     "build/**": true,
-    "**/.git": true // Optioneel: verberg .git als dit stoort
+    "**/.git": true // Optioneel: verberg .git also dit stoort
   },
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,

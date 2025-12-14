@@ -254,7 +254,7 @@ class RecipeExecutor:
                     await on_step(i, step, len(recipe.steps))
 
                 # Create step payload
-                payload = {
+                {
                     "step_index": i,
                     "step_name": step.name,
                     "step_type": step.type.value,

@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
     from chefchat.kitchen.core import ChefBrain
 
 logger = logging.getLogger(__name__)
@@ -111,8 +112,8 @@ Keep it under 300 words. Make it sting, but make it useful."""
         from chefchat.kitchen.core import ChefBrain
 
         class SimulatedChef(ChefBrain):
-            def connect(self, api_key=None): return True
-            async def cook_recipe(self, ingredients, preferences=None):
+            def connect(self, api_key=None) -> bool: return True
+            async def cook_recipe(self, ingredients, preferences=None) -> str:
                 return "# Simulated Response\n\nAI is not available. Please check your API keys."
             async def chat(self, user_input, history):
                 yield "Simulated response: AI unavailable."

@@ -63,7 +63,7 @@ class ModelSelectionScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Container(id="models-container"):
             yield Static("🤖 Select Model", id="models-title")
-            
+
             with VerticalScroll():
                 with RadioSet(id="model-radios"):
                     for model in self._config.models:
@@ -87,7 +87,7 @@ class ModelSelectionScreen(ModalScreen[str | None]):
                 alias = selected_id.replace("model-", "")
                 self.dismiss(alias)
                 return
-        
+
         self.dismiss(None)
 
     @on(Button.Pressed, "#cancel-btn")

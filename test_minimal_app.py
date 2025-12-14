@@ -1,7 +1,10 @@
+from __future__ import annotations
 
 import sys
+
 from textual.app import App, ComposeResult
-from textual.widgets import Label, Button
+from textual.widgets import Button, Label
+
 
 class MinimalApp(App):
     def compose(self) -> ComposeResult:

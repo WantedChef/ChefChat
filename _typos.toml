@@ -1,0 +1,19 @@
+[default]
+extend-ignore-identifiers-re = [
+    # Dutch words that are not typos
+    "alle",
+    "Alle",
+    "indien",
+    "fases",
+    "legt",
+    "Legt",
+    "doen",
+    "wil",
+    "Categorie",
+    "communicatie",
+    "stap",
+]
+
+[default.extend-words]
+# Test-specific words
+hel = "hel"  # Intentional partial match in tests

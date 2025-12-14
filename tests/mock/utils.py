@@ -14,7 +14,7 @@ def mock_llm_chunk(
     name: str | None = None,
     tool_call_id: str | None = None,
     finish_reason: str | None = None,
-    usage: LLMUsage | None = None, # Allow explicit None for usage
+    usage: LLMUsage | None = None,  # Allow explicit None for usage
     prompt_tokens: int = 10,
     completion_tokens: int = 5,
 ) -> LLMChunk:
@@ -30,11 +30,7 @@ def mock_llm_chunk(
         usage = LLMUsage(
             prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
         )
-    return LLMChunk(
-        message=message,
-        usage=usage,
-        finish_reason=finish_reason,
-    )
+    return LLMChunk(message=message, usage=usage, finish_reason=finish_reason)
 
 
 def get_mocking_env(mock_chunks: list[LLMChunk] | None = None) -> dict[str, str]:

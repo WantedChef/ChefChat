@@ -1,3 +1,3 @@
 from __future__ import annotations
 
-from .base import BaseTool as BaseTool, ToolResult as ToolResult
+from chefchat.acp.tools.base import BaseTool as BaseTool, ToolResult as ToolResult

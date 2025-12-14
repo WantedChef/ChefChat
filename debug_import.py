@@ -1,6 +1,6 @@
+from __future__ import annotations
 
 import sys
-import os
 
 print("DEBUG: Starting debug_import.py", flush=True)
 

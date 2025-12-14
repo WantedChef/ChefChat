@@ -91,7 +91,9 @@ async def test_mcp_command_loads_config_if_missing(app):
 
     with (
         patch.object(app, "query_one", return_value=ticket_rail_mock),
-        patch("chefchat.interface.app.VibeConfig.load", return_value=mock_config) as mock_load,
+        patch(
+            "chefchat.interface.app.VibeConfig.load", return_value=mock_config
+        ) as mock_load,
     ):
         await app._handle_mcp_command()
 

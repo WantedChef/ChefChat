@@ -345,5 +345,6 @@ class TestRipgrepBackend:
         )
         assert "included.py" in result_without_ignore.matches
         import os
+
         expected_path = os.path.join("ignored_by_rg", "file.py")
         assert expected_path in result_without_ignore.matches

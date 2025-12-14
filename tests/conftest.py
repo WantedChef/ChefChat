@@ -23,11 +23,13 @@ mock_mistral_client.chat.complete_async = AsyncMock()
 mock_mistral_client.chat.stream_async = AsyncMock()
 sys.modules["mistralai"].Mistral = MagicMock(return_value=mock_mistral_client)
 
+
 # Ensure SDKError inherits from Exception so it can be caught in try/except blocks
 class MockSDKError(Exception):
     def __init__(self, message="", raw_response=None):
         super().__init__(message)
         self.raw_response = raw_response
+
 
 sys.modules["mistralai"].SDKError = MockSDKError
 sys.modules["mistralai.models"].SDKError = MockSDKError
@@ -61,11 +63,13 @@ mock_mistral_client.chat.complete_async = AsyncMock()
 mock_mistral_client.chat.stream_async = AsyncMock()
 sys.modules["mistralai"].Mistral = MagicMock(return_value=mock_mistral_client)
 
+
 # Ensure SDKError inherits from Exception so it can be caught in try/except blocks
 class MockSDKError(Exception):
     def __init__(self, message="", raw_response=None):
         super().__init__(message)
         self.raw_response = raw_response
+
 
 sys.modules["mistralai"].SDKError = MockSDKError
 sys.modules["mistralai.models"].SDKError = MockSDKError
@@ -164,7 +168,7 @@ def _configure_mistral_mocks() -> None:
     if not mock_data_str:
         # No mock data set, use default unconfigured mocks
         return
-        
+
     mock_data = json.loads(mock_data_str)
     try:
         chunks = [LLMChunk.model_validate(chunk) for chunk in mock_data]
@@ -175,7 +179,7 @@ def _configure_mistral_mocks() -> None:
     async def mock_complete_async(*args, **kwargs):
         if not chunks:
             raise RuntimeError("No chunks provided for complete_async mock")
-        
+
         return_chunk = chunks[0]
         # Simulate a Pydantic object with choices, message, finish_reason, usage
         mock_response = MagicMock()
@@ -185,10 +189,14 @@ def _configure_mistral_mocks() -> None:
         mock_response.choices[0].message.tool_calls = return_chunk.message.tool_calls
         mock_response.choices[0].finish_reason = return_chunk.finish_reason
         mock_response.usage = MagicMock()
-        mock_response.usage.prompt_tokens = return_chunk.usage.prompt_tokens if return_chunk.usage else 0
-        mock_response.usage.completion_tokens = return_chunk.usage.completion_tokens if return_chunk.usage else 0
+        mock_response.usage.prompt_tokens = (
+            return_chunk.usage.prompt_tokens if return_chunk.usage else 0
+        )
+        mock_response.usage.completion_tokens = (
+            return_chunk.usage.completion_tokens if return_chunk.usage else 0
+        )
         return mock_response
-    
+
     mock_mistral_client.chat.complete_async.side_effect = mock_complete_async
 
     # Configure stream_async
@@ -199,12 +207,17 @@ def _configure_mistral_mocks() -> None:
             mock_stream_chunk.data.choices = [MagicMock()]
             mock_stream_chunk.data.choices[0].delta = MagicMock()
             mock_stream_chunk.data.choices[0].delta.content = chunk.message.content
-            mock_stream_chunk.data.choices[0].delta.tool_calls = chunk.message.tool_calls
+            mock_stream_chunk.data.choices[
+                0
+            ].delta.tool_calls = chunk.message.tool_calls
             mock_stream_chunk.data.choices[0].finish_reason = chunk.finish_reason
             mock_stream_chunk.data.usage = MagicMock()
-            mock_stream_chunk.data.usage.prompt_tokens = chunk.usage.prompt_tokens if chunk.usage else 0
-            mock_stream_chunk.data.usage.completion_tokens = chunk.usage.completion_tokens if chunk.usage else 0
+            mock_stream_chunk.data.usage.prompt_tokens = (
+                chunk.usage.prompt_tokens if chunk.usage else 0
+            )
+            mock_stream_chunk.data.usage.completion_tokens = (
+                chunk.usage.completion_tokens if chunk.usage else 0
+            )
             yield mock_stream_chunk
-    
-    mock_mistral_client.chat.stream_async.side_effect = mock_stream_async
 
+    mock_mistral_client.chat.stream_async.side_effect = mock_stream_async

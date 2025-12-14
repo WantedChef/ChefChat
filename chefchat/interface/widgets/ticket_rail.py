@@ -11,7 +11,7 @@ from datetime import datetime
 import logging
 from typing import TYPE_CHECKING
 
-from rich.console import Group, RenderableType
+from rich.console import Group
 from rich.markdown import Markdown
 from rich.text import Text
 from textual.app import ComposeResult
@@ -54,7 +54,7 @@ class Ticket(Static):
     """A single ticket (message bubble) in the rail."""
 
     # CSS defined in styles.tcss
-    
+
     content: reactive[str] = reactive("")
 
     def __init__(
@@ -82,7 +82,7 @@ class Ticket(Static):
         # (which triggers watch_content -> _update_renderable)
         self.ticket_type = ticket_type
         self.timestamp = timestamp or datetime.now()
-        
+
         # Now safe to set content
         self.content = content
 
@@ -90,7 +90,7 @@ class Ticket(Static):
         self.add_class(ticket_type.value)
         # Add generic ticket class for querying
         self.add_class("ticket")
-        
+
         # Perform initial render
         self._update_renderable()
 

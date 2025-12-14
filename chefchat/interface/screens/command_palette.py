@@ -26,7 +26,7 @@ class CommandPalette(ModalScreen):
     def compose(self) -> ComposeResult:
         # We gebruiken 'palette-container' om te matchen met de CSS
         with Container(id="palette-container"):
-            # Titel
+            # Title
             yield Label("👨‍🍳 ChefChat Command Menu", classes="palette-title")
 
             # Lijst met commando's

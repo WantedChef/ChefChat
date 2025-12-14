@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Simple test to check Textual functionality."""
+from __future__ import annotations
 
-import sys
 try:
     from textual.app import App
     from textual.widgets import Static
-    
+
     class SimpleApp(App):
         def compose(self):
             yield Static("Hello World!")
-    
+
     print("Starting Textual app...")
     app = SimpleApp()
     app.run()

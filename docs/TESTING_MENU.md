@@ -73,7 +73,7 @@ uv run vibe --repl
 1. **Wissel naar YOLO mode:**
    - Druk `Shift+Tab` totdat je `🚀 YOLO` ziet
 
-2. **Vraag om een veilige read actie:**
+2. **Vraag om een veilige read active:**
    ```
    Lees het bestand README.md
    ```
@@ -131,7 +131,7 @@ Druk `Shift+Tab` vijf keer en noteer de volgorde:
 2. Druk `Ctrl+C`
 
 **Verwacht:**
-- [ ] Operatie wordt onderbroken
+- [ ] Operative wordt onderbroken
 - [ ] REPL blijft responsief
 - [ ] Geen crash
 

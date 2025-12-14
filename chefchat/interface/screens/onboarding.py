@@ -96,7 +96,7 @@ class OnboardingScreen(ModalScreen[str | None]):
             else:
                 # Fallback defaults
                 providers = [("Mistral", "mistral"), ("OpenAI", "openai"), ("Local (Llama.cpp)", "llamacpp")]
-            
+
             yield Select(providers, allow_blank=False, value="mistral", id="provider-select")
 
             # API Key Input
@@ -132,7 +132,7 @@ class OnboardingScreen(ModalScreen[str | None]):
         # Determine env var name based on provider
         # This is a simplification; ideally we'd look up the provider config again
         env_var_name = f"{str(provider).upper()}_API_KEY"
-        
+
         try:
             # For local, we might not need to save anything if key is empty
             if not api_key and provider == "llamacpp":
@@ -141,26 +141,26 @@ class OnboardingScreen(ModalScreen[str | None]):
 
             # Save to .env file
             GLOBAL_ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Read existing lines to preserve other keys
             lines = []
             if GLOBAL_ENV_FILE.exists():
                 lines = GLOBAL_ENV_FILE.read_text().splitlines()
-            
+
             # Remove existing key if present
             lines = [l for l in lines if not l.startswith(f"{env_var_name}=")]
-            
+
             # Append new key
             lines.append(f"{env_var_name}={api_key}")
-            
+
             # Write back
             GLOBAL_ENV_FILE.write_text("\n".join(lines) + "\n")
-            
+
             # Set in current process for immediate use
             os.environ[env_var_name] = api_key
-            
+
             self.dismiss(str(provider))
-            
+
         except Exception as e:
             self.notify(f"Failed to save API key: {e}", severity="error")
 

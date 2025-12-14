@@ -9,6 +9,6 @@ __all__ = [
     "BaseStation",
     "ChefMessage",
     "KitchenBus",
-    "MessagePriority",
     "KitchenManager",
+    "MessagePriority",
 ]

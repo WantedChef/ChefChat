@@ -4,14 +4,14 @@
 
 Mistral Vibe is een open-source CLI coding assistant ontwikkeld door Mistral AI. Het biedt een conversationele interface voor je codebase, waarmee je natuurlijke taal kunt gebruiken om code te verkennen, aan te passen en te beheren via een krachtige set tools.
 
-**Repository**: https://github.com/mistralai/mistral-vibe  
-**Licentie**: Apache 2.0  
-**Python Versie**: 3.12+  
+**Repository**: https://github.com/mistralai/mistral-vibe
+**Licentie**: Apache 2.0
+**Python Versie**: 3.12+
 **Platform Support**: Linux, macOS (officieel), Windows (experimenteel)
 
 ---
 
-## Architectuur Overzicht
+## Architecture Overzicht
 
 ### Core Componenten
 
@@ -25,7 +25,7 @@ mistral-vibe/
 ├── scripts/                # Utility scripts
 ├── tests/                  # Test suite
 ├── distribution/           # Distribution specifieke code
-│   └── zed/               # Zed editor integratie
+│   └── zed/               # Zed editor integrated
 └── .github/                # CI/CD workflows
 ```
 
@@ -36,7 +36,7 @@ mistral-vibe/
 ### 1. Root Level Bestanden
 
 #### `pyproject.toml`
-**Functie**: Project configuratie en dependencies  
+**Functie**: Project configuratie en dependencies
 **Belangrijke Secties**:
 - Build systeem configuratie (gebruikt `hatchling`)
 - Package metadata (naam, versie, auteurs)
@@ -48,25 +48,25 @@ mistral-vibe/
 **Gebruik**: Bevat alle project metadata en dependency management. Wordt gebruikt door `uv` of `pip` voor installatie.
 
 #### `uv.lock`
-**Functie**: Lock file voor reproduceerbare builds  
-**Inhoud**: Exacte versies van alle dependencies en sub-dependencies  
+**Functie**: Lock file voor reproduceerbare builds
+**Inhoud**: Exacte versies van alle dependencies en sub-dependencies
 **Gebruik**: Zorgt dat alle teamleden en CI/CD exact dezelfde package versies gebruiken
 
 #### `action.yml`
-**Functie**: GitHub Actions workflow definitie  
-**Gebruik**: Definieert hoe Vibe kan worden gebruikt als GitHub Action in CI/CD pipelines  
+**Functie**: GitHub Actions workflow definitive
+**Gebruik**: Definieert hoe Vibe kan worden gebruikt also GitHub Action in CI/CD pipelines
 **Features**:
 - Automatische code reviews
 - Code quality checks
 - Integration testing
 
 #### `.python-version`
-**Functie**: Specificeert de vereiste Python versie  
-**Inhoud**: `3.12` of hoger  
+**Functie**: Specificeert de vereiste Python versie
+**Inhoud**: `3.12` of hoger
 **Gebruik**: Gebruikt door `pyenv` en andere version managers
 
 #### `.gitignore`
-**Functie**: Git exclusions  
+**Functie**: Git exclusions
 **Bevat typisch**:
 - `__pycache__/`
 - `*.pyc`
@@ -76,7 +76,7 @@ mistral-vibe/
 - Build artifacts
 
 #### `.pre-commit-config.yaml`
-**Functie**: Pre-commit hooks configuratie  
+**Functie**: Pre-commit hooks configuratie
 **Hooks**:
 - Code formatting (ruff, black)
 - Linting
@@ -85,21 +85,21 @@ mistral-vibe/
 - YAML validation
 
 #### `.typos.toml`
-**Functie**: Spell checker configuratie  
+**Functie**: Spell checker configuratie
 **Gebruik**: Voorkomt typos in code en documentatie
 
 #### `.envrc`
-**Functie**: Direnv configuratie  
-**Gebruik**: Automatisch environment setup bij directory entry  
+**Functie**: Direnv configuratie
+**Gebruik**: Automatisch environment setup bij directory entry
 **Kan bevatten**: Environment variables, PATH wijzigingen
 
 #### `flake.nix` & `flake.lock`
-**Functie**: Nix flake definitie voor reproduceerbare development environments  
-**Gebruik**: Alternatieve development setup via Nix package manager  
+**Functie**: Nix flake definitive voor reproduceerbare development environments
+**Gebruik**: Alternative development setup via Nix package manager
 **Voordelen**: Volledig reproduceerbare builds over verschillende machines
 
 #### `vibe-acp.spec`
-**Functie**: Agent Client Protocol specificatie  
+**Functie**: Agent Client Protocol specificatie
 **Gebruik**: Definieert hoe Vibe communiceert met andere agents/tools
 
 ---
@@ -132,13 +132,13 @@ mistral-vibe/
 
 5. **Configuration Details**:
    - Config file locaties (`./.vibe/config.toml`, `~/.vibe/config.toml`)
-   - API key setup (3 methoden)
+   - API key setup (3 methods)
    - Custom system prompts
    - Custom agent configurations
    - MCP server setup
 
 #### `AGENTS.md`
-**Inhoud**: Guide voor het maken van custom agents  
+**Inhoud**: Guide voor het maken van custom agents
 **Topics**:
 - Agent configuratie structuur
 - Use cases (red-teaming, specialized tasks)
@@ -166,11 +166,11 @@ mistral-vibe/
 - PR submission guidelines
 
 #### `LICENSE`
-**Type**: Apache License 2.0  
+**Type**: Apache License 2.0
 **Belangrijke Rechten**:
 - Commercial gebruik toegestaan
 - Modificatie toegestaan
-- Distributie toegestaan
+- Distributed toegestaan
 - Patent rights granted
 
 ---
@@ -183,10 +183,10 @@ mistral-vibe/
 ##### `system_prompt.py`
 ```python
 # Bevat logica voor:
-- System prompt generatie
+- System prompt generate
 - Project context scanning
 - Directory structure analysis
-- Git status integratie
+- Git status integrated
 ```
 
 **Key Features**:
@@ -305,7 +305,7 @@ def main():
 # Slash command implementations
 /help       # Show available commands
 /clear      # Clear conversation
-/reset      # Reset agent state  
+/reset      # Reset agent state
 /config     # Show/modify config
 /exit       # Exit application
 ```
@@ -327,7 +327,7 @@ class ToolName:
     name: str
     description: str
     parameters: dict  # JSON Schema
-    
+
     async def execute(self, **params) -> str:
         # Tool implementation
         pass
@@ -352,11 +352,11 @@ returns: str      # Bevestiging
 
 ##### `search_replace.py`
 ```python
-# Vervang tekst in bestand
+# Vervang text in bestand
 parameters:
     path: str        # Bestandspad
-    old_text: str    # Te vervangen tekst
-    new_text: str    # Nieuwe tekst
+    old_text: str    # Te vervangen text
+    new_text: str    # Nieuwe text
 returns: str         # Diff van wijzigingen
 ```
 
@@ -420,17 +420,17 @@ returns: str     # Updated todo lijst
 ### 4. `scripts/` Directory
 
 #### `install.sh`
-**Functie**: One-line installer script  
+**Functie**: One-line installer script
 **Wat het doet**:
 1. Detecteert OS (Linux/macOS)
-2. Checkt Python versie
-3. Installeert `uv` indien nodig
-4. Installeert `mistral-vibe` package
+2. Checked Python versie
+3. Installer `uv` indien nodig
+4. Installer `mistral-vibe` package
 5. Configureert PATH
 
 #### `dev-setup.sh`
-**Functie**: Development environment setup  
-**Installeert**:
+**Functie**: Development environment setup
+**Installer**:
 - Pre-commit hooks
 - Development dependencies
 - Test frameworks
@@ -552,7 +552,7 @@ permission = "always"
 # Disabled Tools
 disabled_tools = []    # Tool namen om uit te schakelen
 
-# Enabled Tools (als specified, alleen deze)
+# Enabled Tools (also specified, alleen deze)
 enabled_tools = ["*"]  # Glob patterns: ["serena_*", "bash"]
 
 # MCP Server Configurations
@@ -714,7 +714,7 @@ enabled_tools = ["re:^serena_.*$"]
 ## Environment Variables
 
 ### `VIBE_HOME`
-**Default**: `~/.vibe/`  
+**Default**: `~/.vibe/`
 **Gebruik**: Custom config directory
 ```bash
 export VIBE_HOME="/custom/path"
@@ -932,7 +932,7 @@ max_files = 50
 **Locatie**: `distribution/zed/`
 
 **Features**:
-- Native Vibe integratie
+- Native Vibe integrated
 - Inline suggestions
 - Context-aware completions
 
@@ -953,16 +953,16 @@ Gebaseerd op de repository en community feedback:
 
 ---
 
-## Conclusie
+## Conclusive
 
 Mistral Vibe is een krachtige, uitbreidbare coding assistant die:
-- Natuurlijke taal gebruikt voor code interacties
+- Natuurlijke taal gebruikt voor code interacts
 - Project context begrijpt via directory scanning en Git
 - Veilig tools uitvoert met permission system
-- Flexibel is via configuratie en custom agents
+- Flexible is via configuratie en custom agents
 - Open source en extensible via MCP protocol
 
-De modulaire architectuur maakt het makkelijk om aan te passen aan specifieke team workflows en om uit te breiden met custom functionaliteit.
+De modulaire architecture maakt het makkelijk om aan te passen aan specifieke team workflows en om uit te breiden met custom functionaliteit.
 
 ---
 

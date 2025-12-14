@@ -14,6 +14,7 @@ def test_openai_provider_in_defaults():
     assert openai_provider.api_style == "openai"
     assert openai_provider.backend == Backend.GENERIC
 
+
 def test_openai_models_in_defaults():
     """Verify OpenAI models are in DEFAULT_MODELS with correct pricing."""
     model_names = [m.name for m in DEFAULT_MODELS]
@@ -34,6 +35,7 @@ def test_openai_models_in_defaults():
     assert gpt4o_mini.input_price == 0.15
     assert gpt4o_mini.output_price == 0.60
 
+
 def test_openai_config_loading_no_key():
     """Verify config loads even if API key is missing (until we try to use it)."""
     # Simply loading defaults shouldn't crash
@@ -42,8 +44,7 @@ def test_openai_config_loading_no_key():
 
     # We construct manually to avoid file I/O
     config = VibeConfig.model_construct(
-        providers=DEFAULT_PROVIDERS,
-        models=DEFAULT_MODELS
+        providers=DEFAULT_PROVIDERS, models=DEFAULT_MODELS
     )
 
     gpt4o = next(m for m in config.models if m.alias == "gpt4o")

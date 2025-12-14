@@ -29,10 +29,12 @@ async def test_openai_completion():
         session_id="test-openai",
         tool_manager=tool_manager,
         format_handler=format_handler,
-        middleware_pipeline=middleware
+        middleware_pipeline=middleware,
     )
 
-    messages = [LLMMessage(role=Role.user, content="Say 'Hello from ChefChat' and nothing else")]
+    messages = [
+        LLMMessage(role=Role.user, content="Say 'Hello from ChefChat' and nothing else")
+    ]
 
     result = await client.chat(messages, max_tokens=20)
 
@@ -40,6 +42,7 @@ async def test_openai_completion():
     assert result.message.content is not None
     assert "ChefChat" in result.message.content or "Hello" in result.message.content
     assert result.usage.completion_tokens > 0
+
 
 @pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="No OPENAI_API_KEY")
 @pytest.mark.asyncio
@@ -57,7 +60,7 @@ async def test_openai_streaming():
         session_id="test-openai-stream",
         tool_manager=tool_manager,
         format_handler=format_handler,
-        middleware_pipeline=middleware
+        middleware_pipeline=middleware,
     )
 
     messages = [LLMMessage(role=Role.user, content="Count from 1 to 5")]

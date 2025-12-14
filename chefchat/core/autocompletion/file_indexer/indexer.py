@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from threading import Event, RLock
-import os
 
 from chefchat.core.autocompletion.file_indexer.ignore_rules import IgnoreRules
 from chefchat.core.autocompletion.file_indexer.store import (

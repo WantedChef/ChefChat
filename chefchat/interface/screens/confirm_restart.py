@@ -95,7 +95,7 @@ class ConfirmRestartScreen(ModalScreen):
         with Container(id="confirm-dialog"):
             yield Static("🔄 Restart Required", id="confirm-title")
             yield Static(
-                f"Switch to **{self.new_layout}** layout?\n" 
+                f"Switch to **{self.new_layout}** layout?\n"
                 "The TUI will restart automatically.",
                 id="confirm-message",
             )

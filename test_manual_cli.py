@@ -8,7 +8,7 @@ __test__ = False
 import asyncio
 
 
-async def test_config():
+async def test_config() -> None:
     """Test config loading."""
     print("🧪 Testing config loading...")
     from chefchat.config import load_palate_config
@@ -20,7 +20,7 @@ async def test_config():
     print(f"  ✅ Max healing attempts: {config.healing.max_attempts}")
 
 
-async def test_brain():
+async def test_brain() -> None:
     """Test brain initialization."""
     print("\n🧪 Testing KitchenBrain...")
     from chefchat.kitchen.brain import KitchenBrain
@@ -35,7 +35,7 @@ async def test_brain():
     print(f"  ✅ Got response: {response[:100]}...")
 
 
-async def test_git():
+async def test_git() -> None:
     """Test git integration."""
     print("\n🧪 Testing Git mise en place...")
     from chefchat.kitchen.mise_en_place import has_changes, is_git_repo
@@ -48,7 +48,7 @@ async def test_git():
         print(f"  ✅ Has changes: {changes}")
 
 
-async def test_expeditor_config():
+async def test_expeditor_config() -> None:
     """Test expeditor with config."""
     print("\n🧪 Testing Expeditor config integration...")
     from chefchat.kitchen.bus import KitchenBus
@@ -64,7 +64,7 @@ async def test_expeditor_config():
     )
 
 
-async def test_sous_chef_commands():
+async def test_sous_chef_commands() -> None:
     """Test SousChef has new command handlers."""
     print("\n🧪 Testing SousChef command handlers...")
 
@@ -75,7 +75,7 @@ async def test_sous_chef_commands():
     sous_chef = SousChef(bus)
 
     # Check methods exist
-    methods = [
+    [
         m
         for m in dir(sous_chef)
         if not m.startswith("_") or m.startswith("_undo") or m.startswith("_roast")
@@ -88,7 +88,7 @@ async def test_sous_chef_commands():
     print(f"  ✅ Has _roast_code: {has_roast}")
 
 
-async def main():
+async def main() -> None:
     """Run all tests."""
     print("=" * 60)
     print("ChefChat Phase 4-9 Manual CLI Tests")

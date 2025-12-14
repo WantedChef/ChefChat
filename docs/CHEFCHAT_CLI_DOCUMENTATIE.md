@@ -17,39 +17,39 @@
 
 ## Inleiding
 
-ChefChat CLI is een geavanceerde, AI-aangedreven command-line interface die de wereld van professionele keukens combineert met moderne software development. Geïnspireerd door de passie, precisie en toewijding van een professionele chef-kok, biedt ChefChat een unieke en plezierige manier om met AI te interacteren tijdens je dagelijkse ontwikkelwerk.
+ChefChat CLI is een geavanceerde, AI-aangedreven command-line interface die de wereld van professionele keukens combineert met moderne software development. Geïnspireerd door de passie, precise en toewijding van een professionele chef-kok, biedt ChefChat een unieke en plezierige manier om met AI te interacteren tijdens je dagelijkse ontwikkelwerk.
 
 ### Wat maakt ChefChat bijzonder?
 
 - **🍳 Unieke Kulinaire Thema**: Alles draait om de keuken - van keukenstatus tot chef's wisdom
 - **⚡ Intuïtief Modus Systeem**: 5 verschillende werkmodi voor elke situatie
-- **🎭 Rijke Interactie**: Plezierige easter eggs, chef Ramsay style roasts, en inspirerende quotes
-- **🔧 Krachtige Tools**: Integratie met diverse development tools en AI modellen
+- **🎭 Rijke Interactive**: Plezierige easter eggs, chef Ramsay style roasts, en inspirerende quotes
+- **🔧 Krachtige Tools**: Integrated met diverse development tools en AI modellen
 - **🎨 Mooie UI**: Rijke terminal interface met formatting en visual feedback
 
 ---
 
 ## De ChefChat Vibe
 
-ChefChat is meer dan alleen een tool - het is een ervaring. De hele interface is doordrenkt met de passie en precisie van een professionele keuken:
+ChefChat is meer dan alleen een tool - het is een ervaring. De hele interface is doordrenkt met de passie en precise van een professionele keuken:
 
 ### 👨‍🍳 De Chef's Mentaliteit
 - **Passie voor Perfectie**: Net zoals een chef strive voor de perfecte gerecht, streeft ChefChat naar de perfecte code
-- **Precisie en Zorgvuldigheid**: Elke actie wordt zorgvuldig overwogen, net zoals in een professionele keuken
-- **Teamwerk**: ChefChat werkt samen met jou als je trusted sous-chef
-- **Snelle Iteratie**: Net zoals in een keuken waar alles snel moet gaan, maar wel met aandacht voor kwaliteit
+- **Precise en Zorgvuldigheid**: Elke active wordt zorgvuldig overwogen, net zoals in een professionele keuken
+- **Teamwerk**: ChefChat werkt samen met jou also je trusted sous-chef
+- **Snelle Iteratie**: Net zoals in een keuken waar alles snel moet gaan, maar well met aandacht voor kwaliteit
 
 ### 🎭 De Persoonlijkheid
 ChefChat heeft een unieke persoonlijkheid geïnspireerd door:
-- **Chef Ramsay's Directheid**: Soms direct en eerlijk, maar altijd constructief
-- **Professional Chef's Wisdom**: Diepgaande inzichten over teamwork, precisie en excellence
+- **Chef Ramsay's Directheid**: Soms direct en eerlijk, maar altijd constructive
+- **Professional Chef's Wisdom**: Diepgaande inzichten over teamwork, precise en excellence
 - **Keuken Humor**: Soms droog, soms scherp, maar altijd met een glimlach
-- **Mentorschap**: ChefChat fungeert als je mentor die je helpt groeien als developer
+- **Mentorschap**: ChefChat fungeert also je mentor die je helpt groeien also developer
 
 ### 🎨 De Atmosfeer
-- **Welkom & Warmte**: Bij elke start word je verwelkomd als een gast in de keuken
-- **Respect voor het Proces**: De tool respecteert je workflow en aanpak
-- **Celebratie van Successen**: Successen worden gevierd, fouten worden constructief aangepakt
+- **Welkom & Warmte**: Bij elke start word je verwelkomd also een gast in de keuken
+- **Respect voor het Process**: De tool respecteert je workflow en aanpak
+- **Celebratie van Successen**: Successen worden gevierd, fouten worden constructive aangepakt
 - **Continue Verbetering**: Net zoals een chef zijn recepten verfijnt, verbetert ChefChat continu
 
 ---
@@ -172,7 +172,7 @@ vibe --prompt "Update dependencies" --max-turns 5 --max-price 0.50
 
 ## Het Modus Systeem
 
-ChefChat's kracht zit in het flexibele modus systeem. Elke modus heeft zijn eigen karakter en toepassingen:
+ChefChat's kracht zit in het flexible modus systeem. Elke modus heeft zijn eigen karakter en toepassingen:
 
 ### 📋 PLAN Mode - "Measure Twice, Cut Once"
 **De Wijze Mentor**
@@ -236,7 +236,7 @@ ChefChat's kracht zit in het flexibele modus systeem. Elke modus heeft zijn eige
 
 ### 🏛️ ARCHITECT Mode - "Design the Cathedral"
 **De Visionary**
-- **Gebruik**: High-level design en architectuur
+- **Gebruik**: High-level design en architecture
 - **Eigenschappen**:
   - 🔒 Read-only design focus
   - 📐 Denkt in systemen en patronen
@@ -260,7 +260,7 @@ ChefChat's kracht zit in het flexibele modus systeem. Elke modus heeft zijn eige
 ## REPL Interface
 
 ### Het Chef's Kookboek REPL
-ChefChat's REPL is ontworpen als een premium keuken-ervaring:
+ChefChat's REPL is ontworpen also een premium keuken-ervaring:
 
 #### 🎨 Visual Design
 - **Rich UI Components**: Mooie panels, formatting, en kleuren
@@ -287,8 +287,8 @@ ChefChat's REPL is ontworpen als een premium keuken-ervaring:
 #### 🔄 Real-time Updates
 - **Live Mode Switching**: Modus wissels worden direct zichtbaar
 - **Streaming Responses**: ChefChat's antwoorden komen live binnen
-- **Tool Execution Feedback**: Real-time feedback tijdens tool executie
-- **Status Bar**: Live status informatie onderaan
+- **Tool Execution Feedback**: Real-time feedback tijdens tool executive
+- **Status Bar**: Live status informative onderaan
 
 ---
 
@@ -296,11 +296,11 @@ ChefChat's REPL is ontworpen als een premium keuken-ervaring:
 
 ### Keyboard Shortcuts
 
-#### 🖱️ Basis Navigatie
+#### 🖱️ Basis Navigate
 - `Enter`: Verstuur bericht
 - `Ctrl+J` / `Shift+Enter`: Nieuwe regel invoegen
 - `Escape`: Interrupt agent of sluit dialogs
-- `Ctrl+C`: Quit (of clear input als tekst aanwezig)
+- `Ctrl+C`: Quit (of clear input also text aanwezig)
 - `Ctrl+O`: Toggle tool output view
 - `Ctrl+T`: Toggle todo view
 
@@ -429,12 +429,12 @@ vibe --max-price 1.0           # Maximum cost
 ### 👨‍🍳 Kitchen Status (/chef)
 Een complete keuken status report met:
 - **Tijd-gebaseerde groet**: Morning service, lunch rush, dinner service
-- **Modus informatie**: Huidige modus, tijd in modus, modus wijzigingen
+- **Modus informative**: Huidige modus, tijd in modus, modus wijzigingen
 - **Session statistieken**: Tools uitgevoerd, tokens gebruikt
 - **Chef's wisdom**: Random inspirerende quote
 
 ### 🧠 Chef's Wisdom (/wisdom)
-Een collectie van culinair-geïnspireerde programming wijsheden:
+Een collective van culinair-geïnspireerde programming wijsheden:
 ```
 🍳 **Mise en place!** Get je code georganiseerd voordat je begint met features koken.
 🔪 **Een scherp mes is veiliger** — houd je tools updated en dependencies clean.
@@ -446,7 +446,7 @@ Gordon Ramsay style motivational burns:
 ```
 🔥 **LOOK AT THIS CODE!** Het is zo raw, een goede compiler zou het niet aanraken!
 😤 **Deze functie is zo lang**, het heeft zijn eigen postcode nodig!
-🤦 **Noem je dit error handling?** Mijn oma kon beter exceptions afhandelen, EN ZIJ IS DOOD!
+🤦 **Noem je dit error handling?** Mijn oma kon better exceptions afhandelen, EN ZIJ IS DOOD!
 ```
 
 ### 🥠 Developer Fortune Cookies (/fortune)
@@ -551,16 +551,16 @@ vibe --prompt "Add tests" --output streaming
 
 ---
 
-## Conclusie
+## Conclusive
 
 ChefChat CLI is meer dan alleen een development tool - het is een complete ervaring die de precision van een professionele keuken combineert met de kracht van AI-assisted development. Of je nu een beginner bent die de kneepjes van het vak wil leren of een expert die efficiënt wil werken, ChefChat's unieke vibe en krachtige features maken het tot een onmisbare companion voor elke developer.
 
 ### 🎯 Waarom ChefChat Kiezen?
 
 1. **Unieke Persoonlijkheid**: Een tool met karakter en humor
-2. **Flexibel Modus Systeem**: Voor elke situatie de juiste modus
+2. **Flexible Modus Systeem**: Voor elke situatie de juiste modus
 3. **Professionele Kwaliteit**: Gebouwd voor serieus development werk
-4. **Plezierige Interactie**: Easter eggs en leuke features houden het interessant
+4. **Plezierige Interactive**: Easter eggs en leuke features houden het interessant
 5. **Continu Evoluerend**: Actief ontwikkeld met nieuwe features
 
 ### 🚀 Ready to Cook?

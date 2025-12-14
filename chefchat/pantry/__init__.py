@@ -19,17 +19,17 @@ from chefchat.pantry.recipes import (
 )
 
 __all__ = [
+    "CodeNode",
+    "EdgeType",
     # Ingredients (Knowledge Graph)
     "IngredientsManager",
-    "CodeNode",
     "NodeType",
-    "EdgeType",
-    "scan_codebase",
+    "Recipe",
+    "RecipeExecutor",
     # Recipes (YAML Workflows)
     "RecipeParser",
-    "RecipeExecutor",
-    "Recipe",
     "RecipeStep",
     "StepType",
     "create_sample_recipes",
+    "scan_codebase",
 ]

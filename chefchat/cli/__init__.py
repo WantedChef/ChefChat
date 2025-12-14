@@ -1,4 +1,4 @@
 from __future__ import annotations
 
-from .entrypoint import main as main
-from .repl import ChefChatREPL as ChefChatREPL
+from chefchat.cli.entrypoint import main as main
+from chefchat.cli.repl import ChefChatREPL as ChefChatREPL

@@ -286,7 +286,7 @@ class IngredientsManager:
 
         for py_file in py_files:
             # Check exclusions
-            rel_path = str(py_file.relative_to(self.root_path))
+            str(py_file.relative_to(self.root_path))
             if any(py_file.match(pattern) for pattern in exclude_patterns):
                 continue
 

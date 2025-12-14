@@ -278,7 +278,7 @@ def main() -> None:
         if args.prompt or stdin_prompt:
             if not config:
                  config = load_config_or_exit(agent=args.agent)
-            
+
             programmatic_prompt = " ".join(args.prompt) if args.prompt else stdin_prompt
             if not programmatic_prompt:
                 print(

@@ -12,12 +12,8 @@ from tests.stubs.fake_backend import FakeBackend
 @pytest.mark.asyncio
 async def test_manual_compact_works() -> None:
     # Setup
-    backend = FakeBackend([
-        mock_llm_chunk(content="Detailed summary of conversation."),
-    ])
-    cfg = VibeConfig(
-        session_logging=SessionLoggingConfig(enabled=False)
-    )
+    backend = FakeBackend([mock_llm_chunk(content="Detailed summary of conversation.")])
+    cfg = VibeConfig(session_logging=SessionLoggingConfig(enabled=False))
     agent = Agent(cfg, backend=backend)
 
     # Add some history
@@ -29,7 +25,10 @@ async def test_manual_compact_works() -> None:
     summary = await agent.compact()
 
     # Assert
-    assert summary == "Detailed summary of conversation.\n\nLast request from user was: Task 2"
+    assert (
+        summary
+        == "Detailed summary of conversation.\n\nLast request from user was: Task 2"
+    )
 
     # Verify messages are reset: [System, Summary]
     # Agent typically initializes with a system prompt.

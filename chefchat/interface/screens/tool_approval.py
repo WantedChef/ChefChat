@@ -79,9 +79,9 @@ class ToolApprovalScreen(ModalScreen[tuple[str, str | None]]):
         with Container(id="approval-container"):
             yield Static("🛡️ Tool Approval Required", id="approval-title")
             yield Static(f"Tool: {self.tool_name}", id="tool-name")
-            
+
             yield TextArea(self.tool_args, language="json", read_only=True)
-            
+
             with Horizontal(id="approval-buttons"):
                 yield Button("Approve [Y]", variant="success", id="approve-btn", classes="approval-btn")
                 yield Button("Reject [N]", variant="error", id="reject-btn", classes="approval-btn")

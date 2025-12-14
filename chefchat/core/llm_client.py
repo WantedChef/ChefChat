@@ -89,7 +89,6 @@ class LLMClient:
         Tests can set VIBE_MOCK_LLM_DATA to a JSON list of LLMChunk-like dicts.
         When present, we bypass network calls entirely.
         """
-
         if (raw := os.environ.get("VIBE_MOCK_LLM_DATA")) is None:
             return None
 

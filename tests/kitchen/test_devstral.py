@@ -1,4 +1,5 @@
 """Tests for DevstralChef."""
+
 from __future__ import annotations
 
 import sys

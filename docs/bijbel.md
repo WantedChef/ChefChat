@@ -9,7 +9,7 @@
         <role>Senior Backend Python Engineer</role>
         <context>
             Je bouwt de fundering voor "ChefChat", een AI-Engineer gebaseerd op een keukenmetafoor.
-            De architectuur is een **Asynchroon Actor Model** (Swarm) waarbij Agents communiceren via een centrale Message Bus.
+            De architecture is een **Asynchroon Actor Model** (Swarm) waarbij Agents communiceren via een centrale Message Bus.
         </context>
         <task>
             Zet de projectstructuur op en implementeer de communicatie-backbone.
@@ -81,13 +81,13 @@
         </task>
         <requirements>
             1. **Agents (`chefchat/kitchen/stations/*.py`)**:
-               - `SousChef`: Luistert naar 'NEW_TICKET'. Stuurt na 2 seconden (simulatie) een 'PLAN' naar de LineCook.
+               - `SousChef`: Luistert naar 'NEW_TICKET'. Stuurt na 2 seconden (simulate) een 'PLAN' naar de LineCook.
                - `LineCook`: Luistert naar 'PLAN'. Stuurt progress updates (0-100%) terug naar de bus terwijl hij werkt.
 
-            2. **TUI Integratie (`chefchat/interface/tui.py` update)**:
+            2. **TUI Integrated (`chefchat/interface/tui.py` update)**:
                - Update de `ChefChatApp`.
-               - Start de Agents (`start_shift`) als `textual workers` (`run_worker`).
-               - Maak een `monitor_bus()` methode die asynchroon naar de bus luistert en de UI widgets (Logs, ProgressBars) update op basis van inkomende berichten.
+               - Start de Agents (`start_shift`) also `textual workers` (`run_worker`).
+               - Maak een `monitor_bus()` method die asynchroon naar de bus luistert en de UI widgets (Logs, ProgressBars) update op basis van inkomende berichten.
                - Koppel de `Input` widget aan het verzenden van een 'NEW_TICKET' bericht naar de bus.
         </requirements>
         <output_format>
@@ -99,7 +99,7 @@
         <role>Computer Science Specialist (Compilers & Graphs)</role>
         <context>
             De basis werkt. Nu voegen we "Phase 5: The Masterclass" toe.
-            De Chef moet de code niet lezen als tekst, maar begrijpen als een structuur (AST).
+            De Chef moet de code niet lezen also text, maar begrijpen also een structuur (AST).
         </context>
         <task>
             Implementeer de `IngredientsManager` die een Knowledge Graph opbouwt van de codebase.
@@ -158,28 +158,28 @@
                - Draait `pytest` of `ruff` (linter) in een subprocess.
 
             2. **Self-Healing Loop**:
-               - Als de test faalt, vangt de Expeditor de foutmelding en stuurt deze terug naar de `LineCook` ("Fix this").
+               - Also de test faalt, vangt de Expeditor de foutmelding en stuurt deze terug naar de `LineCook` ("Fix this").
                - Maximaal 3 pogingen.
 
             3. **Integration**:
                - Voeg commando `chef taste` toe aan de TUI.
         </requirements>
         <output_format>
-            Code voor `expeditor.py` en de integratie.
+            Code voor `expeditor.py` en de integrated.
         </output_format>
     </prompt>
 
     <prompt sequence="7" title="The Secret Menu (Git & UX)">
         <role>Product Engineer</role>
         <context>
-            De laatste loodjes: Git-integratie en UX animaties.
+            De laatste loodjes: Git-integrated en UX animaties.
         </context>
         <task>
             Implementeer "Mise en Place" (Git snapshots) en visuele polish.
         </task>
         <requirements>
             1. **Mise en Place (Git)**:
-               - Auto-stash of branch creatie voor een taak begint.
+               - Auto-stash of branch creatine voor een taak begint.
                - Commando: `chef undo`.
 
             2. **Visuals**:
@@ -189,7 +189,7 @@
                - Commando `chef critic` voor sarcastische code reviews.
         </requirements>
         <output_format>
-            Code snippets voor Git-integratie en TUI updates.
+            Code snippets voor Git-integrated en TUI updates.
         </output_format>
     </prompt>
 

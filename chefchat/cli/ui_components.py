@@ -471,4 +471,3 @@ def get_greeting() -> tuple[str, str]:
         return ("Good evening", "🌆")
     else:
         return ("Welcome back", "🌙")
-
