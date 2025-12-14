@@ -229,8 +229,12 @@ class BaseStation(ABC):
         try:
             self._inbox.put_nowait(message)
         except asyncio.QueueFull:
-            # TODO: Handle overflow - log warning
-            pass
+            logger.warning(
+                "Inbox full for station %s. Dropping message %s from %s",
+                self.name,
+                message.id,
+                message.sender,
+            )
 
     async def send(
         self,
