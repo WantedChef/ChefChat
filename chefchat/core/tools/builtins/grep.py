@@ -134,7 +134,13 @@ class Grep(BaseTool[GrepArgs, GrepResult, GrepToolConfig, GrepState]):
             path_obj = self.config.effective_workdir / path_obj
 
         if not path_obj.exists():
-            raise ToolError(f"Path does not exist: {args.path}")
+            raise ToolError(
+                f"Path does not exist: {args.path} (searched in: {self.config.effective_workdir})"
+            )
+
+        # Validate max_matches if provided
+        if args.max_matches is not None and args.max_matches <= 0:
+            raise ToolError(f"max_matches must be positive, got: {args.max_matches}")
 
     def _collect_exclude_patterns(self) -> list[str]:
         patterns = list(self.config.exclude_patterns)

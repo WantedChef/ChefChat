@@ -33,7 +33,7 @@ class WriteFileResult(BaseModel):
 
 
 class WriteFileConfig(BaseToolConfig):
-    permission: ToolPermission = ToolPermission.ASK
+    permission: ToolPermission = ToolPermission.ALWAYS
     max_write_bytes: int = 64_000
     create_parent_dirs: bool = True
 

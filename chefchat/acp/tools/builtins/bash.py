@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import shlex
+from typing import final
 
 from acp import CreateTerminalRequest, TerminalHandle
 from acp.schema import (
@@ -14,22 +16,17 @@ from acp.schema import (
 
 from chefchat import CHEFCHAT_ROOT
 from chefchat.acp.tools.base import AcpToolState, BaseAcpTool
-from chefchat.core.tools.base import BaseToolState, ToolError
-from chefchat.core.tools.builtins.bash import (
-    Bash as CoreBashTool,
-    BashArgs,
-    BashResult,
-    BashToolConfig,
-)
+from chefchat.core.tools.base import ToolError, ToolPermission
+from chefchat.core.tools.builtins.bash import BashArgs, BashResult, BashToolConfig
 from chefchat.core.types import ToolCallEvent, ToolResultEvent
 from chefchat.core.utils import logger
 
 
-class AcpBashState(BaseToolState, AcpToolState):
+class AcpBashState(AcpToolState):
     pass
 
 
-class Bash(CoreBashTool, BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
+class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
     prompt_path = CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "bash.md"
     state: AcpBashState
 
@@ -137,6 +134,61 @@ class Bash(CoreBashTool, BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBa
             kind="execute",
             rawInput=event.args.model_dump_json(),
         )
+
+    def _build_timeout_error(self, command: str, timeout: int) -> ToolError:
+        return ToolError(f"Command timed out after {timeout}s: {command!r}")
+
+    @final
+    def _build_result(
+        self, *, command: str, stdout: str, stderr: str, returncode: int
+    ) -> BashResult:
+        if returncode != 0:
+            error_msg = f"Command failed: {command!r}\n"
+            error_msg += f"Return code: {returncode}"
+            if stderr:
+                error_msg += f"\nStderr: {stderr}"
+            if stdout:
+                error_msg += f"\nStdout: {stdout}"
+            raise ToolError(error_msg.strip())
+
+        return BashResult(stdout=stdout, stderr=stderr, returncode=returncode)
+
+    def check_allowlist_denylist(self, args: BashArgs) -> ToolPermission:
+        """Check if the bash command is allowed based on allowlist/denylist."""
+        command_parts = re.split(r"(?:&&|\|\||;|\|)", args.command)
+        command_parts = [part.strip() for part in command_parts if part.strip()]
+
+        if not command_parts:
+            return ToolPermission.ASK
+
+        def is_denylisted(command: str) -> bool:
+            return any(command.startswith(pattern) for pattern in self.config.denylist)
+
+        def is_standalone_denylisted(command: str) -> bool:
+            parts = command.split()
+            if not parts:
+                return False
+
+            base_command = parts[0]
+            has_args = len(parts) > 1
+
+            if not has_args:
+                command_name = base_command
+                if command_name in self.config.denylist_standalone:
+                    return True
+
+            return False
+
+        def is_allowlisted(command: str) -> bool:
+            return any(command.startswith(pattern) for pattern in self.config.allowlist)
+
+        for command_part in command_parts:
+            if is_denylisted(command_part) or is_standalone_denylisted(command_part):
+                return ToolPermission.NEVER
+            if is_allowlisted(command_part):
+                return ToolPermission.ALWAYS
+
+        return ToolPermission.ASK
 
     @classmethod
     def tool_result_session_update(

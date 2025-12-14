@@ -26,6 +26,7 @@ from chefchat.core.config import (
     VibeConfig,
     load_api_keys_from_env,
 )
+from chefchat.core.error_handler import ChefErrorHandler
 from chefchat.core.interaction_logger import InteractionLogger
 from chefchat.core.programmatic import run_programmatic
 from chefchat.core.types import OutputFormat, ResumeSessionInfo
@@ -224,7 +225,7 @@ def _handle_session_resume(
                 session_time=session_time,
             )
         except Exception as e:
-            rprint(f"[red]Failed to load session: {e}[/]")
+            ChefErrorHandler.display_error(e, context="Session Load")
             sys.exit(1)
 
     return loaded_messages, session_info
@@ -342,14 +343,14 @@ def main() -> None:
                         await manager.start_bot("telegram")
                         rprint("[green]🚀 Telegram bot started[/]")
                     except Exception as e:
-                        rprint(f"[red]Failed to start Telegram bot: {e}[/]")
+                        ChefErrorHandler.display_error(e, context="Telegram Bot")
 
                 if args.bot in {"discord", "all"}:
                     try:
                         await manager.start_bot("discord")
                         rprint("[green]🚀 Discord bot started[/]")
                     except Exception as e:
-                        rprint(f"[red]Failed to start Discord bot: {e}[/]")
+                        ChefErrorHandler.display_error(e, context="Discord Bot")
 
                 if not manager.running_tasks:
                     rprint("[red]No bots running. Exiting.[/]")
@@ -408,7 +409,7 @@ def main() -> None:
             run_tui(verbose=args.verbose, layout=args.layout, active=args.active)
 
         except ImportError as e:
-            rprint(f"[red]❌ Failed to import TUI dependencies: {e}[/]")
+            ChefErrorHandler.display_error(e, context="TUI Dependencies")
             if args.verbose:
                 traceback.print_exc()
 
@@ -423,7 +424,7 @@ def main() -> None:
             run_repl(config, initial_mode=initial_mode)
 
         except Exception as e:
-            rprint(f"[red]❌ Error launching TUI: {e}[/]")
+            ChefErrorHandler.display_error(e, context="TUI Launch")
             if args.verbose:
                 traceback.print_exc()
 
@@ -440,7 +441,7 @@ def main() -> None:
         rprint("\n[dim]👋 Bye![/]")
         sys.exit(0)
     except Exception as e:
-        rprint(f"[red]Fatal error: {e}[/]")
+        ChefErrorHandler.display_error(e, context="Fatal Error", show_traceback=True)
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)

@@ -39,7 +39,7 @@ def acp_agent(backend: FakeBackend) -> VibeAcpAgent:
         def __init__(self, *args, **kwargs) -> None:
             super().__init__(*args, **kwargs, backend=backend)
 
-    patch("vibe.acp.acp_agent.VibeAgent", side_effect=PatchedAgent).start()
+    patch("chefchat.core.agent.Agent", side_effect=PatchedAgent).start()
 
     vibe_acp_agent: VibeAcpAgent | None = None
 

@@ -21,7 +21,7 @@ from chefchat.core.llm.backend.generic import GenericBackend
 from chefchat.core.llm.backend.mistral import MistralBackend
 from chefchat.core.llm.exceptions import BackendError
 from chefchat.core.llm.types import BackendLike
-from chefchat.core.types import LLMChunk, LLMMessage, Role, ToolCall
+from chefchat.core.types import LLMChunk, LLMMessage, Role
 from tests.backend.data import Chunk, JsonResponse, ResultData, Url
 from tests.backend.data.fireworks import (
     SIMPLE_CONVERSATION_PARAMS as FIREWORKS_SIMPLE_CONVERSATION_PARAMS,
@@ -97,7 +97,7 @@ class TestBackend:
                     return
 
                 assert len(result.message.tool_calls) == len(result_data["tool_calls"])
-                for i, tool_call in enumerate[ToolCall](result.message.tool_calls):
+                for i, tool_call in enumerate(result.message.tool_calls):
                     assert (
                         tool_call.function.name == result_data["tool_calls"][i]["name"]
                     )

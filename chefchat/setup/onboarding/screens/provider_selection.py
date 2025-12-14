@@ -1,6 +1,6 @@
 """ChefChat Provider Selection Screen.
 
-Choose your AI provider (OpenAI, Mistral, Anthropic) with Tab navigation.
+Choose your AI provider (OpenAI, Mistral, Anthropic, Groq) with Tab navigation.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ class ProviderSelectionScreen(OnboardingScreen):
         Binding("1", "select_openai", "OpenAI", show=False),
         Binding("2", "select_anthropic", "Anthropic", show=False),
         Binding("3", "select_mistral", "Mistral", show=False),
+        Binding("4", "select_groq", "Groq", show=False),
     ]
 
     NEXT_SCREEN = "api_key"
@@ -64,10 +65,16 @@ class ProviderSelectionScreen(OnboardingScreen):
                         variant="success",
                         classes="provider-button",
                     )
+                    yield Button(
+                        "⚡ Groq",
+                        id="groq",
+                        variant="default",
+                        classes="provider-button",
+                    )
 
             yield Center(
                 Static(
-                    "[dim]Press 1, 2, or 3 for quick selection[/]\n"
+                    "[dim]Press 1, 2, 3, or 4 for quick selection[/]\n"
                     "[dim]You can change this later in config[/]",
                     classes="muted",
                 )
@@ -99,4 +106,9 @@ class ProviderSelectionScreen(OnboardingScreen):
     def action_select_mistral(self) -> None:
         """Quick select Mistral with key 3."""
         self.app.selected_provider = "mistral"
+        self.action_next()
+
+    def action_select_groq(self) -> None:
+        """Quick select Groq with key 4."""
+        self.app.selected_provider = "groq"
         self.action_next()

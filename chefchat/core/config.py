@@ -165,6 +165,7 @@ class ProviderConfig(BaseModel):
     api_key_env_var: str = ""
     api_style: str = "openai"
     backend: Backend = Backend.GENERIC
+    features: set[str] = Field(default_factory=set, description="Provider capabilities")
 
 
 class _MCPBase(BaseModel):
@@ -257,6 +258,12 @@ class ModelConfig(BaseModel):
     max_tokens: int | None = None
     input_price: float = 0.0  # Price per million input tokens
     output_price: float = 0.0  # Price per million output tokens
+    features: set[str] = Field(default_factory=set, description="Model capabilities")
+    multimodal: bool = Field(default=False, description="Supports image/video input")
+    max_file_size: int = Field(default=0, description="Max file size for uploads (MB)")
+    rate_limits: dict[str, int] = Field(
+        default_factory=dict, description="TPM/RPM limits"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -286,29 +293,37 @@ DEFAULT_PROVIDERS = [
         api_base="http://127.0.0.1:8080/v1",
         api_key_env_var="",  # NOTE: if you wish to use --api-key in llama-server, change this value
     ),
+    ProviderConfig(
+        name="groq",
+        api_base="https://api.groq.com/openai/v1",
+        api_key_env_var="GROQ_API_KEY",
+        api_style="openai",
+        backend=Backend.GENERIC,
+        features={"speed", "multimodal", "tool_use", "reasoning", "vision", "speech"},
+    ),
 ]
 
 DEFAULT_MODELS = [
     ModelConfig(
-        name="mistral-vibe-cli-latest",
+        name="codestral-25-08",
         provider="mistral",
         alias="devstral-2512",
         input_price=0.4,
         output_price=2.0,
     ),
     ModelConfig(
-        name="mistral-vibe-cli-latest",
+        name="devstral-2-25-12",
         provider="mistral",
         alias="devstral-2",
         input_price=0.4,
         output_price=2.0,
     ),
     ModelConfig(
-        name="devstral-small-latest",
+        name="codestral-25-08",
         provider="mistral",
-        alias="devstral-small",
-        input_price=0.1,
-        output_price=0.3,
+        alias="mistral-vibe-cli",
+        input_price=0.4,
+        output_price=2.0,
     ),
     ModelConfig(
         name="gpt-4o",
@@ -349,11 +364,108 @@ DEFAULT_MODELS = [
         input_price=0.0,
         output_price=0.0,
     ),
+    # Groq Native Models
+    ModelConfig(
+        name="llama-3.1-8b-instant",
+        provider="groq",
+        alias="groq-8b",
+        temperature=0.2,
+        input_price=0.05,
+        output_price=0.08,
+        max_tokens=131072,
+        features={"speed", "low_cost"},
+        rate_limits={"tpm": 250000, "rpm": 1000},
+    ),
+    ModelConfig(
+        name="llama-3.3-70b-versatile",
+        provider="groq",
+        alias="groq-70b",
+        temperature=0.2,
+        input_price=0.59,
+        output_price=0.79,
+        max_tokens=32768,
+        features={"versatile", "balanced"},
+        rate_limits={"tpm": 300000, "rpm": 1000},
+    ),
+    # Meta Llama Models via Groq
+    ModelConfig(
+        name="meta-llama/llama-4-scout-17b-16e-instruct",
+        provider="groq",
+        alias="llama-scout",
+        temperature=0.2,
+        input_price=0.11,
+        output_price=0.34,
+        max_tokens=8192,
+        multimodal=True,
+        max_file_size=20,
+        features={"multimodal", "vision", "tool_use", "fast"},
+        rate_limits={"tpm": 300000, "rpm": 1000},
+    ),
+    ModelConfig(
+        name="meta-llama/llama-4-maverick-17b-128e-instruct",
+        provider="groq",
+        alias="llama-maverick",
+        temperature=0.2,
+        input_price=0.20,
+        output_price=0.60,
+        max_tokens=8192,
+        multimodal=True,
+        max_file_size=20,
+        features={"multimodal", "vision", "tool_use", "premium"},
+        rate_limits={"tpm": 300000, "rpm": 1000},
+    ),
+    # Kimi Models via Groq
+    ModelConfig(
+        name="moonshotai/kimi-k2-instruct-0905",
+        provider="groq",
+        alias="kimi-k2",
+        temperature=0.3,
+        input_price=1.00,
+        output_price=3.00,
+        max_tokens=16384,
+        features={"reasoning", "large_context", "coding"},
+        rate_limits={"tpm": 250000, "rpm": 1000},
+    ),
+    # OpenAI Models via Groq
+    ModelConfig(
+        name="openai/gpt-oss-120b",
+        provider="groq",
+        alias="gpt-oss-120b",
+        temperature=0.2,
+        input_price=0.15,
+        output_price=0.60,
+        max_tokens=65536,
+        features={"reasoning", "browser_tools", "balanced"},
+        rate_limits={"tpm": 250000, "rpm": 1000},
+    ),
+    ModelConfig(
+        name="openai/gpt-oss-20b",
+        provider="groq",
+        alias="gpt-oss-20b",
+        temperature=0.2,
+        input_price=0.075,
+        output_price=0.30,
+        max_tokens=65536,
+        features={"speed", "browser_tools", "cost_effective"},
+        rate_limits={"tpm": 250000, "rpm": 1000},
+    ),
+    # Qwen Models via Groq
+    ModelConfig(
+        name="qwen/qwen3-32b",
+        provider="groq",
+        alias="qwen-32b",
+        temperature=0.2,
+        input_price=0.29,
+        output_price=0.59,
+        max_tokens=40960,
+        features={"multilingual", "balanced"},
+        rate_limits={"tpm": 300000, "rpm": 1000},
+    ),
 ]
 
 
 class VibeConfig(BaseSettings):
-    active_model: str = "devstral-2512"
+    active_model: str = "groq-8b"
     vim_keybindings: bool = False
     disable_welcome_banner_animation: bool = False
     displayed_workdir: str = ""

@@ -1,18 +1,20 @@
 [project]
-name = "mistral-vibe"
+name = "chefchat"
 version = "1.0.5-dev"
-description = "Minimal CLI coding agent by Mistral"
+description = "The Michelin Star AI-Engineer CLI"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Mistral AI" }]
+authors = [{ name = "ChefChat Team" }]
 keywords = [
     "ai",
     "cli",
     "coding-assistant",
-    "mistral",
+    "chefchat",
     "llm",
     "developer-tools",
+    "culinary",
+    "tui",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -32,7 +34,6 @@ dependencies = [
     "httpx>=0.28.1",
     "mcp>=1.14.0",
     "mistralai==1.9.11",
-    "pexpect>=4.9.0",
     "packaging>=24.1",
     "pydantic>=2.12.4",
     "pydantic-settings>=2.12.0",
@@ -49,12 +50,13 @@ dependencies = [
     "pyyaml>=6.0.0",
     "python-telegram-bot>=22.5",
     "discord-py>=2.6.4",
+    "toml>=0.10.2",
 ]
 [project.urls]
-Homepage = "https://github.com/mistralai/mistral-vibe"
-Repository = "https://github.com/mistralai/mistral-vibe"
-Issues = "https://github.com/mistralai/mistral-vibe/issues"
-Documentation = "https://github.com/mistralai/mistral-vibe#readme"
+Homepage = "https://github.com/chefchat/chefchat"
+Repository = "https://github.com/chefchat/chefchat"
+Issues = "https://github.com/chefchat/chefchat/issues"
+Documentation = "https://github.com/chefchat/chefchat#readme"
 
 
 [build-system]

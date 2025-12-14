@@ -15,6 +15,9 @@ from textual.widgets import Button, Input, Static
 if TYPE_CHECKING:
     pass
 
+# Constants
+MIN_TOKEN_LENGTH = 4  # Minimum length to show masked token preview
+
 
 class GitSetupScreen(ModalScreen[bool]):
     """Modal screen for GitHub token configuration."""
@@ -84,7 +87,11 @@ class GitSetupScreen(ModalScreen[bool]):
             yield Static("GitHub Token:", classes="input-label")
             current_token = os.getenv("GITHUB_TOKEN", "")
             # Mask token if present
-            masked = "••••" + current_token[-4:] if len(current_token) > 4 else ""
+            masked = (
+                "••••" + current_token[-MIN_TOKEN_LENGTH:]
+                if len(current_token) > MIN_TOKEN_LENGTH
+                else ""
+            )
             yield Input(
                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxx",
                 password=True,

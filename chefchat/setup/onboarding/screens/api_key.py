@@ -19,6 +19,7 @@ PROVIDER_HELP = {
     "mistral": ("https://console.mistral.ai/codestral/vibe", "Mistral AI Studio"),
     "openai": ("https://platform.openai.com/api-keys", "OpenAI Platform"),
     "anthropic": ("https://console.anthropic.com/settings/keys", "Anthropic Console"),
+    "groq": ("https://console.groq.com/keys", "Groq Console"),
 }
 CONFIG_DOCS_URL = (
     "https://github.com/mistralai/mistral-vibe?tab=readme-ov-file#configuration"
@@ -77,6 +78,7 @@ class ApiKeyScreen(OnboardingScreen):
             "openai": "OPENAI_API_KEY",
             "anthropic": "ANTHROPIC_API_KEY",
             "mistral": "MISTRAL_API_KEY",
+            "groq": "GROQ_API_KEY",
         }
         self.env_var = env_map.get(self.provider_name, "MISTRAL_API_KEY")
 
@@ -146,11 +148,13 @@ class ApiKeyScreen(OnboardingScreen):
             _save_api_key_to_env_file(self.env_var, api_key)
 
             # Also update local config to use this provider's model as active
-            active_model = "devstral-2512"  # Default fallback
+            active_model = "groq-8b"  # Default fallback (Groq 8b)
             if self.provider_name == "openai":
                 active_model = "gpt4o"
             elif self.provider_name == "anthropic":
                 active_model = "claude-3-5-sonnet-20240620"
+            elif self.provider_name == "mistral":
+                active_model = "devstral-2512"
 
             updates = {"active_model": active_model}
 

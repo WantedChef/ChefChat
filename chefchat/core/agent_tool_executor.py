@@ -237,12 +237,39 @@ class AgentToolExecutor:
         self, tool: Any, args: dict[str, Any], tool_call_id: str
     ) -> ToolDecision:
         """Check if a tool should be executed based on modes, permissions, and user approval."""
-        # 1. Mode Blocking
+        # 1. Mode Blocking - takes priority
         if self.mode_manager is not None:
             blocked, reason = self.mode_manager.should_block_tool(tool.get_name(), args)
             if blocked:
-                mode_name = self.mode_manager.current_mode.value.upper()
-                educational_feedback = f"""⛔ BLOCKED: Tool '{tool.get_name()}' is a WRITE operation.
+                return self._create_mode_blocked_decision(tool.get_name(), reason)
+
+        # 2. Auto-Approval - fastest path
+        if self.auto_approve:
+            return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
+
+        # 3. Allowlist/Denylist check
+        decision = self._check_allowlist_denylist(tool, args)
+        if decision is not None:
+            return decision
+
+        # 4. Tool-Specific Permissions
+        decision = self._check_tool_permissions(tool)
+        if decision is not None:
+            return decision
+
+        # 5. User Approval (Interactive) - fallback
+        return await self._ask_approval(tool.get_name(), args, tool_call_id)
+
+    def _create_mode_blocked_decision(
+        self, tool_name: str, reason: str
+    ) -> ToolDecision:
+        """Create educational feedback for mode-blocked tools."""
+        mode_name = (
+            self.mode_manager.current_mode.value.upper()
+            if self.mode_manager
+            else "UNKNOWN"
+        )
+        educational_feedback = f"""⛔ BLOCKED: Tool '{tool_name}' is a WRITE operation.
 
 Current mode: 📋 {mode_name} (READ-ONLY)
 
@@ -263,30 +290,31 @@ This tool call has been BLOCKED and will NOT be executed.
 
 ⚠️ This is your instruction. Acknowledge and adapt your strategy NOW.
 Original block reason: {reason}"""
-                return ToolDecision(
-                    verdict=ToolExecutionResponse.SKIP, feedback=educational_feedback
-                )
+        return ToolDecision(
+            verdict=ToolExecutionResponse.SKIP, feedback=educational_feedback
+        )
 
-        # 2. Auto-Approval
-        if self.auto_approve:
-            return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
-
-        # 3. Allowlist/Denylist
+    def _check_allowlist_denylist(
+        self, tool: Any, args: dict[str, Any]
+    ) -> ToolDecision | None:
+        """Check allowlist/denylist, return decision if definitive, None otherwise."""
         args_model, _ = tool._get_args_and_result_models()
         validated_args = args_model.model_validate(args)
+        result = tool.check_allowlist_denylist(validated_args)
 
-        allowlist_denylist_result = tool.check_allowlist_denylist(validated_args)
-        if allowlist_denylist_result == ToolPermission.ALWAYS:
+        if result == ToolPermission.ALWAYS:
             return ToolDecision(verdict=ToolExecutionResponse.EXECUTE)
-        elif allowlist_denylist_result == ToolPermission.NEVER:
+        if result == ToolPermission.NEVER:
             denylist_patterns = tool.config.denylist
             denylist_str = ", ".join(repr(pattern) for pattern in denylist_patterns)
             return ToolDecision(
                 verdict=ToolExecutionResponse.SKIP,
                 feedback=f"Tool '{tool.get_name()}' blocked by denylist: [{denylist_str}]",
             )
+        return None  # ASK permission needed
 
-        # 4. Tool-Specific Permissions
+    def _check_tool_permissions(self, tool: Any) -> ToolDecision | None:
+        """Check tool-specific permissions, return decision if definitive, None otherwise."""
         tool_name = tool.get_name()
         perm = self.tool_manager.get_tool_config(tool_name).permission
 
@@ -297,9 +325,7 @@ Original block reason: {reason}"""
                 verdict=ToolExecutionResponse.SKIP,
                 feedback=f"Tool '{tool_name}' is permanently disabled",
             )
-
-        # 5. User Approval (Interactive)
-        return await self._ask_approval(tool_name, args, tool_call_id)
+        return None  # ASK permission needed
 
     async def _ask_approval(
         self, tool_name: str, args: dict[str, Any], tool_call_id: str

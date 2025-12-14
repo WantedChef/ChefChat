@@ -224,15 +224,19 @@ class BashCommandController:
         if not self._suggestions:
             return CompletionResult.IGNORED
 
+        # Handle navigation and completion keys
+        result = self._handle_completion_key(event, text, cursor_index)
+        return result if result is not None else CompletionResult.IGNORED
+
+    def _handle_completion_key(
+        self, event: events.Key, text: str, cursor_index: int
+    ) -> CompletionResult | None:
+        """Handle completion-specific keys. Returns None if key not handled."""
         match event.key:
             case "tab":
-                if self._apply_selected_completion(text, cursor_index):
-                    return CompletionResult.HANDLED
-                return CompletionResult.IGNORED
+                return CompletionResult.HANDLED if self._apply_selected_completion(text, cursor_index) else CompletionResult.IGNORED
             case "enter":
-                if self._apply_selected_completion(text, cursor_index):
-                    return CompletionResult.SUBMIT
-                return CompletionResult.HANDLED
+                return CompletionResult.SUBMIT if self._apply_selected_completion(text, cursor_index) else CompletionResult.HANDLED
             case "down":
                 self._move_selection(1)
                 return CompletionResult.HANDLED
@@ -240,7 +244,7 @@ class BashCommandController:
                 self._move_selection(-1)
                 return CompletionResult.HANDLED
             case _:
-                return CompletionResult.IGNORED
+                return None
 
     def _move_selection(self, delta: int) -> None:
         """Move selection by delta, wrapping around.

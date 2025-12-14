@@ -32,9 +32,14 @@ class CommandRegistry:
                 handler="_handle_git_setup",
             ),
             "config": Command(
-                aliases=frozenset(["/config", "/cfg", "/theme", "/model"]),
+                aliases=frozenset(["/config", "/cfg", "/theme"]),
                 description="Edit config settings",
                 handler="_show_config",
+            ),
+            "model": Command(
+                aliases=frozenset(["/model", "/models"]),
+                description="Manage AI models",
+                handler="_handle_model_command",
             ),
             "reload": Command(
                 aliases=frozenset(["/reload", "/r"]),

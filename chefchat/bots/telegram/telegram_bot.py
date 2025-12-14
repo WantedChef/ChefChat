@@ -10,8 +10,12 @@ from pathlib import Path
 import time
 from typing import Any
 
+# Telegram bot working directory
+TELEGRAM_WORKDIR = Path.home() / "chefchat_output_"
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
 from telegram.ext import (
+    Application,
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
@@ -68,6 +72,11 @@ class TelegramBotService:
             if p.strip()
         ]
 
+        self.application: Application | None = None
+
+        # Ensure telegram working directory exists
+        TELEGRAM_WORKDIR.mkdir(parents=True, exist_ok=True)
+
     def _get_session(self, chat_id: int, user_id_str: str) -> BotSession | None:
         if chat_id not in self.sessions:
             # Check allowlist
@@ -75,8 +84,14 @@ class TelegramBotService:
             if user_id_str not in allowed:
                 return None
 
+            # Create a modified config with telegram-specific working directory
+            from copy import deepcopy
+
+            telegram_config = deepcopy(self.config)
+            telegram_config.workdir = TELEGRAM_WORKDIR
+
             self.sessions[chat_id] = BotSession(
-                self.config,
+                telegram_config,
                 send_message=lambda text: self._send_message(chat_id, text),
                 update_message=self._update_message,
                 request_approval=lambda t, a, i: self._request_approval(
@@ -112,6 +127,7 @@ class TelegramBotService:
         # We can use self.application.bot.send_message
         # Telegram markdown can be brittle; try markdown first (better UX),
         # then fall back to plain text if Telegram rejects it.
+        assert self.application is not None, "Application not initialized"
         try:
             return await self.application.bot.send_message(
                 chat_id=chat_id, text=text, parse_mode=constants.ParseMode.MARKDOWN
@@ -158,6 +174,7 @@ class TelegramBotService:
 
         # Do NOT use Markdown here: args can contain characters that break markdown.
         # Keep it plain text to ensure approvals always render.
+        assert self.application is not None, "Application not initialized"
         await self.application.bot.send_message(
             chat_id=chat_id,
             text=f"Approval Required\nTool: {tool_name}\nArgs: {args}",
@@ -410,7 +427,7 @@ class TelegramBotService:
         except Exception:
             pass
 
-        cwd = os.getcwd()
+        cwd = str(TELEGRAM_WORKDIR)
         session_count = len(self.sessions)
 
         status_text = (
@@ -458,7 +475,7 @@ class TelegramBotService:
             await update.message.reply_text("Access denied.")
             return
 
-        cwd = Path.cwd()
+        cwd = TELEGRAM_WORKDIR
         files = []
         try:
             for item in sorted(cwd.iterdir())[:30]:  # Limit to 30 items
@@ -494,7 +511,7 @@ class TelegramBotService:
             return
 
         await update.message.reply_text(
-            f"📁 Current directory:\n`{os.getcwd()}`",
+            f"📁 Current directory:\n`{TELEGRAM_WORKDIR}`",
             parse_mode=constants.ParseMode.MARKDOWN,
         )
 
@@ -523,15 +540,16 @@ class TelegramBotService:
         allowed = self.bot_manager.get_allowed_users("telegram")
         for user_id in allowed:
             try:
-                await self.application.bot.send_message(
-                    chat_id=int(user_id),
-                    text=(
-                        "🚀 **ChefChat Bot Started!**\n\n"
-                        f"📁 Working directory: `{os.getcwd()}`\n"
-                        f"🔧 Type /help for commands"
-                    ),
-                    parse_mode=constants.ParseMode.MARKDOWN,
-                )
+                if self.application:
+                    await self.application.bot.send_message(
+                        chat_id=int(user_id),
+                        text=(
+                            "🚀 **ChefChat Bot Started!**\n\n"
+                            f"📁 Working directory: `{TELEGRAM_WORKDIR}`\n"
+                            f"🔧 Type /help for commands"
+                        ),
+                        parse_mode=constants.ParseMode.MARKDOWN,
+                    )
             except Exception as e:
                 logger.warning(f"Could not notify user {user_id}: {e}")
 

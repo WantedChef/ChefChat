@@ -42,18 +42,18 @@ def make_config(
 ) -> VibeConfig:
     models = [
         ModelConfig(
-            name="mistral-vibe-cli-latest",
+            name="codestral-25-08",
             provider="mistral",
             alias="devstral-latest",
             input_price=input_price,
             output_price=output_price,
         ),
         ModelConfig(
-            name="devstral-small-latest",
+            name="codestral-25-08",
             provider="mistral",
-            alias="devstral-small",
-            input_price=0.1,
-            output_price=0.3,
+            alias="mistral-vibe-cli",
+            input_price=0.4,
+            output_price=2.0,
         ),
         ModelConfig(
             name="strawberry",
@@ -705,7 +705,7 @@ class TestStatsEdgeCases:
         original_config = make_config(active_model="devstral-latest")
         agent = Agent(original_config, backend=backend)
 
-        new_config = make_config(active_model="devstral-small")
+        new_config = make_config(active_model="mistral-vibe-cli")
         await agent.reload_with_initial_messages(config=new_config)
 
-        assert agent.config.active_model == "devstral-small"
+        assert agent.config.active_model == "mistral-vibe-cli"

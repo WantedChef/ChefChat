@@ -405,7 +405,7 @@ api_key_env_var = "MISTRAL_API_KEY"
 backend = "mistral"
 
 [[models]]
-name = "mistral-vibe-cli-latest"
+name = "devstral-2-25-12"
 provider = "mistral"
 alias = "devstral-2"
 temperature = 0.2

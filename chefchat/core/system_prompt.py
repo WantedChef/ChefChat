@@ -394,7 +394,12 @@ def validate_prompt_length(
         RuntimeError: If prompt exceeds max_tokens limit
     """
     # Skip validation if max_tokens is None or unreasonably small (likely a test/mock)
-    if max_tokens is None or not isinstance(max_tokens, int) or max_tokens < 100:
+    MIN_REASONABLE_MAX_TOKENS = 100
+    if (
+        max_tokens is None
+        or not isinstance(max_tokens, int)
+        or max_tokens < MIN_REASONABLE_MAX_TOKENS
+    ):
         return
 
     # Rough estimation: 1 token ≈ 4 characters for English text

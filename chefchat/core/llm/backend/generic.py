@@ -58,7 +58,6 @@ T = TypeVar("T", bound=APIAdapter)
 def register_adapter(
     adapters: dict[str, APIAdapter], name: str
 ) -> Callable[[type[T]], type[T]]:
-
     def decorator(cls: type[T]) -> type[T]:
         adapters[name] = cls()
         return cls
@@ -115,6 +114,12 @@ class OpenAIAdapter(APIAdapter):
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
+
+        # Groq-specific optimizations
+        if self._provider.name == "groq":
+            headers["User-Agent"] = "ChefChat/1.0"
+            headers["X-Request-Source"] = "chefchat"
+
         return headers
 
     def prepare_request(
@@ -140,6 +145,10 @@ class OpenAIAdapter(APIAdapter):
             payload["stream"] = True
             if provider.name == "mistral":
                 payload["stream_options"] = {"stream_tool_calls": True}
+
+        # Groq-specific model adjustments
+        if provider.name == "groq":
+            payload = self._adjust_for_groq_model(payload, model_name)
 
         headers = self.build_headers(api_key)
 
@@ -442,6 +451,62 @@ class GenericBackend:
                 total += count_tokens(json.dumps(tool.model_dump()), model.name)
 
         return total
+
+    def _adjust_for_groq_model(
+        self, payload: dict[str, Any], model_name: str
+    ) -> dict[str, Any]:
+        """Adjust request parameters for specific Groq models."""
+        if "llama-4-scout" in model_name or "llama-4-maverick" in model_name:
+            # Enable multimodal for Llama 4 models
+            if any("image" in str(msg) for msg in payload.get("messages", [])):
+                payload["modalities"] = ["text", "image"]
+
+        elif "kimi-k2" in model_name:
+            # Kimi K2 specific optimizations
+            payload["max_tokens"] = min(payload.get("max_tokens", 8192), 16384)
+
+        elif "gpt-oss" in model_name:
+            # Enable browser tools for GPT-OSS models
+            if not payload.get("tools"):
+                payload["tools"] = self._get_groq_browser_tools()
+
+        return payload
+
+    def _get_groq_browser_tools(self) -> list[dict[str, Any]]:
+        """Get Groq browser tools for compatible models."""
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "web_search",
+                    "description": "Search the web for current information",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Search query"}
+                        },
+                        "required": ["query"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "code_execution",
+                    "description": "Execute Python code",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "description": "Python code to execute",
+                            }
+                        },
+                        "required": ["code"],
+                    },
+                },
+            },
+        ]
 
     async def close(self) -> None:
         if self._owns_client and self._client:

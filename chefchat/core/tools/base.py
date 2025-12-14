@@ -6,14 +6,7 @@ import inspect
 from pathlib import Path
 import re
 import sys
-from typing import (
-    Any,
-    ClassVar,
-    cast,
-    get_args,
-    get_origin,
-    get_type_hints,
-)
+from typing import Any, ClassVar, cast, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -114,7 +107,12 @@ class ToolInfo(BaseModel):
 # =======================================================
 
 
-class BaseTool[ArgsT: BaseModel, ResultT: BaseModel, ConfigT: BaseToolConfig, StateT: BaseToolState](ABC):
+class BaseTool[
+    ArgsT: BaseModel,
+    ResultT: BaseModel,
+    ConfigT: BaseToolConfig,
+    StateT: BaseToolState,
+](ABC):
     """The main base class for defining async tools.
     Subclasses must specify four type parameters:
 
@@ -162,10 +160,58 @@ class BaseTool[ArgsT: BaseModel, ResultT: BaseModel, ConfigT: BaseToolConfig, St
     # ---------------------------------------------------
     def check_allowlist_denylist(self, args: ArgsT) -> ToolPermission:
         """Check if the arguments are allowed or denied by the configuration.
-        Default implementation returns ASK (neutral).
-        Subclasses can override this to implement granular checks.
+
+        This implements generic allowlist/denylist checking for tool arguments.
+        Subclasses can override this to implement more granular checks.
+
+        Returns:
+            ToolPermission.ALWAYS if arguments are allowed
+            ToolPermission.NEVER if arguments are denied
+            ToolPermission.ASK if no definitive decision can be made
         """
+        # If no allowlist or denylist is configured, fall back to ASK
+        if not self.config.allowlist and not self.config.denylist:
+            return ToolPermission.ASK
+
+        # Convert args to a searchable string representation
+        args_str = str(args.model_dump())
+
+        # Check denylist first (deny takes precedence over allow)
+        for denied_pattern in self.config.denylist:
+            if self._pattern_matches(denied_pattern, args_str):
+                return ToolPermission.NEVER
+
+        # Check allowlist if it exists
+        if self.config.allowlist:
+            for allowed_pattern in self.config.allowlist:
+                if self._pattern_matches(allowed_pattern, args_str):
+                    return ToolPermission.ALWAYS
+            # If allowlist exists but no patterns match, deny access
+            return ToolPermission.NEVER
+
+        # If only denylist was configured and no matches found, ask for confirmation
         return ToolPermission.ASK
+
+    def _pattern_matches(self, pattern: str, text: str) -> bool:
+        """Check if a pattern matches the given text.
+
+        Supports both glob patterns (*) and regular expressions.
+        Patterns ending with .* are treated as regex, others as glob.
+        """
+        import fnmatch
+
+        # If pattern looks like a regex (contains regex special chars)
+        if any(c in pattern for c in r"\^$*+?{}[]|()"):
+            try:
+                import re
+
+                return bool(re.search(pattern, text, re.IGNORECASE))
+            except re.error:
+                # Fall back to glob matching if regex is invalid
+                pass
+
+        # Use glob matching for simple patterns
+        return fnmatch.fnmatch(text.lower(), pattern.lower())
 
     # ---------------------------------------------------
     # Argument validation + execution
@@ -229,11 +275,12 @@ class BaseTool[ArgsT: BaseModel, ResultT: BaseModel, ConfigT: BaseToolConfig, St
     @classmethod
     def _extract_generic_param(cls, index: int, expected: type) -> type:
         """Extracts one of the generic type parameters of BaseTool[T1, T2, T3, T4]."""
+        EXPECTED_GENERIC_PARAMS = 4  # BaseTool requires 4 generic parameters
         for base in cls.__orig_bases__:  # type: ignore
             origin = get_origin(base)
             if origin is BaseTool:
                 args = get_args(base)
-                if len(args) != 4:
+                if len(args) != EXPECTED_GENERIC_PARAMS:
                     continue
                 param = args[index]
                 if not issubclass(param, expected):

@@ -134,7 +134,19 @@ class HeaderDisplay:
         width = ctx.width if ctx else 80
         separator_len = max(30, min(width - 4, 60))
 
-        # Top row: Brand + Mode
+        # Build components
+        top_row = self._build_top_row(palette, ctx)
+        separator = Text("─" * separator_len, style=palette["secondary"])
+        meta_row = self._build_meta_row(palette)
+
+        # Combine all elements
+        content = Group(top_row, Text(), separator, Text(), meta_row)
+        return Panel(content, border_style=palette["secondary"], padding=(0, 2))
+
+    def _build_top_row(
+        self, palette: dict[str, str], ctx: RenderContext | None
+    ) -> Table:
+        """Build the top row with brand and mode."""
         top_row = Table.grid(expand=True)
         top_row.add_column("brand", justify="left", ratio=1)
         top_row.add_column("mode", justify="right", ratio=1)
@@ -150,16 +162,16 @@ class HeaderDisplay:
         mode.append(self.data.mode_indicator, style=f"bold {palette['primary']}")
 
         top_row.add_row(brand, mode)
+        return top_row
 
-        # Separator
-        separator = Text("─" * separator_len, style=palette["secondary"])
-
-        # Bottom row: Meta info
+    def _build_meta_row(self, palette: dict[str, str]) -> Table:
+        """Build the meta row with model, path, and context info."""
         meta_row = Table.grid(expand=True)
         meta_row.add_column("model", justify="left", ratio=2)
         meta_row.add_column("path", justify="center", ratio=2)
         meta_row.add_column("context", justify="right", ratio=1)
 
+        # Model text
         model_text = Text(self.data.model, style=palette["text"])
 
         # Truncate path if needed
@@ -178,11 +190,7 @@ class HeaderDisplay:
         ctx_text.append(f"{ctx_used_k:.0f}/{ctx_max_k:.0f}k", style=palette["muted"])
 
         meta_row.add_row(model_text, path_text, ctx_text)
-
-        # Combine all elements
-        content = Group(top_row, Text(), separator, Text(), meta_row)
-
-        return Panel(content, border_style=palette["secondary"], padding=(0, 2))
+        return meta_row
 
 
 # =============================================================================

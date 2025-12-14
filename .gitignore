@@ -224,4 +224,7 @@ docs/
 .gemini
 .github/
 
-
+# Cleanup - test/debug files
+debug
+test_file.md
+.vibe/instructions.md

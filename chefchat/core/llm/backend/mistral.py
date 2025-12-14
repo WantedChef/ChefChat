@@ -177,13 +177,24 @@ class MistralBackend:
         extra_headers: dict[str, str] | None,
     ) -> LLMChunk:
         try:
+            # Validate tool calls before sending to API
+            if tools:
+                for tool in tools:
+                    if not tool.function.name or not tool.function.parameters:
+                        raise ValueError(
+                            f"Invalid tool: {tool.function.name} - missing name or parameters"
+                        )
+
+            prepared_messages = [self._mapper.prepare_message(msg) for msg in messages]
+            prepared_tools = (
+                [self._mapper.prepare_tool(tool) for tool in tools] if tools else None
+            )
+
             response = await self._get_client().chat.complete_async(
                 model=model.name,
-                messages=[self._mapper.prepare_message(msg) for msg in messages],
+                messages=prepared_messages,
                 temperature=temperature,
-                tools=[self._mapper.prepare_tool(tool) for tool in tools]
-                if tools
-                else None,
+                tools=prepared_tools,
                 max_tokens=max_tokens,
                 tool_choice=self._mapper.prepare_tool_choice(tool_choice)
                 if tool_choice
