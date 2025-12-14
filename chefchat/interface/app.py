@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 import traceback
 from typing import TYPE_CHECKING, ClassVar
 from uuid import uuid4
@@ -20,6 +21,8 @@ from textual.binding import Binding
 from textual.containers import Grid
 from textual.widgets import Input
 
+from chefchat.bots.manager import BotManager
+from chefchat.bots.ui import BotSetupScreen
 from chefchat.cli.commands import CommandRegistry
 from chefchat.core.agent import Agent
 from chefchat.core.config import MissingAPIKeyError, VibeConfig, load_api_keys_from_env
@@ -44,11 +47,10 @@ from chefchat.interface.screens.confirm_restart import (
     get_saved_layout,
     save_tui_preference,
 )
+from chefchat.interface.screens.git_setup import GitSetupScreen
 from chefchat.interface.screens.models import ModelSelectionScreen
 from chefchat.interface.screens.onboarding import OnboardingScreen
 from chefchat.interface.screens.tool_approval import ToolApprovalScreen
-from chefchat.bots.ui import BotSetupScreen
-from chefchat.bots.manager import BotManager
 from chefchat.interface.widgets.command_input import CommandInput
 from chefchat.interface.widgets.kitchen_ui import (
     KitchenFooter,
@@ -159,6 +161,10 @@ class ChefChatApp(App):
         self._active_mode = active_mode
         self._agent: Agent | None = None
         self._config: VibeConfig | None = None
+
+        # Session tracking
+        self._session_start_time = time.time()
+        self._tools_executed = 0
 
     @property
     def bus(self) -> KitchenBus:
@@ -492,6 +498,8 @@ class ChefChatApp(App):
                     loader.start(f"Running {event.tool_name}...")
 
                 elif isinstance(event, ToolResultEvent):
+                    if not event.is_error:
+                        self._tools_executed += 1
                     if plate:
                         status = (
                             "[green]Success[/]"
@@ -659,6 +667,8 @@ class ChefChatApp(App):
                 "_chef_plate": "_handle_plate",
                 "_chef_taste": "_chef_taste",
                 "_chef_timer": "_chef_timer",
+                # Git setup
+                "_handle_git_setup": "_handle_git_setup",
                 # Bot handlers
                 "_handle_telegram": "_handle_telegram_command",
                 "_handle_discord": "_handle_discord_command",
@@ -700,6 +710,21 @@ class ChefChatApp(App):
     async def _handle_api_command(self) -> None:
         """Show API key onboarding screen."""
         await self.push_screen(OnboardingScreen(), self._on_onboarding_complete)
+
+    async def _handle_git_setup(self) -> None:
+        """Handle /git-setup command - configure GitHub token."""
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+
+        def on_complete(success: bool) -> None:
+            if success:
+                self.notify("GitHub token saved!", title="Git Setup")
+                ticket_rail.add_system_message(
+                    "✅ **Git Setup Complete!**\n\nYour GitHub token was saved to `.env`."
+                )
+            else:
+                ticket_rail.add_system_message("❌ Git setup cancelled.")
+
+        await self.push_screen(GitSetupScreen(), on_complete)
 
     async def _handle_telegram_command(self, arg: str = "") -> None:
         """Handle /telegram command in TUI."""
@@ -966,16 +991,35 @@ class ChefChatApp(App):
         self.query_one("#ticket-rail", TicketRail).add_system_message("\n".join(lines))
 
     async def _show_status(self) -> None:
-        """Show session status."""
+        """Show session status with full statistics."""
         mode = self._mode_manager.current_mode
         config = MODE_CONFIGS[mode]
         auto = "ON" if self._mode_manager.auto_approve else "OFF"
 
-        status = f"""## 📊 Session Status
+        # Calculate uptime
+        uptime_seconds = int(time.time() - self._session_start_time)
+        hours, remainder = divmod(uptime_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours > 0:
+            uptime_str = f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+            uptime_str = f"{minutes}m {seconds}s"
+        else:
+            uptime_str = f"{seconds}s"
 
-**Mode**: {config.emoji} {mode.value.upper()}
-**Auto-Approve**: {auto}
-**Kitchen**: {"Ready" if self._bus else "Initializing..."}
+        # Get token count from agent if available
+        token_count = 0
+        if self._agent and hasattr(self._agent, "stats"):
+            token_count = getattr(self._agent.stats, "total_tokens", 0)
+
+        status = f"""## 📊 Today's Service
+
+**⏱️  Service Time**: {uptime_str}
+**🔤 Tokens Used**: {token_count:,}
+**🔧 Tools Executed**: {self._tools_executed}
+**🎯 Current Mode**: {config.emoji} {mode.value.upper()}
+**⚡ Auto-Approve**: {auto}
+**🍳 Kitchen**: {"🟢 Ready" if self._bus else "🔴 Initializing..."}
 """
         self.query_one("#ticket-rail", TicketRail).add_system_message(status)
 
