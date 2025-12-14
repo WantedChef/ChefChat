@@ -540,7 +540,7 @@ class TestModeConfigs:
 
     def test_configs_have_required_fields(self) -> None:
         """Each config should have all required fields."""
-        for mode, config in MODE_CONFIGS.items():
+        for _, config in MODE_CONFIGS.items():
             assert isinstance(config.auto_approve, bool)
             assert isinstance(config.read_only, bool)
             assert isinstance(config.emoji, str)

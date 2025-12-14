@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from tests.mock.utils import mock_llm_chunk
-from tests.stubs.fake_backend import FakeBackend
 from chefchat.core.agent import Agent
 from chefchat.core.config import SessionLoggingConfig, VibeConfig
+from tests.mock.utils import mock_llm_chunk
+from tests.stubs.fake_backend import FakeBackend
 
 
 @pytest.fixture

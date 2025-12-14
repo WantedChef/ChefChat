@@ -5,7 +5,10 @@ from pathlib import Path
 from acp import ReadTextFileRequest, ReadTextFileResponse, WriteTextFileRequest
 import pytest
 
-from chefchat.acp.tools.builtins.search_replace import AcpSearchReplaceState, SearchReplace
+from chefchat.acp.tools.builtins.search_replace import (
+    AcpSearchReplaceState,
+    SearchReplace,
+)
 from chefchat.core.tools.base import ToolError
 from chefchat.core.tools.builtins.search_replace import (
     SearchReplaceArgs,

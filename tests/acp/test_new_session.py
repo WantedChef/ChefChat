@@ -6,13 +6,13 @@ from unittest.mock import patch
 from acp import AgentSideConnection, NewSessionRequest, SetSessionModelRequest
 import pytest
 
-from tests.stubs.fake_backend import FakeBackend
-from tests.stubs.fake_connection import FakeAgentSideConnection
 from chefchat.acp.acp_agent import VibeAcpAgent
 from chefchat.acp.utils import VibeSessionMode
 from chefchat.core.agent import Agent
 from chefchat.core.config import ModelConfig, VibeConfig
 from chefchat.core.types import LLMChunk, LLMMessage, LLMUsage, Role
+from tests.stubs.fake_backend import FakeBackend
+from tests.stubs.fake_connection import FakeAgentSideConnection
 
 
 @pytest.fixture

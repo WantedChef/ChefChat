@@ -15,9 +15,7 @@ sys.path.append("/home/chef/chefchat/ChefChat")
 try:
     from chefchat.interface.constants import MessageType
     from chefchat.interface.tui import BusAction, ChefChatApp, PayloadKey, WhiskLoader
-    from chefchat.interface.widgets.the_plate import ThePlate
-    from chefchat.interface.widgets.ticket_rail import TicketRail
-    from chefchat.kitchen.bus import ChefMessage, KitchenBus
+    from chefchat.kitchen.bus import ChefMessage
 except ImportError as e:
     logger.critical(f"Import failed: {e}")
     sys.exit(1)

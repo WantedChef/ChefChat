@@ -1,8 +1,10 @@
 """Tests for DevstralChef."""
+from __future__ import annotations
 
 import sys
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 # We need to ensure we can patch 'mistralai' even if not installed
 mock_mistral_module = MagicMock()

@@ -4,8 +4,6 @@ from collections.abc import Callable
 
 import pytest
 
-from tests.mock.utils import mock_llm_chunk
-from tests.stubs.fake_backend import FakeBackend
 from chefchat.core.agent import Agent
 from chefchat.core.config import (
     Backend,
@@ -25,6 +23,8 @@ from chefchat.core.types import (
     Role,
     ToolCall,
 )
+from tests.mock.utils import mock_llm_chunk
+from tests.stubs.fake_backend import FakeBackend
 
 
 def make_config(

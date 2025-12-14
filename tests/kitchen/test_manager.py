@@ -1,14 +1,17 @@
 """Tests for KitchenManager."""
+from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from chefchat.kitchen.manager import KitchenManager
+import pytest
+
 from chefchat.kitchen.core import ChefBrain
+from chefchat.kitchen.manager import KitchenManager
 
 
 class FakeChef(ChefBrain):
     """Fake chef for testing."""
+
     def __init__(self):
         self.connected = False
 

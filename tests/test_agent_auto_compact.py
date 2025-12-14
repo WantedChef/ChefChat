@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from tests.mock.utils import mock_llm_chunk
-from tests.stubs.fake_backend import FakeBackend
 from chefchat.core.agent import Agent
 from chefchat.core.config import SessionLoggingConfig, VibeConfig
 from chefchat.core.types import (
@@ -13,6 +11,8 @@ from chefchat.core.types import (
     LLMMessage,
     Role,
 )
+from tests.mock.utils import mock_llm_chunk
+from tests.stubs.fake_backend import FakeBackend
 
 
 @pytest.mark.asyncio

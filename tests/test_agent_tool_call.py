@@ -6,9 +6,6 @@ from typing import Any
 
 import pytest
 
-from tests.mock.utils import mock_llm_chunk
-from tests.stubs.fake_backend import FakeBackend
-from tests.stubs.fake_tool import FakeTool
 from chefchat.core.agent import Agent
 from chefchat.core.config import SessionLoggingConfig, VibeConfig
 from chefchat.core.tools.base import BaseToolConfig, ToolPermission
@@ -25,6 +22,9 @@ from chefchat.core.types import (
     ToolResultEvent,
 )
 from chefchat.core.utils import ApprovalResponse
+from tests.mock.utils import mock_llm_chunk
+from tests.stubs.fake_backend import FakeBackend
+from tests.stubs.fake_tool import FakeTool
 
 
 async def act_and_collect_events(agent: Agent, prompt: str) -> list[BaseEvent]:

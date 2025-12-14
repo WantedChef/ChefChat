@@ -32,11 +32,13 @@ class MockSDKError(Exception):
 sys.modules["mistralai"].SDKError = MockSDKError
 sys.modules["mistralai.models"].SDKError = MockSDKError
 
-from unittest.mock import AsyncMock, MagicMock
-from chefchat.core.types import LLMChunk
-from pydantic import ValidationError
 import json
 import os
+from unittest.mock import AsyncMock, MagicMock
+
+from pydantic import ValidationError
+
+from chefchat.core.types import LLMChunk
 from tests.mock.utils import MOCK_DATA_ENV_VAR
 
 # Mock tomli_w for tests environment
@@ -77,11 +79,11 @@ if not hasattr(enum, "StrEnum"):
 
     enum.StrEnum = StrEnum
 
+from unittest.mock import ANY
+
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 import pytest
-
-from unittest.mock import ANY
 
 if not hasattr(pytest, "any"):
     pytest.any = ANY

@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 import json
 import os
-from typing import Any, Union
+from typing import Any
 
 from acp import (
     InitializeRequest,
@@ -32,10 +32,10 @@ from acp.schema import (
 from pydantic import BaseModel
 import pytest
 
-from tests import TESTS_ROOT
-from tests.mock.utils import get_mocking_env, mock_llm_chunk
 from chefchat.acp.utils import ToolOption
 from chefchat.core.types import FunctionCall, ToolCall
+from tests import TESTS_ROOT
+from tests.mock.utils import get_mocking_env, mock_llm_chunk
 
 RESPONSE_TIMEOUT = 2.0
 MOCK_ENTRYPOINT_PATH = "tests/mock/mock_entrypoint.py"
@@ -68,7 +68,7 @@ class JsonRpcNotification(BaseModel):
     params: Any | None = None
 
 
-JsonRpcMessage = Union[JsonRpcResponse, JsonRpcNotification, JsonRpcRequest]
+JsonRpcMessage = JsonRpcResponse | JsonRpcNotification | JsonRpcRequest
 
 
 class InitializeJsonRpcRequest(JsonRpcRequest):
@@ -134,11 +134,14 @@ async def get_acp_agent_process(
     mock: bool = True, mock_env: dict[str, str] | None = None
 ) -> AsyncGenerator[asyncio.subprocess.Process]:
     import sys
+
     current_env = os.environ.copy()
-    
+
     # Ensure the current project root is in PYTHONPATH
     project_root = str(TESTS_ROOT.parent)
-    current_env["PYTHONPATH"] = project_root + os.pathsep + current_env.get("PYTHONPATH", "")
+    current_env["PYTHONPATH"] = (
+        project_root + os.pathsep + current_env.get("PYTHONPATH", "")
+    )
 
     if mock:
         # Use the current python executable to run the mock entrypoint
@@ -172,9 +175,13 @@ async def get_acp_agent_process(
             except TimeoutError:
                 process.kill()
                 await process.wait()
-        
+
         # Log stderr if process failed to help debug
-        if process.returncode is not None and process.returncode != 0 and process.stderr:
+        if (
+            process.returncode is not None
+            and process.returncode != 0
+            and process.stderr
+        ):
             stderr_data = await process.stderr.read()
             if stderr_data:
                 print(f"\n--- Subprocess STDERR (Code: {process.returncode}) ---")

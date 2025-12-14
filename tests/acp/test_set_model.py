@@ -6,12 +6,12 @@ from unittest.mock import patch
 from acp import AgentSideConnection, NewSessionRequest, SetSessionModelRequest
 import pytest
 
-from tests.stubs.fake_backend import FakeBackend
-from tests.stubs.fake_connection import FakeAgentSideConnection
 from chefchat.acp.acp_agent import VibeAcpAgent
 from chefchat.core.agent import Agent
 from chefchat.core.config import ModelConfig, VibeConfig
 from chefchat.core.types import LLMChunk, LLMMessage, LLMUsage, Role
+from tests.stubs.fake_backend import FakeBackend
+from tests.stubs.fake_connection import FakeAgentSideConnection
 
 
 @pytest.fixture
@@ -56,10 +56,10 @@ def acp_agent(backend: FakeBackend) -> VibeAcpAgent:
             kwargs["backend"] = backend
             super().__init__(*args, **kwargs)
             self.config = config
-            
+
             # Explicitly set message_observer if it wasn't set by super
             if not hasattr(self, "message_observer"):
-                 self.message_observer = kwargs.get("message_observer")
+                self.message_observer = kwargs.get("message_observer")
 
             try:
                 active_model = config.get_active_model()
@@ -68,7 +68,24 @@ def acp_agent(backend: FakeBackend) -> VibeAcpAgent:
             except ValueError:
                 pass
 
-    patch("vibe.acp.acp_agent.VibeAgent", side_effect=PatchedAgent).start()
+    patch("chefchat.acp.acp_agent.VibeAgent", side_effect=PatchedAgent).start()
+
+    # Mock VibeConfig.load to return our test config
+    # This simulates config persistence across setSessionModel calls
+    def mock_load(*args, **kwargs):
+        # Return a fresh copy with potentially updated active_model
+        return VibeConfig(active_model=config.active_model, models=config.models)
+
+    patch("chefchat.acp.acp_agent.VibeConfig.load", side_effect=mock_load).start()
+
+    # Mock save_updates to update the config in memory
+    def mock_save_updates(updates: dict):
+        if "active_model" in updates:
+            config.active_model = updates["active_model"]
+
+    patch(
+        "chefchat.acp.acp_agent.VibeConfig.save_updates", side_effect=mock_save_updates
+    ).start()
 
     vibe_acp_agent: VibeAcpAgent | None = None
 
@@ -149,7 +166,7 @@ class TestACPSetModel:
         )
         session_id = session_response.sessionId
 
-        with patch("vibe.acp.acp_agent.VibeConfig.save_updates") as mock_save:
+        with patch("chefchat.acp.acp_agent.VibeConfig.save_updates") as mock_save:
             response = await acp_agent.setSessionModel(
                 SetSessionModelRequest(sessionId=session_id, modelId="devstral-small")
             )
@@ -166,7 +183,7 @@ class TestACPSetModel:
         )
         session_id = session_response.sessionId
 
-        with patch("vibe.acp.acp_agent.VibeConfig.save_updates") as mock_save:
+        with patch("chefchat.acp.acp_agent.VibeConfig.save_updates") as mock_save:
             response = await acp_agent.setSessionModel(
                 SetSessionModelRequest(
                     sessionId=session_id, modelId="non-existent-model"

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Callable, Iterable
 
-from tests.mock.utils import mock_llm_chunk
 from chefchat.core.types import LLMChunk, LLMMessage
+from tests.mock.utils import mock_llm_chunk
 
 
 class FakeBackend:
