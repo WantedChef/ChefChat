@@ -23,6 +23,12 @@ if TYPE_CHECKING:
     from chefchat.pantry.ingredients import IngredientsManager
     from chefchat.pantry.recipes import RecipeExecutor
 
+# Command argument count constants
+MIN_CHEF_COMMAND_PARTS = 2
+MIN_COOK_COMMAND_PARTS = 3
+MIN_GIT_COMMAND_PARTS = 3
+MIN_OPTIONAL_PATH_PARTS = 3
+
 
 class SousChef(BaseStation):
     """The planning and orchestration station.
@@ -138,7 +144,7 @@ class SousChef(BaseStation):
             command: The full command string
         """
         parts = command.split()
-        if len(parts) < 2:
+        if len(parts) < MIN_CHEF_COMMAND_PARTS:
             await self._send_error("Usage: /chef <prep|cook|recipes>")
             return
 
@@ -148,7 +154,7 @@ class SousChef(BaseStation):
             await self._do_mise_en_place()
 
         elif subcommand == "cook":
-            if len(parts) < 3:
+            if len(parts) < MIN_COOK_COMMAND_PARTS:
                 await self._send_error("Usage: /chef cook <recipe_name>")
                 return
             recipe_name = parts[2]
@@ -157,7 +163,7 @@ class SousChef(BaseStation):
 
         elif subcommand == "taste":
             # Run taste test (QA) via Expeditor
-            target_path = parts[2] if len(parts) > 2 else "."
+            target_path = parts[2] if len(parts) >= MIN_OPTIONAL_PATH_PARTS else "."
             await self._ensure_snapshot("chef taste")
             await self._run_taste_test(target_path)
 
@@ -171,22 +177,19 @@ class SousChef(BaseStation):
             await self._undo_changes()
 
         elif subcommand == "critic":
-            target_path = parts[2] if len(parts) > 2 else "."
+            target_path = parts[2] if len(parts) >= MIN_OPTIONAL_PATH_PARTS else "."
             await self._ensure_snapshot("chef critic")
             await self._roast_code(target_path)
 
         elif subcommand == "git":
-            if len(parts) < 3:
+            if len(parts) < MIN_GIT_COMMAND_PARTS:
                 await self._send_error("Usage: /chef git <command>")
                 return
             git_command = " ".join(parts[2:])
             await self.send(
                 recipient="git_chef",
                 action="GIT_COMMAND",
-                payload={
-                    "command": git_command,
-                    "ticket_id": None,
-                },
+                payload={"command": git_command, "ticket_id": None},
                 priority=MessagePriority.HIGH,
             )
 

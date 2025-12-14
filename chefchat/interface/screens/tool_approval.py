@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from textual import on
 from textual.app import ComposeResult
@@ -15,7 +15,7 @@ from textual.widgets import Button, Static, TextArea
 class ToolApprovalScreen(ModalScreen[tuple[str, str | None]]):
     """Modal screen for approving tool execution."""
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("y", "approve", "Approve", show=True),
         Binding("n", "reject", "Reject", show=True),
     ]
@@ -71,6 +71,7 @@ class ToolApprovalScreen(ModalScreen[tuple[str, str | None]]):
         # Pretty print args
         if isinstance(tool_args, dict):
             import json
+
             self.tool_args = json.dumps(tool_args, indent=2)
         else:
             self.tool_args = str(tool_args)
@@ -83,8 +84,18 @@ class ToolApprovalScreen(ModalScreen[tuple[str, str | None]]):
             yield TextArea(self.tool_args, language="json", read_only=True)
 
             with Horizontal(id="approval-buttons"):
-                yield Button("Approve [Y]", variant="success", id="approve-btn", classes="approval-btn")
-                yield Button("Reject [N]", variant="error", id="reject-btn", classes="approval-btn")
+                yield Button(
+                    "Approve [Y]",
+                    variant="success",
+                    id="approve-btn",
+                    classes="approval-btn",
+                )
+                yield Button(
+                    "Reject [N]",
+                    variant="error",
+                    id="reject-btn",
+                    classes="approval-btn",
+                )
 
     def action_approve(self) -> None:
         self.dismiss(("execute", None))

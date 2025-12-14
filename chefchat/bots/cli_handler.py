@@ -7,9 +7,12 @@ from rich.panel import Panel
 
 from chefchat.bots.manager import BotManager
 
+# Minimum parts for commands that need an argument
+MIN_PARTS_WITH_ARG = 3
 
-async def handle_bot_command(repl: Any, command: str) -> None:
-    """Handles /telegram and /discord commands from the REPL."""
+
+async def handle_bot_command(repl: Any, command: str) -> None:  # noqa: PLR0911, PLR0912, PLR0915
+    """Handle /telegram and /discord commands from the REPL."""
     parts = command.strip().split()
     if not parts:
         return
@@ -25,7 +28,9 @@ async def handle_bot_command(repl: Any, command: str) -> None:
     console: Console = repl.console
 
     if action == "help":
-        console.print(Panel(f"""
+        console.print(
+            Panel(
+                f"""
 [bold]🤖 {bot_type.title()} Bot Integration[/bold]
 
 Commands:
@@ -35,7 +40,11 @@ Commands:
   /{bot_type} status        - Check status
   /{bot_type} allow <id>    - Allow a user ID
   /{bot_type} token <tok>   - Manually set token
-        """, title="Help", expand=False))
+        """,
+                title="Help",
+                expand=False,
+            )
+        )
         return
 
     if action == "setup":
@@ -67,10 +76,12 @@ Commands:
             manager.add_allowed_user(bot_type, user_id.strip())
             console.print(f"[green]User {user_id} allowed![/]")
 
-        console.print(f"\n[bold]Setup complete![/bold] Run `/{bot_type} start` to launch.")
+        console.print(
+            f"\n[bold]Setup complete![/bold] Run `/{bot_type} start` to launch."
+        )
 
     elif action == "token":
-        if len(parts) < 3:
+        if len(parts) < MIN_PARTS_WITH_ARG:
             console.print("[red]Usage: token <token_value>[/]")
             return
         token = parts[2]
@@ -78,7 +89,7 @@ Commands:
         console.print(f"[green]{bot_type.title()} token updated.[/]")
 
     elif action == "allow":
-        if len(parts) < 3:
+        if len(parts) < MIN_PARTS_WITH_ARG:
             console.print("[red]Usage: allow <user_id>[/]")
             return
         user_id = parts[2]
