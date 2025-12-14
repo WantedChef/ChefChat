@@ -287,8 +287,34 @@ class ChefChatApp(App):
 
     async def on_mount(self) -> None:
         """Handle app mount - start workers and show welcome."""
+        # Focus input immediately so user can interact
         try:
+            self.query_one("#command-input", CommandInput).focus()
+        except Exception:
+            pass
+
+        # Load config for footer
+        try:
+            self._config = VibeConfig.load()
+            self.query_one("#kitchen-footer", KitchenFooter).refresh_model(
+                self._config.active_model
+            )
+        except Exception:
+            pass
+
+        # Defer heavy initialization to after first paint
+        self.call_after_refresh(self._deferred_setup)
+
+    async def _deferred_setup(self) -> None:
+        """Setup brigade/bus after initial render - prevents black screen."""
+        try:
+            ticket_rail = self.query_one("#ticket-rail", TicketRail)
+
             if self._active_mode:
+                # Show loading message first
+                ticket_rail.add_system_message("🍳 **Starting kitchen...**")
+                self.refresh()
+
                 # Active mode: Full Brigade (SousChef, LineCook, etc.)
                 await self._setup_brigade()
             else:
@@ -297,7 +323,6 @@ class ChefChatApp(App):
                 await self._bus.start()
                 self._bus.subscribe("tui", self._handle_bus_message)
 
-            ticket_rail = self.query_one("#ticket-rail", TicketRail)
             mode = self._mode_manager.current_mode
             config = MODE_CONFIGS[mode]
 
@@ -312,20 +337,9 @@ class ChefChatApp(App):
                 f"*Commands: `/help` for menu, `/modes` to see modes, `Shift+Tab` to cycle*"
             )
 
-            self.query_one("#command-input", CommandInput).focus()
-
-            # Load config initially to populate footer
-            try:
-                self._config = VibeConfig.load()
-                self.query_one("#kitchen-footer", KitchenFooter).refresh_model(
-                    self._config.active_model
-                )
-            except Exception:
-                pass
-
         except Exception as e:
-            logger.exception("Error in on_mount: %s", e)
-            print(f"❌ Fatal Error in on_mount: {e}", file=sys.stderr)
+            logger.exception("Error in _deferred_setup: %s", e)
+            print(f"❌ Fatal Error in setup: {e}", file=sys.stderr)
             traceback.print_exc()
             self.notify(f"Kitchen Error: {e}", severity="error")
 
