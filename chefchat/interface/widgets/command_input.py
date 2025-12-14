@@ -71,6 +71,9 @@ class CommandInput(Input):
         # accessing screen to mount overlay
         self._suggestion_menu = SuggestionMenu()
         self.screen.mount(self._suggestion_menu)
+        # Trigger background indexing for path completion (warmup)
+        # This prevents the first @ usage from returning empty results while preventing blocking
+        self._path_completer.get_completions("@", 1)
 
     def on_unmount(self) -> None:
         if self._suggestion_menu:

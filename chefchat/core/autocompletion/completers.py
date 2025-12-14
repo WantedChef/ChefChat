@@ -192,7 +192,7 @@ class PathCompleter(Completer):
         context = self._build_search_context(partial_path)
 
         try:
-            file_index = self._indexer.get_index(self._root)
+            file_index = self._indexer.get_index(self._root, wait=False)
         except (OSError, RuntimeError):
             return []
 
