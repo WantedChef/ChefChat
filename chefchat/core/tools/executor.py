@@ -18,7 +18,7 @@ import shlex
 from typing import ClassVar, Literal
 
 from chefchat.core.tools.base import ToolError
-from chefchat.core.utils import is_windows
+from chefchat.core.utils import get_subprocess_encoding, is_windows
 
 logger = logging.getLogger(__name__)
 
@@ -266,8 +266,7 @@ class SecureCommandExecutor:
                 raise ToolError(f"Command timed out after {timeout}s: {command}")
 
             # Decode
-            # TODO: Handle encoding cleanly (ref bash.py helpers)
-            encoding = "utf-8"  # Simplified for now
+            encoding = get_subprocess_encoding()
             stdout = stdout_bytes.decode(encoding, errors="replace")
             stderr = stderr_bytes.decode(encoding, errors="replace")
             returncode = proc.returncode or 0
