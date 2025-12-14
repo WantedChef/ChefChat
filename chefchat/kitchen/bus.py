@@ -16,8 +16,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -47,6 +46,8 @@ class ChefMessage(BaseModel):
     - priority: How urgent this order is
     """
 
+    model_config = ConfigDict(use_enum_values=True)
+
     id: str = Field(default_factory=lambda: str(uuid4()))
     sender: str = Field(description="Station name sending the message")
     recipient: str = Field(description="Station name or 'ALL' for broadcast")
@@ -54,7 +55,8 @@ class ChefMessage(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     priority: MessagePriority = Field(default=MessagePriority.NORMAL)
 
-    @pydantic.validator("payload", pre=True)
+    @field_validator("payload", mode="before")
+    @classmethod
     def validate_payload(cls, v: Any) -> dict[str, Any]:
         """Ensure payload is always a dictionary.
 
@@ -71,11 +73,6 @@ class ChefMessage(BaseModel):
             # Let's raise ValueError to catch bad code early.
             raise ValueError(f"Payload must be a dictionary, got {type(v).__name__}")
         return v
-
-    class Config:
-        """Pydantic config."""
-
-        use_enum_values = True
 
 
 @dataclass(order=True)
@@ -292,7 +289,9 @@ class BaseStation(ABC):
                 try:
                     await self.handle(message)
                 except Exception as exc:
-                    logger.exception("Station %s crashed handling message: %s", self.name, exc)
+                    logger.exception(
+                        "Station %s crashed handling message: %s", self.name, exc
+                    )
                     await self.send(
                         recipient="tui",
                         action="STATUS_UPDATE",

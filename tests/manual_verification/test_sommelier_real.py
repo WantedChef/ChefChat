@@ -3,13 +3,15 @@ from __future__ import annotations
 import asyncio
 
 from chefchat.kitchen.bus import ChefMessage, KitchenBus
+from chefchat.kitchen.manager import KitchenManager
 from chefchat.kitchen.stations.sommelier import Sommelier
 
 
 async def verify_sommelier():
     print("🍷 Testing Sommelier (Real PyPI check)...")
     bus = KitchenBus()
-    sommelier = Sommelier(bus)
+    manager = KitchenManager()
+    sommelier = Sommelier(bus, manager)
 
     # We need to capture the messages sent by Sommelier
     captured_messages = []

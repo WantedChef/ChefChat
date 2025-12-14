@@ -134,8 +134,8 @@ async def create_default_brigade() -> Brigade:
     line_cook = LineCook(brigade.bus, manager)
     brigade.register(line_cook)
 
-    # The dependency/package station
-    sommelier = Sommelier(brigade.bus)
+    # The dependency/package station (needs manager for recommendations)
+    sommelier = Sommelier(brigade.bus, manager)
     brigade.register(sommelier)
 
     # The QA / testing station
