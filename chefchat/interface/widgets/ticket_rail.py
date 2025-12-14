@@ -91,6 +91,9 @@ class Ticket(Static):
         # Add generic ticket class for querying
         self.add_class("ticket")
 
+        # Enable text selection
+        self.can_focus = True
+
         # Perform initial render
         self._update_renderable()
 
