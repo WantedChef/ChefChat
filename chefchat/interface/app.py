@@ -594,9 +594,11 @@ class ChefChatApp(App):
         loader.start(f"Running: {cmd[:30]}...")
 
         try:
+            from pathlib import Path
+
             from chefchat.core.tools.executor import SecureCommandExecutor
 
-            executor = SecureCommandExecutor()
+            executor = SecureCommandExecutor(Path.cwd())
             stdout, stderr, returncode = await executor.execute(cmd, timeout=30)
 
             # Format output

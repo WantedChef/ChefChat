@@ -89,6 +89,13 @@ class TestHandleBashCommandEdgeCases:
         # Should show user message with command
         mock_ticket_rail.add_user_message.assert_called_once()
         assert "!ls -la" in mock_ticket_rail.add_user_message.call_args[0][0]
+        # Verify executor was called with Path.cwd()
+        from pathlib import Path
+
+        mock_executor_class.assert_called_once()
+        call_args = mock_executor_class.call_args[0]
+        assert len(call_args) == 1
+        assert isinstance(call_args[0], Path)
 
     @pytest.mark.asyncio
     async def test_starts_loader_with_truncated_command(self, app, mock_loader):
