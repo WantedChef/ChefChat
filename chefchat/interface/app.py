@@ -528,7 +528,7 @@ class ChefChatApp(App):
             ticket_id = str(uuid4())[:8]
             message = ChefMessage(
                 sender="tui",
-                recipient="sous_chef",
+                recipient="ALL",
                 action=BusAction.NEW_TICKET.value,
                 payload={PayloadKey.TICKET_ID: ticket_id, PayloadKey.REQUEST: request},
                 priority=MessagePriority.HIGH,

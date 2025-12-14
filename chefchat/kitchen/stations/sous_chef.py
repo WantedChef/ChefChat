@@ -175,10 +175,25 @@ class SousChef(BaseStation):
             await self._ensure_snapshot("chef critic")
             await self._roast_code(target_path)
 
+        elif subcommand == "git":
+            if len(parts) < 3:
+                await self._send_error("Usage: /chef git <command>")
+                return
+            git_command = " ".join(parts[2:])
+            await self.send(
+                recipient="git_chef",
+                action="GIT_COMMAND",
+                payload={
+                    "command": git_command,
+                    "ticket_id": None,
+                },
+                priority=MessagePriority.HIGH,
+            )
+
         else:
             await self._send_error(
                 f"Unknown chef command: {subcommand}\n"
-                "Available: prep, cook, taste, recipes, status, undo, critic"
+                "Available: prep, cook, taste, recipes, status, undo, critic, git"
             )
 
     async def _run_taste_test(self, target_path: str = ".") -> None:

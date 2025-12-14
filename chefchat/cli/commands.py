@@ -26,6 +26,11 @@ class CommandRegistry:
                 description="Display agent statistics",
                 handler="_show_status",
             ),
+            "git-setup": Command(
+                aliases=frozenset(["/git-setup"]),
+                description="Configure Git settings",
+                handler="_handle_git_setup",
+            ),
             "config": Command(
                 aliases=frozenset(["/config", "/cfg", "/theme", "/model"]),
                 description="Edit config settings",
