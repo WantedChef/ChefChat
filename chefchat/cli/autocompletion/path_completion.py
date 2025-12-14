@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Lock
+from time import monotonic
 
 from textual import events
 
@@ -9,19 +10,31 @@ from chefchat.cli.autocompletion.base import CompletionResult, CompletionView
 from chefchat.core.autocompletion.completers import PathCompleter
 
 MAX_SUGGESTIONS_COUNT = 10
+DEFAULT_DEBOUNCE_SEC = 0.08
+DEFAULT_FUTURE_TIMEOUT_SEC = 2.0
 
 
 class PathCompletionController:
     _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="path-completion")
 
-    def __init__(self, completer: PathCompleter, view: CompletionView) -> None:
+    def __init__(
+        self,
+        completer: PathCompleter,
+        view: CompletionView,
+        *,
+        debounce_sec: float = DEFAULT_DEBOUNCE_SEC,
+        future_timeout_sec: float = DEFAULT_FUTURE_TIMEOUT_SEC,
+    ) -> None:
         self._completer = completer
         self._view = view
+        self._debounce_sec = debounce_sec
+        self._future_timeout_sec = future_timeout_sec
         self._suggestions: list[tuple[str, str]] = []
         self._selected_index = 0
         self._pending_future: Future | None = None
         self._last_query: tuple[str, int] | None = None
         self._query_lock = Lock()
+        self._last_submit_ts: float = 0.0
 
     def can_handle(self, text: str, cursor_index: int) -> bool:
         if cursor_index < 0 or cursor_index > len(text):
@@ -59,6 +72,10 @@ class PathCompletionController:
             self.reset()
             return
 
+        now = monotonic()
+        if now - self._last_submit_ts < self._debounce_sec:
+            return
+
         query = (text, cursor_index)
         with self._query_lock:
             if query == self._last_query:
@@ -70,6 +87,7 @@ class PathCompletionController:
                 self._pending_future.cancel()
 
             self._last_query = query
+            self._last_submit_ts = now
 
         app = getattr(self._view, "app", None)
         if app:
@@ -94,7 +112,7 @@ class PathCompletionController:
             return
 
         try:
-            suggestions = future.result()
+            suggestions = future.result(timeout=self._future_timeout_sec)
             with self._query_lock:
                 if query == self._last_query:
                     self._update_suggestions(suggestions)

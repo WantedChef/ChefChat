@@ -220,13 +220,10 @@ class SecureCommandExecutor:
             base_executable not in self.ALLOWED_EXECUTABLES
             and executable not in self.ALLOWED_EXECUTABLES
         ):
-            # Be a bit lenient with absolute paths if base name matches,
-            # but ideally we stick to allowlist.
-            # For now, strict allowlist check.
-            pass
-            # Note: We won't block strictly here yet to avoid breaking custom user tools,
-            # but we log it. The ModeManager blocked write ops, so this checks
-            # primarily for known tools.
+            raise ToolError(
+                f"Executable '{executable}' is not allowed. "
+                f"Permitted executables: {', '.join(sorted(self.ALLOWED_EXECUTABLES))}"
+            )
 
         # 3. Prepare Environment
         safe_env = self.get_safe_env()

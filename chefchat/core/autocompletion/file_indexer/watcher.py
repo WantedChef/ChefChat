@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+import logging
 from pathlib import Path
 from threading import Event, Thread
 
 from watchfiles import Change, watch
+
+logger = logging.getLogger(__name__)
 
 
 class WatchController:
@@ -69,3 +72,4 @@ class WatchController:
                 self._on_changes(root, changes)
         except Exception:
             ready_event.set()
+            logger.exception("File watch loop failed for root %s", root)
