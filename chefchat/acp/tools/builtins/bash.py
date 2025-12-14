@@ -15,7 +15,12 @@ from acp.schema import (
 from chefchat import CHEFCHAT_ROOT
 from chefchat.acp.tools.base import AcpToolState, BaseAcpTool
 from chefchat.core.tools.base import BaseToolState, ToolError
-from chefchat.core.tools.builtins.bash import Bash as CoreBashTool, BashArgs, BashResult
+from chefchat.core.tools.builtins.bash import (
+    Bash as CoreBashTool,
+    BashArgs,
+    BashResult,
+    BashToolConfig,
+)
 from chefchat.core.types import ToolCallEvent, ToolResultEvent
 from chefchat.core.utils import logger
 
@@ -24,7 +29,7 @@ class AcpBashState(BaseToolState, AcpToolState):
     pass
 
 
-class Bash(CoreBashTool, BaseAcpTool[AcpBashState]):
+class Bash(CoreBashTool, BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
     prompt_path = CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "bash.md"
     state: AcpBashState
 

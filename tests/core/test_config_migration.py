@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+import tomllib
 
 import tomli_w
-import tomllib
 
 from chefchat.core import config
 from chefchat.core.config import VibeConfig

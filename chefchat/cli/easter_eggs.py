@@ -13,15 +13,12 @@ Commands:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import random
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chefchat.cli.mode_manager import ModeManager
-
-
-UTC = timezone.utc
 
 # Time boundaries for greetings (24-hour format)
 _MORNING_START = 5

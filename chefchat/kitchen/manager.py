@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -94,7 +94,9 @@ Keep it under 300 words. Make it sting, but make it useful."""
 
             # Attempt connection
             if not chef.connect():
-                logger.warning(f"Chef {name} failed to connect. Falling back to simulation.")
+                logger.warning(
+                    f"Chef {name} failed to connect. Falling back to simulation."
+                )
                 return self._get_simulated_chef()
 
             return chef
@@ -112,10 +114,17 @@ Keep it under 300 words. Make it sting, but make it useful."""
         from chefchat.kitchen.core import ChefBrain
 
         class SimulatedChef(ChefBrain):
-            def connect(self, api_key=None) -> bool: return True
-            async def cook_recipe(self, ingredients, preferences=None) -> str:
+            def connect(self, api_key: str | None = None) -> bool:
+                return True
+
+            async def cook_recipe(
+                self, ingredients: dict[str, Any], preferences: dict[str, Any] | None = None
+            ) -> str:
                 return "# Simulated Response\n\nAI is not available. Please check your API keys."
-            async def chat(self, user_input, history):
+
+            async def chat(
+                self, user_input: str, history: list[dict[str, str]]
+            ) -> AsyncIterator[str]:
                 yield "Simulated response: AI unavailable."
 
         return SimulatedChef()
@@ -129,10 +138,7 @@ Keep it under 300 words. Make it sting, but make it useful."""
         Returns:
             The generated plan
         """
-        ingredients = {
-            "prompt": context,
-            "system": self.PLAN_SYSTEM_PROMPT
-        }
+        ingredients = {"prompt": context, "system": self.PLAN_SYSTEM_PROMPT}
         result = await self.chef.cook_recipe(ingredients)
         # Handle case where cook_recipe returns iterator (though for this we expect str)
         if hasattr(result, "__aiter__"):
@@ -153,10 +159,7 @@ Keep it under 300 words. Make it sting, but make it useful."""
             Generated code
         """
         prompt = f"Plan:\n{plan}\n\nContext:\n{context}\n\nGenerate the code."
-        ingredients = {
-            "prompt": prompt,
-            "system": self.CODE_SYSTEM_PROMPT
-        }
+        ingredients = {"prompt": prompt, "system": self.CODE_SYSTEM_PROMPT}
         result = await self.chef.cook_recipe(ingredients)
         if hasattr(result, "__aiter__"):
             text = ""
@@ -177,10 +180,7 @@ Keep it under 300 words. Make it sting, but make it useful."""
         """
         error_msg = "\n- ".join(errors)
         prompt = f"The following code has errors:\n\n```python\n{code}\n```\n\nErrors:\n{error_msg}\n\nFix all errors."
-        ingredients = {
-            "prompt": prompt,
-            "system": self.CODE_SYSTEM_PROMPT
-        }
+        ingredients = {"prompt": prompt, "system": self.CODE_SYSTEM_PROMPT}
         result = await self.chef.cook_recipe(ingredients)
         if hasattr(result, "__aiter__"):
             text = ""
@@ -200,10 +200,7 @@ Keep it under 300 words. Make it sting, but make it useful."""
             The review
         """
         prompt = f"Review this code from `{file_path}`:\n\n```python\n{code}\n```"
-        ingredients = {
-            "prompt": prompt,
-            "system": self.ROAST_SYSTEM_PROMPT
-        }
+        ingredients = {"prompt": prompt, "system": self.ROAST_SYSTEM_PROMPT}
         result = await self.chef.cook_recipe(ingredients)
         if hasattr(result, "__aiter__"):
             text = ""
@@ -224,10 +221,7 @@ Keep it under 300 words. Make it sting, but make it useful."""
         Yields:
             Response chunks
         """
-        ingredients = {
-            "prompt": prompt,
-            "system": system
-        }
+        ingredients = {"prompt": prompt, "system": system}
         preferences = {"stream": True}
 
         result = await self.chef.cook_recipe(ingredients, preferences)

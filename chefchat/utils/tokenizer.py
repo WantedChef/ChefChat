@@ -37,7 +37,9 @@ def count_tokens(text: str, model_name: str = "gpt-3.5-turbo") -> int:
 
             return len(encoding.encode(text))
         except Exception:
-            logger.warning("Failed to count tokens with tiktoken, falling back to heuristic")
+            logger.warning(
+                "Failed to count tokens with tiktoken, falling back to heuristic"
+            )
             pass
 
     # Fallback heuristic

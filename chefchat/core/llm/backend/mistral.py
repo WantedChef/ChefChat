@@ -329,6 +329,6 @@ class MistralBackend:
 
         if tools:
             for tool in tools:
-                 total += count_tokens(json.dumps(tool.model_dump()), model.name)
+                total += count_tokens(json.dumps(tool.model_dump()), model.name)
 
         return total

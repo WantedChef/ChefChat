@@ -97,9 +97,7 @@ class ThePlate(Static):
         with TabbedContent(id="plate-tabs"):
             with TabPane("Code", id="tab-code"):
                 yield VerticalScroll(
-                    Static(
-                        "🍽️ Waiting for the dish to be plated...", id="plate-empty"
-                    ),
+                    Static("🍽️ Waiting for the dish to be plated...", id="plate-empty"),
                     id="plate-code-scroll",
                 )
 

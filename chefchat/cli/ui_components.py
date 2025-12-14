@@ -41,7 +41,6 @@ COLORS = {
     "error": "#FF4444",  # Red - errors
     "bg_dark": "#1A1A1A",  # Dark background
     "bg_subtle": "#252525",  # Slightly lighter bg
-
     # Kitchen-themed aliases (for repl.py compatibility)
     "fire": "#FF7000",  # Same as primary - the flame of the kitchen
     "charcoal": "#1A1A1A",  # Same as bg_dark - the grill
@@ -53,7 +52,7 @@ COLORS = {
     "cream": "#F5F5DC",  # Cream color for highlights
     "ash": "#404040",  # Cool ash
     "gold": "#FFD700",  # Gold for highlights
-    "lavender": "#E6E6FA", # Lavender for subtle accents
+    "lavender": "#E6E6FA",  # Lavender for subtle accents
 }
 
 
