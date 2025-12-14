@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from chefchat.core.utils import get_subprocess_encoding
 

@@ -62,6 +62,16 @@ class CommandRegistry:
                 handler="_exit_app",
                 exits=True,
             ),
+            "telegram": Command(
+                aliases=frozenset(["/telegram", "/tg"]),
+                description="Manage Telegram bot",
+                handler="_handle_telegram",
+            ),
+            "discord": Command(
+                aliases=frozenset(["/discord", "/dc"]),
+                description="Manage Discord bot",
+                handler="_handle_discord",
+            ),
             # ═══════════════════════════════════════════════════════
             # 🍳 CHEFCHAT EASTER EGGS
             # ═══════════════════════════════════════════════════════

@@ -28,7 +28,7 @@ class BotManager:
             raise RuntimeError(f"{bot_type} bot is already running.")
 
         if bot_type == "telegram":
-            from chefchat.bots.telegram_bot import run_telegram_bot
+            from chefchat.bots.telegram import run_telegram_bot
             token = os.getenv("TELEGRAM_BOT_TOKEN")
             if not token:
                 raise ValueError("TELEGRAM_BOT_TOKEN not found in environment.")

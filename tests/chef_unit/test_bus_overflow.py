@@ -1,9 +1,13 @@
+from __future__ import annotations
 
 import asyncio
 import logging
 from unittest.mock import Mock
+
 import pytest
+
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
+
 
 class MockStation(BaseStation):
     async def handle(self, message: ChefMessage) -> None:

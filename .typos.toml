@@ -1,2 +1,18 @@
 [default]
 extend-ignore-re = ["(?m)^.*(#|//)\\s*typos:disable-line$", "datas"]
+
+[default.extend-words]
+# Test-specific words
+hel = "hel"  # Intentional partial match in tests
+# Dutch words that are not typos
+alle = "alle"
+Alle = "Alle"
+indien = "indien"
+fases = "fases"
+legt = "legt"
+Legt = "Legt"
+doen = "doen"
+wil = "wil"
+Categorie = "Categorie"
+communicatie = "communicatie"
+stap = "stap"

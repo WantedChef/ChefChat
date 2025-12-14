@@ -49,7 +49,8 @@ def resolve_config_file() -> Path:
 
 def load_api_keys_from_env() -> None:
     project_env_file = CONFIG_DIR / ".env"
-    for env_file in (project_env_file, GLOBAL_ENV_FILE):
+    cwd_env_file = Path.cwd() / ".env"
+    for env_file in (cwd_env_file, project_env_file, GLOBAL_ENV_FILE):
         if not env_file.is_file():
             continue
 
