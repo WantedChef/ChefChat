@@ -35,6 +35,10 @@ from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.syntax import Syntax
 
+# =============================================================================
+# CHEFCHAT INTEGRATIONS
+# =============================================================================
+from chefchat.bots.cli_handler import handle_bot_command
 from chefchat.cli.autocompletion.adapter import PromptToolkitCompleterAdapter
 
 # Easter Eggs Integration
@@ -45,10 +49,6 @@ from chefchat.cli.easter_eggs import (
     get_random_roast,
     get_random_wisdom,
 )
-
-# =============================================================================
-# CHEFCHAT INTEGRATIONS
-# =============================================================================
 from chefchat.cli.mode_manager import MODE_TIPS, ModeManager, VibeMode
 
 # Plating Integration (visual formatting)
@@ -149,6 +149,8 @@ class ChefChatREPL:
             ("/status", "Show status"),
             ("/stats", "Show statistics"),
             ("/git-setup", "Configure Git settings"),
+            ("/telegram", "Manage Telegram bot"),
+            ("/discord", "Manage Discord bot"),
             ("/exit", "Exit application"),
             ("/quit", "Exit application"),
         ]
@@ -825,6 +827,9 @@ class ChefChatREPL:
 
         elif cmd == "/git-setup":
             await self._handle_git_setup()
+
+        elif cmd.startswith(("/telegram", "/discord")):
+            await handle_bot_command(self, cmd)
 
         else:
             self.console.print(
