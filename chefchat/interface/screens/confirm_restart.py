@@ -1,9 +1,8 @@
-"""Confirm Restart Screen."""
-
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -45,7 +44,7 @@ def get_saved_layout() -> str:
 class ConfirmRestartScreen(ModalScreen):
     """Modal screen to confirm restart after layout change."""
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("y", "confirm", "Yes", show=False),
         Binding("n", "cancel", "No", show=False),
         Binding("escape", "cancel", "Cancel", show=False),

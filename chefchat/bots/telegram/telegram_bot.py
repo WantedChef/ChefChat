@@ -1,30 +1,40 @@
+"""Telegram bot service for ChefChat."""
+
+from __future__ import annotations
+
 import asyncio
+from collections import deque
 import logging
 import os
-import time
-from collections import deque
 from pathlib import Path
+import time
 from typing import Any
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
 from telegram.ext import (
     ApplicationBuilder,
-    ContextTypes,
-    CommandHandler,
-    MessageHandler,
     CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
     filters,
 )
 
-from chefchat.core.config import VibeConfig
-from chefchat.bots.session import BotSession
 from chefchat.bots.manager import BotManager
+from chefchat.bots.session import BotSession
+from chefchat.core.config import VibeConfig
 from chefchat.core.utils import ApprovalResponse
 
 logger = logging.getLogger(__name__)
 
+# Constants
+TELEGRAM_MESSAGE_TRUNCATE_LIMIT = 4000
+MIN_COMMAND_ARGS_MINIAPP = 2
+MIN_COMMAND_ARGS_SWITCH = 3
+
+
 class TelegramBotService:
-    def __init__(self, config: VibeConfig):
+    def __init__(self, config: VibeConfig) -> None:
         self.config = config
         self.bot_manager = BotManager(config)
         self.sessions: dict[int, BotSession] = {}
@@ -49,7 +59,9 @@ class TelegramBotService:
         self._enable_systemd_control = os.getenv(
             "CHEFCHAT_ENABLE_TELEGRAM_SYSTEMD_CONTROL", ""
         ).strip().lower() in {"1", "true", "yes", "on"}
-        self._systemd_unit_base = os.getenv("CHEFCHAT_TELEGRAM_UNIT_BASE", "chefchat-telegram")
+        self._systemd_unit_base = os.getenv(
+            "CHEFCHAT_TELEGRAM_UNIT_BASE", "chefchat-telegram"
+        )
         self._allowed_projects = [
             p.strip()
             for p in os.getenv("CHEFCHAT_PROJECTS", "").split(",")
@@ -67,8 +79,10 @@ class TelegramBotService:
                 self.config,
                 send_message=lambda text: self._send_message(chat_id, text),
                 update_message=self._update_message,
-                request_approval=lambda t, a, i: self._request_approval(chat_id, t, a, i),
-                user_id=user_id_str
+                request_approval=lambda t, a, i: self._request_approval(
+                    chat_id, t, a, i
+                ),
+                user_id=user_id_str,
             )
         return self.sessions[chat_id]
 
@@ -100,9 +114,7 @@ class TelegramBotService:
         # then fall back to plain text if Telegram rejects it.
         try:
             return await self.application.bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                parse_mode=constants.ParseMode.MARKDOWN,
+                chat_id=chat_id, text=text, parse_mode=constants.ParseMode.MARKDOWN
             )
         except Exception:
             return await self.application.bot.send_message(chat_id=chat_id, text=text)
@@ -114,22 +126,23 @@ class TelegramBotService:
                 return
 
             # Telegram limit 4096
-            if len(text) > 4000:
-                text = text[:4000] + "\n... (truncated)"
+            if len(text) > TELEGRAM_MESSAGE_TRUNCATE_LIMIT:
+                text = text[:TELEGRAM_MESSAGE_TRUNCATE_LIMIT] + "\n... (truncated)"
 
             try:
                 await msg_handle.edit_text(
-                    text=text,
-                    parse_mode=constants.ParseMode.MARKDOWN,
+                    text=text, parse_mode=constants.ParseMode.MARKDOWN
                 )
             except Exception:
                 await msg_handle.edit_text(text=text)
         except Exception as e:
             # Ignore "Message is not modified" errors
             if "Message is not modified" not in str(e):
-                logger.warning(f"Failed to update message: {e}")
+                logger.warning("Failed to update message: %s", e)
 
-    async def _request_approval(self, chat_id: int, tool_name: str, args: dict[str, Any], tool_call_id: str) -> Any:
+    async def _request_approval(
+        self, chat_id: int, tool_name: str, args: dict[str, Any], tool_call_id: str
+    ) -> Any:
         short_id = tool_call_id[:8]
         self.approval_map[short_id] = tool_call_id
         self._approval_created_at[short_id] = time.monotonic()
@@ -139,9 +152,7 @@ class TelegramBotService:
                 InlineKeyboardButton("Approve", callback_data=f"app:{short_id}"),
                 InlineKeyboardButton("Deny", callback_data=f"deny:{short_id}"),
             ],
-            [
-                InlineKeyboardButton("Always", callback_data=f"always:{short_id}"),
-            ]
+            [InlineKeyboardButton("Always", callback_data=f"always:{short_id}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -153,7 +164,7 @@ class TelegramBotService:
             reply_markup=reply_markup,
         )
 
-    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
         if not user:
             return
@@ -162,16 +173,20 @@ class TelegramBotService:
         allowed = self.bot_manager.get_allowed_users("telegram")
 
         if user_id in allowed:
-            await update.message.reply_text(f"Welcome back, Chef {user.first_name}! 👨‍🍳\nSend me a message to start cooking.")
+            await update.message.reply_text(
+                f"Welcome back, Chef {user.first_name}! 👨‍🍳\nSend me a message to start cooking."
+            )
         else:
             await update.message.reply_text(
                 f"🔒 Access Denied.\nYour User ID is: `{user_id}`\n\n"
                 f"To enable access, run this in your terminal:\n"
                 f"`/telegram allow {user_id}`",
-                parse_mode=constants.ParseMode.MARKDOWN
+                parse_mode=constants.ParseMode.MARKDOWN,
             )
 
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_message(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         user = update.effective_user
         if not user or not update.message or not update.message.text:
             return
@@ -180,7 +195,9 @@ class TelegramBotService:
         user_id_str = str(user.id)
 
         if not self._rate_limit_ok(user_id_str):
-            await self._send_message(chat_id, "⏳ Too many requests. Please wait a moment and try again.")
+            await self._send_message(
+                chat_id, "⏳ Too many requests. Please wait a moment and try again."
+            )
             return
 
         session = self._get_session(chat_id, user_id_str)
@@ -198,7 +215,9 @@ class TelegramBotService:
 
         asyncio.create_task(_run_locked())
 
-    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_callback(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         query = update.callback_query
         await query.answer()
 
@@ -225,19 +244,21 @@ class TelegramBotService:
 
         if action == "app":
             response = ApprovalResponse.YES
-            await query.edit_message_text(f"✅ Approved")
+            await query.edit_message_text("✅ Approved")
         elif action == "deny":
             response = ApprovalResponse.NO
             msg = "User denied via Telegram"
-            await query.edit_message_text(f"🚫 Denied")
+            await query.edit_message_text("🚫 Denied")
         elif action == "always":
             response = ApprovalResponse.ALWAYS
-            await query.edit_message_text(f"⚡ Always Approved")
+            await query.edit_message_text("⚡ Always Approved")
 
         # Unblock the waiting tool approval in the session
         session.resolve_approval(tool_call_id, response, msg)
 
-    async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def clear_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         user = update.effective_user
         if not user or not update.effective_chat:
             return
@@ -250,7 +271,9 @@ class TelegramBotService:
         await session.clear_history()
         await update.message.reply_text("🧹 History cleared.")
 
-    async def chefchat_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def chefchat_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         """Optional remote systemd control.
 
         Enabled only when CHEFCHAT_ENABLE_TELEGRAM_SYSTEMD_CONTROL is set.
@@ -286,7 +309,7 @@ class TelegramBotService:
         action = context.args[0].strip().lower()
 
         if action in {"miniapp", "tunnel"}:
-            if len(context.args) < 2:
+            if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
                 await update.message.reply_text(
                     f"Usage: /chefchat {action} <start|stop|restart|status> [project]"
                 )
@@ -297,7 +320,11 @@ class TelegramBotService:
                 await update.message.reply_text("Unknown action.")
                 return
 
-            project = context.args[2].strip() if len(context.args) >= 3 else "chefchat"
+            project = (
+                context.args[2].strip()
+                if len(context.args) >= MIN_COMMAND_ARGS_SWITCH
+                else "chefchat"
+            )
             if self._allowed_projects and project not in self._allowed_projects:
                 await update.message.reply_text("Unknown project.")
                 return
@@ -318,7 +345,7 @@ class TelegramBotService:
             return
 
         if action == "switch":
-            if len(context.args) < 2:
+            if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
                 await update.message.reply_text("Usage: /chefchat switch <project>")
                 return
 
@@ -417,6 +444,7 @@ class TelegramBotService:
                 self._chat_locks.pop(chat_id, None)
                 self.sessions.pop(chat_id, None)
 
-async def run_telegram_bot(config: VibeConfig):
+
+async def run_telegram_bot(config: VibeConfig) -> None:
     service = TelegramBotService(config)
     await service.run()

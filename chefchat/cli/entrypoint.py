@@ -7,6 +7,7 @@ TUI is the default mode; use --repl flag for the classic REPL interface.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
 import sys
 import traceback
@@ -102,9 +103,7 @@ Examples:
         "--verbose", action="store_true", help="Enable verbose debug output"
     )
     parser.add_argument(
-        "--bot",
-        choices=["telegram", "discord", "all"],
-        help="Run in headless bot mode",
+        "--bot", choices=["telegram", "discord", "all"], help="Run in headless bot mode"
     )
     return parser.parse_args()
 
@@ -324,19 +323,18 @@ def main() -> None:
             if not config:
                 config = load_config_or_exit(agent=args.agent)
 
-            import asyncio
             from chefchat.bots.manager import BotManager
 
-            async def run_bots():
+            async def run_bots() -> None:
                 manager = BotManager(config)
-                if args.bot in ("telegram", "all"):
+                if args.bot in {"telegram", "all"}:
                     try:
                         await manager.start_bot("telegram")
                         rprint("[green]🚀 Telegram bot started[/]")
                     except Exception as e:
                         rprint(f"[red]Failed to start Telegram bot: {e}[/]")
 
-                if args.bot in ("discord", "all"):
+                if args.bot in {"discord", "all"}:
                     try:
                         await manager.start_bot("discord")
                         rprint("[green]🚀 Discord bot started[/]")

@@ -9,8 +9,10 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import Final
 
+from chefchat.core.compatibility import StrEnum
 
-class StationName(str, Enum):
+
+class StationName(StrEnum):
     """Station identifiers used throughout the TUI."""
 
     SOUS_CHEF = "sous_chef"
@@ -19,7 +21,7 @@ class StationName(str, Enum):
     EXPEDITOR = "expeditor"
 
 
-class BusAction(str, Enum):
+class BusAction(StrEnum):
     """Actions for bus messages."""
 
     STATUS_UPDATE = "STATUS_UPDATE"
@@ -34,7 +36,7 @@ class BusAction(str, Enum):
     TASTE_TEST = "TASTE_TEST"
 
 
-class StatusString(str, Enum):
+class StatusString(StrEnum):
     """Status strings that come from the backend/agents."""
 
     IDLE = "idle"
@@ -55,7 +57,7 @@ class StationStatus(Enum):
     ERROR = auto()  # "86'd" - something went wrong
 
 
-class TicketCommand(str, Enum):
+class TicketCommand(StrEnum):
     """Slash commands available in the TUI."""
 
     QUIT = "quit"
@@ -76,14 +78,14 @@ class TicketCommand(str, Enum):
     TIMER = "timer"
 
 
-class TUILayout(str, Enum):
+class TUILayout(StrEnum):
     """Available TUI layout modes."""
 
     CHAT_ONLY = "chat"  # Clean chat interface only
     FULL_KITCHEN = "kitchen"  # Full 3-panel kitchen view
 
 
-class PayloadKey(str, Enum):
+class PayloadKey(StrEnum):
     """Common keys used in bus message payloads."""
 
     STATION = "station"
@@ -101,7 +103,7 @@ class PayloadKey(str, Enum):
     TASK = "task"
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     """Types of messages in the ticket rail/logs."""
 
     USER = "user"

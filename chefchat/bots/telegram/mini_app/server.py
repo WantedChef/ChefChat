@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import os
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -163,13 +163,13 @@ class MiniAppServer:
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 super().__init__(*args, directory=str(static_dir), **kwargs)
 
-            def do_GET(self) -> None:  # noqa: N802
+            def do_GET(self) -> None:
                 if self.path.startswith("/api/"):
                     if server._handle_api(self):
                         return
                 return super().do_GET()
 
-            def do_POST(self) -> None:  # noqa: N802
+            def do_POST(self) -> None:
                 if self.path.startswith("/api/"):
                     if server._handle_api(self):
                         return

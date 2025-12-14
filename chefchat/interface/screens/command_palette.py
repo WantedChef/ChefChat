@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
@@ -9,9 +11,9 @@ from textual.widgets import Button, Label
 class CommandPalette(ModalScreen):
     """A modal dialog showing available commands."""
 
-    BINDINGS = [("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[tuple[str, str, str]]] = [("escape", "dismiss", "Close")]
 
-    COMMANDS = [
+    COMMANDS: ClassVar[list[tuple[str, str]]] = [
         ("/help", "Show this help menu"),
         ("/clear", "Clear tickets, plate, and reset stations"),
         ("/chef [task]", "Ask the Sous Chef to plan a task"),

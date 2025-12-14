@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
-from concurrent.futures import Future, ThreadPoolExecutor, wait, FIRST_COMPLETED
 import math
 import os
 from pathlib import Path

@@ -1,4 +1,5 @@
-import asyncio
+from __future__ import annotations
+
 from typing import Any
 
 from rich.console import Console
@@ -6,10 +7,9 @@ from rich.panel import Panel
 
 from chefchat.bots.manager import BotManager
 
+
 async def handle_bot_command(repl: Any, command: str) -> None:
-    """
-    Handles /telegram and /discord commands from the REPL.
-    """
+    """Handles /telegram and /discord commands from the REPL."""
     parts = command.strip().split()
     if not parts:
         return
@@ -57,7 +57,7 @@ Commands:
             console.print("[yellow]Skipped token update.[/]")
 
         # Ask for allowed user
-        console.print(f"\n2. (Optional) Enter your User ID to allow access immediately:")
+        console.print("\n2. (Optional) Enter your User ID to allow access immediately:")
         try:
             user_id = await repl.session.prompt_async("> ")
         except (EOFError, KeyboardInterrupt):

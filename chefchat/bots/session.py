@@ -1,27 +1,24 @@
+"""Bot session management for ChefChat."""
+
 from __future__ import annotations
 
 import asyncio
-import time
+from collections.abc import Awaitable, Callable
 import logging
-from typing import Callable, Awaitable, Any
-from uuid import uuid4
+import time
+from typing import Any
 
 from chefchat.core.agent import Agent
 from chefchat.core.config import VibeConfig
-from chefchat.core.types import (
-    AssistantEvent,
-    ToolCallEvent,
-    ToolResultEvent,
-    ApprovalCallback,
-    BaseEvent
-)
+from chefchat.core.types import AssistantEvent, ToolCallEvent, ToolResultEvent
 from chefchat.core.utils import ApprovalResponse
 
 logger = logging.getLogger(__name__)
 
+
 class BotSession:
-    """
-    Manages a ChefChat session for a specific user/chat on a bot platform.
+    """Manages a ChefChat session for a specific user/chat on a bot platform.
+
     Bridges the Agent's event stream to the bot's messaging interface.
     """
 
@@ -31,8 +28,8 @@ class BotSession:
         send_message: Callable[[str], Awaitable[Any]],
         update_message: Callable[[Any, str], Awaitable[None]],
         request_approval: Callable[[str, dict[str, Any], str], Awaitable[Any]],
-        user_id: str
-    ):
+        user_id: str,
+    ) -> None:
         self.config = config
         self.send_message = send_message
         self.update_message = update_message
@@ -43,8 +40,8 @@ class BotSession:
         # We might want to pass a modified config or mode_manager if needed
         self.agent = Agent(
             config,
-            auto_approve=False, # We want control
-            enable_streaming=True
+            auto_approve=False,  # We want control
+            enable_streaming=True,
         )
         self.agent.set_approval_callback(self._approval_callback)
 
@@ -64,7 +61,7 @@ class BotSession:
         try:
             await self.request_approval(tool_name, args, approval_id)
         except Exception as e:
-            logger.error(f"Failed to request approval: {e}")
+            logger.error("Failed to request approval: %s", e)
             del self._pending_approvals[approval_id]
             return (ApprovalResponse.NO, "Failed to display approval request")
 
@@ -75,7 +72,9 @@ class BotSession:
         finally:
             self._pending_approvals.pop(approval_id, None)
 
-    def resolve_approval(self, approval_id: str, response: str, message: str | None = None) -> None:
+    def resolve_approval(
+        self, approval_id: str, response: str, message: str | None = None
+    ) -> None:
         """Called by the bot implementation when user clicks a button."""
         if approval_id in self._pending_approvals:
             future = self._pending_approvals[approval_id]
@@ -84,7 +83,6 @@ class BotSession:
 
     async def handle_user_message(self, text: str) -> None:
         """Process an incoming message from the user."""
-
         # Initial status message
         current_msg_handle = await self.send_message("👨‍🍳 Cooking...")
 
@@ -100,7 +98,9 @@ class BotSession:
                     # Throttled update
                     now = time.time()
                     if now - last_update_time > update_interval:
-                        await self.update_message(current_msg_handle, response_buffer + " ▌")
+                        await self.update_message(
+                            current_msg_handle, response_buffer + " ▌"
+                        )
                         last_update_time = now
 
                 elif isinstance(event, ToolCallEvent):
@@ -110,9 +110,11 @@ class BotSession:
                 elif isinstance(event, ToolResultEvent):
                     # Maybe show result status?
                     if event.error:
-                        await self.send_message(f"❌ Tool error: {str(event.error)[:100]}")
+                        await self.send_message(
+                            f"❌ Tool error: {str(event.error)[:100]}"
+                        )
                     else:
-                        pass # Success is silent-ish or implied
+                        pass  # Success is silent-ish or implied
 
             # Final update
             await self.update_message(current_msg_handle, response_buffer)
@@ -121,5 +123,5 @@ class BotSession:
             logger.exception("Error in agent loop")
             await self.send_message(f"💥 Error: {e}")
 
-    async def clear_history(self):
+    async def clear_history(self) -> None:
         await self.agent.clear_history()

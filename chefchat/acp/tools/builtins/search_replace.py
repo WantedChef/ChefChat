@@ -17,9 +17,9 @@ from chefchat.core.tools.base import ToolError
 from chefchat.core.tools.builtins.search_replace import (
     SearchReplace as CoreSearchReplaceTool,
     SearchReplaceArgs,
+    SearchReplaceConfig,
     SearchReplaceResult,
     SearchReplaceState,
-    SearchReplaceConfig,
 )
 from chefchat.core.types import ToolCallEvent, ToolResultEvent
 

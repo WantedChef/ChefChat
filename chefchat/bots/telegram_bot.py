@@ -1,27 +1,29 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 import os
-import asyncio
 from typing import Any
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
 from telegram.ext import (
     ApplicationBuilder,
-    ContextTypes,
-    CommandHandler,
-    MessageHandler,
     CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
     filters,
 )
 
-from chefchat.core.config import VibeConfig
-from chefchat.bots.session import BotSession
 from chefchat.bots.manager import BotManager
+from chefchat.bots.session import BotSession
+from chefchat.core.config import VibeConfig
 from chefchat.core.utils import ApprovalResponse
 
 logger = logging.getLogger(__name__)
 
 class TelegramBotService:
-    def __init__(self, config: VibeConfig):
+    def __init__(self, config: VibeConfig) -> None:
         self.config = config
         self.bot_manager = BotManager(config)
         self.sessions: dict[int, BotSession] = {}
@@ -93,12 +95,12 @@ class TelegramBotService:
 
         await self.application.bot.send_message(
             chat_id=chat_id,
-            text=f"✋ **Approval Required**\nTool: `{tool_name}`\nArgs: `{str(args)}`",
+            text=f"✋ **Approval Required**\nTool: `{tool_name}`\nArgs: `{args!s}`",
             reply_markup=reply_markup,
             parse_mode=constants.ParseMode.MARKDOWN
         )
 
-    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
         if not user:
             return
@@ -116,7 +118,7 @@ class TelegramBotService:
                 parse_mode=constants.ParseMode.MARKDOWN
             )
 
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
         if not user or not update.message or not update.message.text:
             return
@@ -129,7 +131,7 @@ class TelegramBotService:
         # Run in background to not block handling
         asyncio.create_task(session.handle_user_message(update.message.text))
 
-    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
         await query.answer()
 
@@ -153,18 +155,18 @@ class TelegramBotService:
 
         if action == "app":
             response = ApprovalResponse.YES
-            await query.edit_message_text(f"✅ Approved")
+            await query.edit_message_text("✅ Approved")
         elif action == "deny":
             response = ApprovalResponse.NO
             msg = "User denied via Telegram"
-            await query.edit_message_text(f"🚫 Denied")
+            await query.edit_message_text("🚫 Denied")
         elif action == "always":
             response = ApprovalResponse.ALWAYS
-            await query.edit_message_text(f"⚡ Always Approved")
+            await query.edit_message_text("⚡ Always Approved")
 
         session.resolve_approval(tool_call_id, response, msg)
 
-    async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
         if not user:
             return
@@ -173,7 +175,7 @@ class TelegramBotService:
             await session.clear_history()
             await update.message.reply_text("🧹 History cleared.")
 
-    async def run(self):
+    async def run(self) -> None:
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         if not token:
             logger.error("No TELEGRAM_BOT_TOKEN found")
@@ -206,6 +208,6 @@ class TelegramBotService:
             await self.application.stop()
             await self.application.shutdown()
 
-async def run_telegram_bot(config: VibeConfig):
+async def run_telegram_bot(config: VibeConfig) -> None:
     service = TelegramBotService(config)
     await service.run()
