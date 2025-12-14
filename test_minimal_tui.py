@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Minimal test to isolate TUI launch issues."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,6 +16,7 @@ class BasicTestApp(App):
     def compose(self) -> ComposeResult:
         yield Static("Basic test works!")
 
+
 # Test 2: App with CSS
 class CSSTestApp(App):
     """Test app with CSS path."""
@@ -23,6 +25,7 @@ class CSSTestApp(App):
 
     def compose(self) -> ComposeResult:
         yield Static("CSS test works!")
+
 
 # Test 3: App with imports
 class ImportTestApp(App):
@@ -37,6 +40,7 @@ class ImportTestApp(App):
             self.query_one(Static).update("Imports work!")
         except Exception as e:
             self.query_one(Static).update(f"Import failed: {e}")
+
 
 if __name__ == "__main__":
     import sys

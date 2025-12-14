@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Minimal Textual test to diagnose TUI launch issues."""
+
 from __future__ import annotations
 
 from textual.app import App, ComposeResult
@@ -11,6 +12,7 @@ class TestApp(App):
 
     def compose(self) -> ComposeResult:
         yield Static("Hello, Textual!", id="hello")
+
 
 if __name__ == "__main__":
     app = TestApp()

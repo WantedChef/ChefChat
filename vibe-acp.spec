@@ -5,7 +5,7 @@ a = Analysis(
     ['vibe/acp/entrypoint.py'],
     pathex=[],
     binaries=[],
-    datas=[
+    data=[
         # By default, pyinstaller doesn't include the .md files
         ('vibe/core/prompts/*.md', 'vibe/core/prompts'),
         ('vibe/core/tools/builtins/prompts/*.md', 'vibe/core/tools/builtins/prompts'),
@@ -29,7 +29,7 @@ exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
-    a.datas,
+    a.data,
     [],
     name='vibe-acp',
     debug=False,

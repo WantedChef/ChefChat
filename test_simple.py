@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Simple test to check Textual functionality."""
+
 from __future__ import annotations
 
 try:
@@ -17,4 +18,5 @@ try:
 except Exception as e:
     print(f"Error: {e}")
     import traceback
+
     traceback.print_exc()

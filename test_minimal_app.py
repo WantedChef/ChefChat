@@ -18,6 +18,7 @@ class MinimalApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.exit()
 
+
 if __name__ == "__main__":
     print("Starting MinimalApp...", flush=True)
     print(f"DEBUG: isatty: {sys.stdout.isatty()}", flush=True)

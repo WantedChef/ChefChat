@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test TUI environment detection."""
+
 from __future__ import annotations
 
 import os
@@ -9,7 +10,9 @@ print("=== Environment Check ===")
 print(f"TERM: {os.environ.get('TERM', 'not set')}")
 print(f"TERM_PROGRAM: {os.environ.get('TERM_PROGRAM', 'not set')}")
 print(f"COLORTERM: {os.environ.get('COLORTERM', 'not set')}")
-print(f"WINDSURF_CASCADE_TERMINAL: {os.environ.get('WINDSURF_CASCADE_TERMINAL', 'not set')}")
+print(
+    f"WINDSURF_CASCADE_TERMINAL: {os.environ.get('WINDSURF_CASCADE_TERMINAL', 'not set')}"
+)
 print(f"isatty stdin: {sys.stdin.isatty()}")
 print(f"isatty stdout: {sys.stdout.isatty()}")
 print(f"isatty stderr: {sys.stderr.isatty()}")
@@ -35,4 +38,5 @@ try:
 except Exception as e:
     print(f"Textual error: {e}")
     import traceback
+
     traceback.print_exc()
