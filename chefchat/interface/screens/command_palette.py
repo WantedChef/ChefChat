@@ -17,6 +17,11 @@ class CommandPalette(ModalScreen):
         ("/chef [task]", "Ask the Sous Chef to plan a task"),
         ("/plate", "Show current plate status"),
         ("/quit", "Exit the kitchen"),
+        ("", ""),
+        ("[bold]Prefixes[/]", ""),
+        ("@filename", "Reference a file (e.g. @src/main.py)"),
+        ("/command", "Run a ChefChat command"),
+        ("!command", "Run a bash command (e.g. !ls -la)"),
     ]
 
     def action_dismiss(self) -> None:

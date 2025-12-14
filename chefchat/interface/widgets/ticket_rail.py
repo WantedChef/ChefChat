@@ -9,12 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from rich.console import Group
 from rich.markdown import Markdown
 from rich.text import Text
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
 from textual.reactive import reactive
@@ -94,8 +95,12 @@ class Ticket(Static):
         # Enable text selection
         self.can_focus = True
 
-        # Perform initial render
-        self._update_renderable()
+    BINDINGS: ClassVar[list[Binding]] = [Binding("c", "copy_content", "Copy Message")]
+
+    def action_copy_content(self) -> None:
+        """Copy ticket content to clipboard."""
+        self.app.copy_to_clipboard(self.content)
+        self.notify("Message copied to clipboard!")
 
     def _update_renderable(self) -> None:
         """Update the widget's renderable content."""
