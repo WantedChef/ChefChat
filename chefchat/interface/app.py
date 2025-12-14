@@ -380,7 +380,9 @@ class ChefChatApp(App):
 
         # Failsafe: if we are processing and a station enters ERROR, force stop.
         if self._state.is_processing and status == StationStatus.ERROR:
-            await self._on_ticket_done({PayloadKey.TICKET_ID: self._state.ticket_id or ""})
+            await self._on_ticket_done({
+                PayloadKey.TICKET_ID: self._state.ticket_id or ""
+            })
 
     async def _add_log_message(self, payload: dict) -> None:
         content = str(
@@ -448,6 +450,8 @@ class ChefChatApp(App):
 
             if user_input.startswith("/"):
                 await self._handle_command(user_input)
+            elif user_input.startswith("!"):
+                await self._handle_bash_command(user_input)
             else:
                 await self._submit_ticket(user_input)
         except Exception as e:
@@ -566,6 +570,60 @@ class ChefChatApp(App):
 
         await self._bus.publish(message)
 
+    async def _handle_bash_command(self, command: str) -> None:
+        """Execute bash command from TUI.
+
+        Handles `!` prefixed commands by executing them via SecureCommandExecutor.
+        Output is displayed in the ticket rail.
+        """
+        if not command.startswith("!"):
+            return
+
+        cmd = command[1:].strip()
+        if not cmd:
+            self.query_one("#ticket-rail", TicketRail).add_system_message(
+                "💡 **Usage**: `!<command>`\n\nExample: `!ls -la` or `!git status`"
+            )
+            return
+
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        ticket_rail.add_user_message(f"`!{cmd}`")
+
+        # Start loader
+        loader = self.query_one(WhiskLoader)
+        loader.start(f"Running: {cmd[:30]}...")
+
+        try:
+            from chefchat.core.tools.executor import SecureCommandExecutor
+
+            executor = SecureCommandExecutor()
+            stdout, stderr, returncode = await executor.execute(cmd, timeout=30)
+
+            # Format output
+            output_parts = []
+            if stdout:
+                output_parts.append(f"```\n{stdout.strip()}\n```")
+            if stderr:
+                output_parts.append(f"**stderr:**\n```\n{stderr.strip()}\n```")
+
+            if output_parts:
+                output = "\n\n".join(output_parts)
+            else:
+                output = "*(no output)*"
+
+            if returncode == 0:
+                ticket_rail.add_system_message(f"✅ **Command succeeded**\n\n{output}")
+            else:
+                ticket_rail.add_system_message(
+                    f"⚠️ **Exit code {returncode}**\n\n{output}"
+                )
+
+        except Exception as e:
+            ticket_rail.add_system_message(f"❌ **Command failed**\n\n`{e}`")
+
+        finally:
+            loader.stop()
+
     async def _handle_command(self, command: str) -> None:
         """Handle slash commands using the command registry."""
         if not command.startswith("/"):
@@ -614,7 +672,7 @@ class ChefChatApp(App):
                 return
 
         # Fallback for TUI-specific commands not in registry
-        if name in {"/layout", "/fortune", "/api", "/model"}:
+        if name in {"/layout", "/fortune", "/api", "/model", "/mcp"}:
             if name == "/layout":
                 await self._handle_layout_command(arg)
             elif name == "/fortune":
@@ -623,6 +681,8 @@ class ChefChatApp(App):
                 await self._handle_api_command()
             elif name == "/model":
                 await self._handle_model_command()
+            elif name == "/mcp":
+                await self._handle_mcp_command()
             return
 
         # Unknown command
@@ -657,6 +717,57 @@ class ChefChatApp(App):
                     self.notify(f"Failed to switch model: {e}", severity="error")
 
         await self.push_screen(ModelSelectionScreen(self._config), on_model_selected)
+
+    async def _handle_mcp_command(self) -> None:
+        """Show MCP server status and available tools."""
+        if not self._config:
+            self._config = VibeConfig.load()
+
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        mcp_servers = self._config.mcp_servers
+
+        if not mcp_servers:
+            ticket_rail.add_system_message(
+                "## 🔌 MCP Servers\n\n"
+                "No MCP servers configured.\n\n"
+                "To add an MCP server, edit your `config.toml`:\n\n"
+                "```toml\n"
+                "[[mcp_servers]]\n"
+                'name = "my-server"\n'
+                'transport = "stdio"\n'
+                'command = ["npx", "my-mcp-server"]\n'
+                "```\n\n"
+                "*See docs for HTTP and Streamable HTTP transports.*"
+            )
+            return
+
+        # Build status display
+        lines = [
+            "## 🔌 MCP Servers",
+            "",
+            f"**{len(mcp_servers)}** server(s) configured:",
+            "",
+        ]
+
+        for server in mcp_servers:
+            transport = getattr(server, "transport", "unknown")
+            name = getattr(server, "name", "unnamed")
+
+            match transport:
+                case "stdio":
+                    cmd = getattr(server, "command", "")
+                    if isinstance(cmd, list):
+                        cmd = " ".join(cmd[:2])
+                    lines.append(f"• **{name}** — `stdio` (`{cmd}`)")
+                case "http" | "streamable-http":
+                    url = getattr(server, "url", "")
+                    lines.append(f"• **{name}** — `{transport}` (`{url}`)")
+                case _:
+                    lines.append(f"• **{name}** — `{transport}`")
+
+        lines.extend(["", "---", "*MCP tools are loaded when the agent starts.*"])
+
+        ticket_rail.add_system_message("\n".join(lines))
 
     async def _show_command_palette(self) -> None:
         """Show help directly in chat instead of separate palette."""
