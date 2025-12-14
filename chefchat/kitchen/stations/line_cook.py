@@ -10,6 +10,7 @@ The Line Cook is where the actual cooking happens. They:
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import TYPE_CHECKING
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
@@ -363,6 +364,16 @@ class LineCook(BaseStation):
                 "message": "✅ Refactored!",
             },
         )
+
+    def _clean_code(self, code: str) -> str:
+        """Strip Markdown code blocks from LLM output."""
+        # Check for ``` blocks
+        pattern = re.compile(r"```(?:\w+)?\n?(.*?)```", re.DOTALL)
+        matches = pattern.findall(code)
+        if matches:
+            # Return the longest block as it's likely the code
+            return max(matches, key=len).strip()
+        return code.strip()
 
     async def _send_error(self, error: str) -> None:
         """Send an error message to the TUI and Sous Chef.
