@@ -34,6 +34,7 @@ class BusAction(StrEnum):
     TICKET_DONE = "TICKET_DONE"
     PLAN = "PLAN"
     TASTE_TEST = "TASTE_TEST"
+    MODE_UPDATE = "MODE_UPDATE"
 
 
 class StatusString(StrEnum):
@@ -101,6 +102,7 @@ class PayloadKey(StrEnum):
     TICKET_ID = "ticket_id"
     REQUEST = "request"
     TASK = "task"
+    MODE = "mode"
 
 
 class MessageType(StrEnum):

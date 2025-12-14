@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
 from chefchat.core.tools.manager import ToolManager
 from chefchat.core.config import get_config
+from chefchat.modes.manager import ModeManager, VibeMode
 
 if TYPE_CHECKING:
     from chefchat.kitchen.manager import KitchenManager
@@ -28,6 +29,7 @@ class LineCook(BaseStation):
     - Task execution via LLM loop
     - Tool usage (write_file, bash, etc.)
     - Progress reporting
+    - Strict adherence to operational modes (Plan vs. Execute)
     """
 
     def __init__(self, bus: KitchenBus, manager: KitchenManager) -> None:
@@ -45,13 +47,17 @@ class LineCook(BaseStation):
         config = get_config()
         self.tool_manager = ToolManager(config)
 
+        # Initialize ModeManager (defaults to NORMAL)
+        # It will be updated via MODE_UPDATE messages
+        self.mode_manager = ModeManager(initial_mode=VibeMode.NORMAL)
+
     async def handle(self, message: ChefMessage) -> None:
         """Process incoming messages.
 
         Args:
             message: The message to process
         """
-        action = message.action
+        action = str(message.action).upper()
 
         if action == "PLAN":
             # Implementation request from Sous Chef
@@ -61,6 +67,29 @@ class LineCook(BaseStation):
             # Fix errors from Expeditor (self-healing loop)
             # Re-route to autonomous execution with context
             await self._fix_errors_autonomous(message.payload)
+
+        elif action == "MODE_UPDATE":
+            await self._handle_mode_update(message.payload)
+
+    async def _handle_mode_update(self, payload: dict) -> None:
+        """Handle mode update broadcast."""
+        mode_val = payload.get("mode", "normal")
+        try:
+            mode = VibeMode(mode_val)
+            self.mode_manager.set_mode(mode)
+
+            # Log for debugging/confirmation
+            emoji = self.mode_manager.config.emoji
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={
+                    "type": "system",
+                    "content": f"🍳 **Line Cook**: Mode updated to {emoji} {mode.value.upper()}",
+                },
+            )
+        except ValueError:
+            pass
 
     async def _execute_plan(self, plan: dict) -> None:
         """Execute the implementation plan autonomously.
@@ -126,16 +155,21 @@ class LineCook(BaseStation):
         tool_instances = {t_cls.get_name(): self.tool_manager.get(t_cls.get_name()) for t_cls in tools}
 
         # System prompt for autonomous agent
-        system_prompt = self.manager.CODE_SYSTEM_PROMPT + """
+        mode_instruction = self.mode_manager.get_system_prompt_modifier()
+
+        system_prompt = self.manager.CODE_SYSTEM_PROMPT + f"""
 
 You are an autonomous coding agent. You have access to tools to interact with the file system and run commands.
 Use these tools to complete the user's task.
 
+MODE INSTRUCTIONS:
+{mode_instruction}
+
 GUIDELINES:
 1. Break down the task into steps.
-2. Use `write_file` to create or modify code.
-3. Use `bash` to run commands if needed (e.g. `mkdir`, `ls`).
-4. You don't need to ask for permission. Just do it.
+2. Use `write_file` to create or modify code (ONLY if allowed by current mode).
+3. Use `bash` to run commands if needed.
+4. If a tool call fails or is blocked, explain why and try a different approach or stop.
 5. When you have completed the task, output a final message starting with "Task Complete:".
 """
 
@@ -196,14 +230,28 @@ GUIDELINES:
                         if not tool_instance:
                             result_content = f"Error: Tool {function_name} not found"
                         else:
-                            # Invoke tool
-                            result = await tool_instance.invoke(**arguments)
+                            # MODE CHECK: Gatekeeper
+                            blocked, reason = self.mode_manager.should_block_tool(function_name, arguments)
 
-                            # Handle different result types (some might return Pydantic models)
-                            if hasattr(result, "model_dump_json"):
-                                result_content = result.model_dump_json()
+                            if blocked:
+                                result_content = f"TOOL BLOCKED: {reason}"
+                                await self.send(
+                                    recipient="tui",
+                                    action="LOG_MESSAGE",
+                                    payload={
+                                        "type": "system",
+                                        "content": f"🛑 **Blocked**: {function_name} is not allowed in {self.mode_manager.current_mode.value} mode.",
+                                    },
+                                )
                             else:
-                                result_content = str(result)
+                                # Invoke tool
+                                result = await tool_instance.invoke(**arguments)
+
+                                # Handle different result types
+                                if hasattr(result, "model_dump_json"):
+                                    result_content = result.model_dump_json()
+                                else:
+                                    result_content = str(result)
 
                     except Exception as e:
                         result_content = f"Error executing tool: {e}"
