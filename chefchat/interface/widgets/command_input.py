@@ -56,13 +56,9 @@ class CommandInput(Input):
             ("/mode", "Current mode info"),
             ("/modes", "List modes"),
             ("/compact", "Compact conversation history"),
-            ("/summarize", "Compact conversation history"),
             ("/clear", "Clear history"),
             ("/status", "Show status"),
             ("/stats", "Show statistics"),
-            ("/git-setup", "Configure Git settings"),
-            ("/telegram", "Manage Telegram bot"),
-            ("/discord", "Manage Discord bot"),
             ("/exit", "Exit application"),
             ("/quit", "Exit application"),
         ]
@@ -75,9 +71,6 @@ class CommandInput(Input):
         # accessing screen to mount overlay
         self._suggestion_menu = SuggestionMenu()
         self.screen.mount(self._suggestion_menu)
-        # Trigger background indexing for path completion (warmup)
-        # This prevents the first @ usage from returning empty results while preventing blocking
-        self._path_completer.get_completions("@", 1)
 
     def on_unmount(self) -> None:
         if self._suggestion_menu:

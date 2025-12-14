@@ -95,15 +95,9 @@ class OnboardingScreen(ModalScreen[str | None]):
                 ]
             else:
                 # Fallback defaults
-                providers = [
-                    ("Mistral", "mistral"),
-                    ("OpenAI", "openai"),
-                    ("Local (Llama.cpp)", "llamacpp"),
-                ]
+                providers = [("Mistral", "mistral"), ("OpenAI", "openai"), ("Local (Llama.cpp)", "llamacpp")]
 
-            yield Select(
-                providers, allow_blank=False, value="mistral", id="provider-select"
-            )
+            yield Select(providers, allow_blank=False, value="mistral", id="provider-select")
 
             # API Key Input
             yield Static("API Key:", classes="input-label")

@@ -6,11 +6,11 @@ throughout the TUI codebase, improving maintainability and type safety.
 
 from __future__ import annotations
 
-from enum import Enum, StrEnum, auto
+from enum import Enum, auto
 from typing import Final
 
 
-class StationName(StrEnum):
+class StationName(str, Enum):
     """Station identifiers used throughout the TUI."""
 
     SOUS_CHEF = "sous_chef"
@@ -19,7 +19,7 @@ class StationName(StrEnum):
     EXPEDITOR = "expeditor"
 
 
-class BusAction(StrEnum):
+class BusAction(str, Enum):
     """Actions for bus messages."""
 
     STATUS_UPDATE = "STATUS_UPDATE"
@@ -34,7 +34,7 @@ class BusAction(StrEnum):
     TASTE_TEST = "TASTE_TEST"
 
 
-class StatusString(StrEnum):
+class StatusString(str, Enum):
     """Status strings that come from the backend/agents."""
 
     IDLE = "idle"
@@ -55,7 +55,7 @@ class StationStatus(Enum):
     ERROR = auto()  # "86'd" - something went wrong
 
 
-class TicketCommand(StrEnum):
+class TicketCommand(str, Enum):
     """Slash commands available in the TUI."""
 
     QUIT = "quit"
@@ -76,14 +76,14 @@ class TicketCommand(StrEnum):
     TIMER = "timer"
 
 
-class TUILayout(StrEnum):
+class TUILayout(str, Enum):
     """Available TUI layout modes."""
 
     CHAT_ONLY = "chat"  # Clean chat interface only
     FULL_KITCHEN = "kitchen"  # Full 3-panel kitchen view
 
 
-class PayloadKey(StrEnum):
+class PayloadKey(str, Enum):
     """Common keys used in bus message payloads."""
 
     STATION = "station"
@@ -101,7 +101,7 @@ class PayloadKey(StrEnum):
     TASK = "task"
 
 
-class MessageType(StrEnum):
+class MessageType(str, Enum):
     """Types of messages in the ticket rail/logs."""
 
     USER = "user"
