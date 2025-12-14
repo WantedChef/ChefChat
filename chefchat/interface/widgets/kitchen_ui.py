@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal
-from textual.widgets import Input, Static
+from textual.widgets import Static
 from textual.worker import Worker
 
 from chefchat.interface.constants import WHISK_FRAMES
@@ -88,12 +88,6 @@ class KitchenHeader(Static):
             "👨‍🍳 [bold]ChefChat[/] • The Michelin Star AI-Engineer",
             classes="header-title",
         )
-
-
-class CommandInput(Input):
-    """Custom command input with kitchen styling."""
-
-    # CSS defined in styles.tcss
 
 
 class KitchenFooter(Horizontal):

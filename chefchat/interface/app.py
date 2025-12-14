@@ -47,8 +47,8 @@ from chefchat.interface.screens.confirm_restart import (
 from chefchat.interface.screens.models import ModelSelectionScreen
 from chefchat.interface.screens.onboarding import OnboardingScreen
 from chefchat.interface.screens.tool_approval import ToolApprovalScreen
+from chefchat.interface.widgets.command_input import CommandInput
 from chefchat.interface.widgets.kitchen_ui import (
-    CommandInput,
     KitchenFooter,
     KitchenHeader,
     WhiskLoader,
