@@ -47,6 +47,8 @@ from chefchat.interface.screens.confirm_restart import (
 from chefchat.interface.screens.models import ModelSelectionScreen
 from chefchat.interface.screens.onboarding import OnboardingScreen
 from chefchat.interface.screens.tool_approval import ToolApprovalScreen
+from chefchat.bots.ui import BotSetupScreen
+from chefchat.bots.manager import BotManager
 from chefchat.interface.widgets.command_input import CommandInput
 from chefchat.interface.widgets.kitchen_ui import (
     KitchenFooter,
@@ -657,6 +659,9 @@ class ChefChatApp(App):
                 "_chef_plate": "_handle_plate",
                 "_chef_taste": "_chef_taste",
                 "_chef_timer": "_chef_timer",
+                # Bot handlers
+                "_handle_telegram": "_handle_telegram_command",
+                "_handle_discord": "_handle_discord_command",
             }
 
             handler_name = handler_map.get(cmd_obj.handler, cmd_obj.handler)
@@ -695,6 +700,71 @@ class ChefChatApp(App):
     async def _handle_api_command(self) -> None:
         """Show API key onboarding screen."""
         await self.push_screen(OnboardingScreen(), self._on_onboarding_complete)
+
+    async def _handle_telegram_command(self, arg: str = "") -> None:
+        """Handle /telegram command in TUI."""
+        await self._handle_bot_command("telegram", arg)
+
+    async def _handle_discord_command(self, arg: str = "") -> None:
+        """Handle /discord command in TUI."""
+        await self._handle_bot_command("discord", arg)
+
+    async def _handle_bot_command(self, bot_type: str, arg: str) -> None:
+        """Unified handler for bot commands (telegram/discord)."""
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        action = arg.lower().strip() if arg else "help"
+
+        # Get or create bot manager
+        if not hasattr(self, "_bot_manager"):
+            self._bot_manager = BotManager(self._config or VibeConfig.load())
+        manager = self._bot_manager
+
+        if action == "help":
+            help_text = f"""## 🤖 {bot_type.title()} Bot Commands
+
+• `/{bot_type} setup` — Configure token and user ID
+• `/{bot_type} start` — Start the bot
+• `/{bot_type} stop` — Stop the bot
+• `/{bot_type} status` — Check status
+"""
+            ticket_rail.add_system_message(help_text)
+        elif action == "setup":
+
+            def on_complete(success: bool) -> None:
+                if success:
+                    self.notify(f"{bot_type.title()} configured!", title="Setup")
+                    ticket_rail.add_system_message(
+                        f"✅ {bot_type.title()} setup complete!"
+                    )
+
+            await self.push_screen(BotSetupScreen(bot_type), on_complete)
+        elif action == "start":
+            if manager.is_running(bot_type):
+                ticket_rail.add_system_message(
+                    f"⚠️ {bot_type.title()} bot already running."
+                )
+            else:
+                try:
+                    await manager.start_bot(bot_type)
+                    ticket_rail.add_system_message(
+                        f"🚀 {bot_type.title()} bot started!"
+                    )
+                except Exception as e:
+                    ticket_rail.add_system_message(f"❌ Failed: {e}")
+        elif action == "stop":
+            if not manager.is_running(bot_type):
+                ticket_rail.add_system_message(f"⚠️ {bot_type.title()} bot not running.")
+            else:
+                await manager.stop_bot(bot_type)
+                ticket_rail.add_system_message(f"🛑 {bot_type.title()} bot stopped.")
+        elif action == "status":
+            running = "🟢 Running" if manager.is_running(bot_type) else "🔴 Stopped"
+            allowed = ", ".join(manager.get_allowed_users(bot_type)) or "None"
+            ticket_rail.add_system_message(
+                f"**{bot_type.title()}:** {running}\n**Users:** {allowed}"
+            )
+        else:
+            ticket_rail.add_system_message(f"❓ Unknown: `{action}`. Try `/{bot_type}`")
 
     async def _handle_model_command(self) -> None:
         """Show model selection screen."""

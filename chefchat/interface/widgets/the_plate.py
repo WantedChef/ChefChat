@@ -24,6 +24,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Import activity logger for the new tabs
+from chefchat.interface.activity_logger import (
+    ActivityEntry,
+    ActivityType,
+    get_activity_logger,
+)
+
 
 class CodeBlock(Static):
     """A syntax-highlighted code block."""
@@ -97,9 +104,7 @@ class ThePlate(Static):
         with TabbedContent(id="plate-tabs"):
             with TabPane("Code", id="tab-code"):
                 yield VerticalScroll(
-                    Static(
-                        "🍽️ Waiting for the dish to be plated...", id="plate-empty"
-                    ),
+                    Static("🍽️ Waiting for the dish to be plated...", id="plate-empty"),
                     id="plate-code-scroll",
                 )
 
@@ -108,6 +113,14 @@ class ThePlate(Static):
 
             with TabPane("Notes", id="tab-notes"):
                 yield TextArea(language="markdown", id="plate-notes")
+
+            with TabPane("Activiteiten", id="tab-activities"):
+                yield RichLog(
+                    id="plate-activities", highlight=True, markup=True, wrap=True
+                )
+
+            with TabPane("Gereedschap", id="tab-tools"):
+                yield RichLog(id="plate-tools", highlight=True, markup=True, wrap=True)
 
     def on_click(self, event: events.Click) -> None:
         if event.chain >= self._DOUBLE_CLICK_CHAIN:
@@ -308,3 +321,65 @@ class ThePlate(Static):
                 code_blocks[-1].refresh()
         except Exception:
             pass  # Ignore if widget not found
+
+    # =========================================================================
+    # Activity Logging (Activiteiten & Gereedschap tabs)
+    # =========================================================================
+
+    def on_mount(self) -> None:
+        """Set up activity listener when mounted."""
+        self._activity_logger = get_activity_logger()
+        self._activity_logger.add_listener(self._on_new_activity)
+
+        # Show welcome messages
+        try:
+            activities_log = self.query_one("#plate-activities", RichLog)
+            activities_log.write("[dim]📓 Logboek gestart...[/]")
+        except Exception:
+            pass
+
+        try:
+            tools_log = self.query_one("#plate-tools", RichLog)
+            tools_log.write("[dim]🔧 Wachtend op tool calls...[/]")
+        except Exception:
+            pass
+
+    def on_unmount(self) -> None:
+        """Clean up listener when unmounted."""
+        if hasattr(self, "_activity_logger"):
+            self._activity_logger.remove_listener(self._on_new_activity)
+
+    def _on_new_activity(self, entry: ActivityEntry) -> None:
+        """Handle new activity from the logger."""
+        self.call_from_thread(self._add_activity_to_ui, entry)
+
+    def _add_activity_to_ui(self, entry: ActivityEntry) -> None:
+        """Add an activity entry to the appropriate log."""
+        formatted = entry.format_for_display()
+
+        if entry.activity_type in {
+            ActivityType.TOOL_START,
+            ActivityType.TOOL_SUCCESS,
+            ActivityType.TOOL_ERROR,
+        }:
+            # Tool-related entry goes to Gereedschap tab
+            try:
+                tools_log = self.query_one("#plate-tools", RichLog)
+                tools_log.write(formatted)
+            except Exception:
+                pass
+        else:
+            # Activity entry goes to Activiteiten tab
+            try:
+                activities_log = self.query_one("#plate-activities", RichLog)
+                activities_log.write(formatted)
+            except Exception:
+                pass
+
+    def show_activities(self) -> None:
+        """Switch to the Activiteiten tab."""
+        self._tabs.active = "tab-activities"
+
+    def show_tools(self) -> None:
+        """Switch to the Gereedschap tab."""
+        self._tabs.active = "tab-tools"
