@@ -167,79 +167,71 @@ class ModelManagerScreen(ModalScreen):
 
             with Horizontal(id="main-content"):
                 # Left Sidebar: Providers
-                with Vertical(id="provider-list-container"):
-                    yield Label("Providers", id="provider-list-label")
-                    yield ListView(id="provider-list")
-                    yield Button(
-                        "Add Provider",
-                        id="add-provider-btn",
-                        variant="primary",
-                        classes="full-width",
-                    )
+                yield from self._compose_sidebar()
 
                 # Right Content: Details
-                with Vertical(id="details-container"):
-                    # Provider Details Form
-                    with VerticalScroll(id="provider-form"):
-                        yield Label("Provider Details", classes="section-title")
-
-                        yield Label("Name:", classes="input-label")
-                        yield Input(id="p-name", disabled=True)
-
-                        yield Label("API Base URL:", classes="input-label")
-                        yield Input(id="p-base")
-
-                        yield Label("Backend Type:", classes="input-label")
-                        yield Select(
-                            [(b.value, b.value) for b in Backend], id="p-backend"
-                        )
-
-                        yield Label(
-                            "API Key Environment Variable:", classes="input-label"
-                        )
-                        yield Input(id="p-env-var")
-
-                        yield Label(
-                            "API Key Value (Updates .env):", classes="input-label"
-                        )
-                        yield Input(
-                            id="p-key-value",
-                            password=True,
-                            placeholder="Enter new key to update...",
-                        )
-
-                        with Horizontal():
-                            yield Button(
-                                "Test Connection",
-                                id="test-connection-btn",
-                                variant="warning",
-                            )
-                            yield Label("", id="connection-status")
-
-                        with Horizontal(classes="mt-2"):
-                            yield Button(
-                                "Save Provider",
-                                id="save-provider-btn",
-                                variant="success",
-                            )
-                            yield Button(
-                                "Delete Provider",
-                                id="delete-provider-btn",
-                                variant="error",
-                            )
-
-                    # Associated Models
-                    yield Label("Associated Models", classes="section-title")
-                    yield DataTable(id="models-table", cursor_type="row")
-                    with Horizontal():
-                        yield Button("Add Model", id="add-model-btn")
-                        yield Button(
-                            "Delete Model", id="delete-model-btn", variant="error"
-                        )
+                yield from self._compose_details()
 
             # Footer
             with Horizontal(id="manager-footer"):
                 yield Button("Close", variant="default", id="close-btn")
+
+    def _compose_sidebar(self) -> ComposeResult:
+        with Vertical(id="provider-list-container"):
+            yield Label("Providers", id="provider-list-label")
+            yield ListView(id="provider-list")
+            yield Button(
+                "Add Provider",
+                id="add-provider-btn",
+                variant="primary",
+                classes="full-width",
+            )
+
+    def _compose_details(self) -> ComposeResult:
+        with Vertical(id="details-container"):
+            # Provider Details Form
+            with VerticalScroll(id="provider-form"):
+                yield Label("Provider Details", classes="section-title")
+
+                yield Label("Name:", classes="input-label")
+                yield Input(id="p-name", disabled=True)
+
+                yield Label("API Base URL:", classes="input-label")
+                yield Input(id="p-base")
+
+                yield Label("Backend Type:", classes="input-label")
+                yield Select([(b.value, b.value) for b in Backend], id="p-backend")
+
+                yield Label("API Key Environment Variable:", classes="input-label")
+                yield Input(id="p-env-var")
+
+                yield Label("API Key Value (Updates .env):", classes="input-label")
+                yield Input(
+                    id="p-key-value",
+                    password=True,
+                    placeholder="Enter new key to update...",
+                )
+
+                with Horizontal():
+                    yield Button(
+                        "Test Connection", id="test-connection-btn", variant="warning"
+                    )
+                    yield Label("", id="connection-status")
+
+                with Horizontal(classes="mt-2"):
+                    yield Button(
+                        "Save Provider", id="save-provider-btn", variant="success"
+                    )
+                    yield Button(
+                        "Delete Provider", id="delete-provider-btn", variant="error"
+                    )
+
+            # Associated Models
+            yield Label("Associated Models", classes="section-title")
+            yield DataTable(id="models-table", cursor_type="row")
+            with Horizontal():
+                yield Button("Add Model", id="add-model-btn")
+                yield Button("Delete Model", id="delete-model-btn", variant="error")
 
     def on_mount(self) -> None:
         """Populate initial data."""
@@ -339,11 +331,11 @@ class ModelManagerScreen(ModalScreen):
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(url, headers=headers)
 
-                if response.status_code == 200:
+                if response.status_code == httpx.codes.OK:
                     self.call_from_thread(
                         self._update_status, "Connection Successful! ✅", "status-ok"
                     )
-                elif response.status_code == 401:
+                elif response.status_code == httpx.codes.UNAUTHORIZED:
                     self.call_from_thread(
                         self._update_status, "Auth Failed (401) ❌", "status-error"
                     )

@@ -56,7 +56,7 @@ class FileIndexer:
     def stats(self) -> FileIndexStats:
         return self._stats
 
-    def get_index(self, root: Path) -> list[IndexEntry]:
+    def get_index(self, root: Path, wait: bool = True) -> list[IndexEntry]:
         resolved_root = root.resolve()
 
         with self._lock:  # read current root without blocking rebuild bookkeeping
@@ -86,7 +86,8 @@ class FileIndexer:
             with self._rebuild_lock:
                 self._target_root = resolved_root
             self._start_background_rebuild(resolved_root)
-            self._wait_for_rebuild(resolved_root)
+            if wait:
+                self._wait_for_rebuild(resolved_root)
 
         # Under pytest we avoid starting watch threads; they can linger and
         # trigger noisy thread dumps / instability in CI.

@@ -63,11 +63,13 @@ class LineCook(BaseStation):
             # Fix errors from Expeditor (self-healing loop)
             await self._fix_errors(message.payload)
 
+    STREAM_UPDATE_INTERVAL_LINES = 5
+
     async def _generate_code(self, task: str) -> str:
         """Generate code for the task using the LLM.
 
         Handles streaming updates to the TUI.
-        Updates are sent only every 5 lines of code generated.
+        Updates are sent only every STREAM_UPDATE_INTERVAL_LINES lines of code generated.
 
         Args:
             task: The task description
@@ -86,7 +88,7 @@ class LineCook(BaseStation):
             pending_content += chunk
 
             current_lines = generated_code.count("\n")
-            if current_lines - last_line_count >= 5:
+            if current_lines - last_line_count >= self.STREAM_UPDATE_INTERVAL_LINES:
                 await self.send(
                     recipient="tui",
                     action="STREAM_UPDATE",
