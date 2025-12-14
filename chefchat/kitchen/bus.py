@@ -150,7 +150,9 @@ class KitchenBus:
                     if asyncio.iscoroutine(result):
                         await result
                 except Exception as e:
-                    # Log but don't crash the bus
+                    # Log but don't crash the bus.
+                    # We catch all exceptions here to ensure one faulty station
+                    # doesn't bring down the entire messaging system.
                     logger.exception(
                         "Error dispatching message %s to station %s: %s",
                         message.id,
