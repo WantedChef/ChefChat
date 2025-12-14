@@ -384,6 +384,157 @@ class TelegramBotService:
         out = (out_b or b"").decode("utf-8", errors="replace").strip()
         return proc.returncode == 0, out or "OK"
 
+    async def status_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show bot status and uptime."""
+        user = update.effective_user
+        if not user:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        import subprocess
+
+        uptime = "Unknown"
+        try:
+            result = subprocess.run(
+                ["uptime", "-p"], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                uptime = result.stdout.strip()
+        except Exception:
+            pass
+
+        cwd = os.getcwd()
+        session_count = len(self.sessions)
+
+        status_text = (
+            f"🤖 **ChefChat Bot Status**\n\n"
+            f"⏱️ System uptime: {uptime}\n"
+            f"📁 Working dir: `{cwd}`\n"
+            f"👥 Active sessions: {session_count}\n"
+            f"🔧 Commands: /help for list"
+        )
+        await update.message.reply_text(
+            status_text, parse_mode=constants.ParseMode.MARKDOWN
+        )
+
+    async def stop_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Stop the current agent session."""
+        user = update.effective_user
+        if not user or not update.effective_chat:
+            return
+
+        chat_id = update.effective_chat.id
+
+        session = self.sessions.get(chat_id)
+        if session:
+            # Clear the session
+            del self.sessions[chat_id]
+            self._last_activity.pop(chat_id, None)
+            self._chat_locks.pop(chat_id, None)
+            await update.message.reply_text("🛑 Session stopped and cleared.")
+        else:
+            await update.message.reply_text("No active session to stop.")
+
+    async def files_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """List project files in current directory."""
+        user = update.effective_user
+        if not user:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        cwd = Path.cwd()
+        files = []
+        try:
+            for item in sorted(cwd.iterdir())[:30]:  # Limit to 30 items
+                if item.name.startswith("."):
+                    continue
+                prefix = "📁" if item.is_dir() else "📄"
+                files.append(f"{prefix} {item.name}")
+        except Exception as e:
+            await update.message.reply_text(f"Error listing files: {e}")
+            return
+
+        if files:
+            file_list = "\n".join(files)
+            await update.message.reply_text(
+                f"📂 **Files in** `{cwd}`:\n\n```\n{file_list}\n```",
+                parse_mode=constants.ParseMode.MARKDOWN,
+            )
+        else:
+            await update.message.reply_text("No files found.")
+
+    async def pwd_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show current working directory."""
+        user = update.effective_user
+        if not user:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        await update.message.reply_text(
+            f"📁 Current directory:\n`{os.getcwd()}`",
+            parse_mode=constants.ParseMode.MARKDOWN,
+        )
+
+    async def help_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show available commands."""
+        help_text = (
+            "🤖 **ChefChat Bot Commands**\n\n"
+            "/start - Start the bot\n"
+            "/stop - Stop current session\n"
+            "/clear - Clear conversation history\n"
+            "/status - Show bot status\n"
+            "/files - List project files\n"
+            "/pwd - Show working directory\n"
+            "/help - Show this help\n"
+            "/chefchat - Advanced systemd controls\n\n"
+            "💬 Just send a message to chat with the AI!"
+        )
+        await update.message.reply_text(
+            help_text, parse_mode=constants.ParseMode.MARKDOWN
+        )
+
+    async def _notify_startup(self) -> None:
+        """Send startup notification to allowed users."""
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        for user_id in allowed:
+            try:
+                await self.application.bot.send_message(
+                    chat_id=int(user_id),
+                    text=(
+                        "🚀 **ChefChat Bot Started!**\n\n"
+                        f"📁 Working directory: `{os.getcwd()}`\n"
+                        f"🔧 Type /help for commands"
+                    ),
+                    parse_mode=constants.ParseMode.MARKDOWN,
+                )
+            except Exception as e:
+                logger.warning(f"Could not notify user {user_id}: {e}")
+
     async def run(self) -> None:
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         if not token:
@@ -396,8 +547,14 @@ class TelegramBotService:
 
         self.application = ApplicationBuilder().token(token).build()
 
+        # Register command handlers
         self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CommandHandler("stop", self.stop_command))
         self.application.add_handler(CommandHandler("clear", self.clear_command))
+        self.application.add_handler(CommandHandler("status", self.status_command))
+        self.application.add_handler(CommandHandler("files", self.files_command))
+        self.application.add_handler(CommandHandler("pwd", self.pwd_command))
+        self.application.add_handler(CommandHandler("help", self.help_command))
         self.application.add_handler(CommandHandler("chefchat", self.chefchat_command))
         self.application.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
@@ -412,6 +569,9 @@ class TelegramBotService:
         await self.application.initialize()
         await self.application.start()
         await self.application.updater.start_polling()
+
+        # Notify allowed users that bot has started
+        await self._notify_startup()
 
         try:
             await asyncio.Event().wait()

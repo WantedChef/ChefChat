@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from pathlib import Path
 import signal
 import sys
 from typing import NoReturn
@@ -14,8 +15,7 @@ from chefchat.core.config import VibeConfig, load_api_keys_from_env
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("chefchat.bots.daemon")
 
@@ -23,6 +23,15 @@ logger = logging.getLogger("chefchat.bots.daemon")
 async def run_daemon() -> None:
     """Run the ChefChat bots in daemon mode."""
     logger.info("Starting ChefChat Bot Daemon...")
+
+    # Change to designated output directory if it exists
+    output_dir = Path("/home/chef/chefchat_output_")
+    if output_dir.exists() and output_dir.is_dir():
+        try:
+            os.chdir(output_dir)
+            logger.info(f"Working directory: {output_dir}")
+        except OSError as e:
+            logger.warning(f"Could not change to {output_dir}: {e}")
 
     try:
         load_api_keys_from_env()

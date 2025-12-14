@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+from pathlib import Path
 import sys
 import traceback
 
@@ -237,6 +238,15 @@ def main() -> None:
     # Force UTF-8 encoding for stdout on Windows to support emojis
     if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+
+    # Change to designated output directory if it exists
+    output_dir = Path("/home/chef/chefchat_output_")
+    if output_dir.exists() and output_dir.is_dir():
+        try:
+            os.chdir(output_dir)
+            rprint(f"[dim]📁 Working directory: {output_dir}[/]")
+        except OSError as e:
+            rprint(f"[yellow]⚠️ Could not change to {output_dir}: {e}[/]")
 
     load_api_keys_from_env()
     args = parse_arguments()
