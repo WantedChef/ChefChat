@@ -6,8 +6,10 @@ throughout the TUI codebase, improving maintainability and type safety.
 
 from __future__ import annotations
 
-from enum import Enum, StrEnum, auto
+from enum import Enum, auto
 from typing import Final
+
+from chefchat.core.compatibility import StrEnum
 
 
 class StationName(StrEnum):

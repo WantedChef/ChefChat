@@ -20,7 +20,7 @@ class ToolApprovalScreen(ModalScreen[tuple[str, str | None]]):
         Binding("n", "reject", "Reject", show=True),
     ]
 
-    DEFAULT_CSS: ClassVar[str] = """
+    DEFAULT_CSS = """
     ToolApprovalScreen {
         align: center middle;
     }

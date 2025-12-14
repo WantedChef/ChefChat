@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import shutil
 from pathlib import Path
-import tomllib
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
+import pytest
+from chefchat.core.config import VibeConfig
 
 import tomli_w
 

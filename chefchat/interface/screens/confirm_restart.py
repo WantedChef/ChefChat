@@ -1,5 +1,3 @@
-"""Confirm Restart Screen."""
-
 from __future__ import annotations
 
 import json
@@ -52,7 +50,7 @@ class ConfirmRestartScreen(ModalScreen):
         Binding("escape", "cancel", "Cancel", show=False),
     ]
 
-    DEFAULT_CSS: ClassVar[str] = """
+    DEFAULT_CSS = """
     ConfirmRestartScreen {
         align: center middle;
     }

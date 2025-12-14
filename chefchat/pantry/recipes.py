@@ -240,7 +240,7 @@ class RecipeExecutor:
         Returns:
             Execution results
         """
-        import asyncio
+        # asyncio imported by caller if needed
 
         recipe = self.parser.load(recipe_name)
         self._current_recipe = recipe
@@ -257,16 +257,6 @@ class RecipeExecutor:
                 try:
                     if on_step:
                         await on_step(i, step, len(recipe.steps))
-
-                    # Create step payload
-                    payload = {
-                        "step_index": i,
-                        "step_name": step.name,
-                        "step_type": step.type.value,
-                        "prompt": self._interpolate(step.prompt or ""),
-                        "inputs": self._interpolate_dict(step.inputs),
-                        "recipe_name": recipe.name,
-                    }
 
                     result = await self._execute_step(i, step, recipe.name)
                     results.append(result)
@@ -295,7 +285,7 @@ class RecipeExecutor:
                     if on_error:
                         await on_error(i, step, e)
 
-                    if step.on_error == "abort" or step.on_error == "retry":
+                    if step.on_error in {"abort", "retry"}:
                         # If we're here and on_error is retry, it means retries exhausted
                         # So we abort the recipe
                         return {
@@ -339,12 +329,7 @@ class RecipeExecutor:
         # In real implementation, this would send to bus
         await asyncio.sleep(0.5)  # Simulate work
 
-        return {
-            "step": i,
-            "name": step.name,
-            "status": "success",
-            "outputs": {},
-        }
+        return {"step": i, "name": step.name, "status": "success", "outputs": {}}
 
     def _interpolate(self, text: str) -> str:
         """Interpolate variables in text.

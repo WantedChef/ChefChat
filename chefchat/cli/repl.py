@@ -84,6 +84,10 @@ from chefchat.core.utils import (
 if TYPE_CHECKING:
     pass
 
+# Constants
+ARGS_JSON_TRUNCATE_LIMIT = 400
+SUMMARY_PREVIEW_LIMIT = 200
+
 
 # =============================================================================
 # REPL CLASS
@@ -447,8 +451,8 @@ class ChefChatREPL:
         """Display Order Confirmation dialog – the Waiter logic."""
         # Format arguments
         args_json = json.dumps(args, indent=2, default=str)
-        if len(args_json) > 400:
-            args_json = args_json[:400] + "\n  ... (truncated)"
+        if len(args_json) > ARGS_JSON_TRUNCATE_LIMIT:
+            args_json = args_json[:ARGS_JSON_TRUNCATE_LIMIT] + "\n  ... (truncated)"
 
         syntax = Syntax(args_json, "json", theme="monokai", line_numbers=False)
 
@@ -799,7 +803,9 @@ class ChefChatREPL:
                         )
                         # Show a preview of the summary
                         preview = (
-                            summary[:200] + "..." if len(summary) > 200 else summary
+                            summary[:SUMMARY_PREVIEW_LIMIT] + "..."
+                            if len(summary) > SUMMARY_PREVIEW_LIMIT
+                            else summary
                         )
                         self.console.print(
                             f"  [{COLORS['silver']}]Summary preview: {preview}[/{COLORS['silver']}]\n"

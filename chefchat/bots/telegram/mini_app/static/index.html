@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ChefChat Control</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; }
+    .card { border: 1px solid #2223; border-radius: 12px; padding: 12px; margin: 12px 0; }
+    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #2223; background: #111; color: #fff; }
+    button.secondary { background: #222; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    code { background: #00000010; padding: 2px 6px; border-radius: 6px; }
+    .muted { opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <h2>ChefChat Control</h2>
+  <div class="card">
+    <div class="muted">Project</div>
+    <div id="project">-</div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Service status</div>
+    <div id="status">Loading…</div>
+    <div class="row" style="margin-top:10px;">
+      <button id="restart">Restart service</button>
+      <button id="refresh" class="secondary">Refresh</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Switch project</div>
+    <div class="row" id="projects"></div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Mode</div>
+    <div>Auto-approve tools: <code id="auto">?</code></div>
+    <div class="row" style="margin-top:10px;">
+      <button id="toggleAuto" class="secondary">Toggle auto</button>
+    </div>
+  </div>
+
+  <div class="card muted" id="error" style="display:none;"></div>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  tg?.ready();
+
+  const initData = tg?.initData || "";
+
+  async function api(path, opts={}) {
+    const headers = new Headers(opts.headers || {});
+    headers.set("X-Telegram-Init-Data", initData);
+    const res = await fetch(path, { ...opts, headers });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { ok:false, output:text }; }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.output || res.statusText);
+    }
+    return data;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error');
+    el.style.display = 'block';
+    el.textContent = msg;
+  }
+
+  async function load() {
+    try {
+      const meta = await api('/api/meta');
+      document.getElementById('project').textContent = meta.project;
+      document.getElementById('auto').textContent = meta.auto_approve ? 'ON' : 'OFF';
+
+      const projectsEl = document.getElementById('projects');
+      projectsEl.innerHTML = '';
+      (meta.projects || []).forEach(p => {
+        const b = document.createElement('button');
+        b.textContent = p;
+        b.onclick = async () => {
+          await api('/api/switch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ project: p }) });
+          await load();
+        };
+        projectsEl.appendChild(b);
+      });
+
+      await refreshStatus();
+    } catch (e) {
+      showError(String(e));
+    }
+  }
+
+  async function refreshStatus() {
+    const s = await api('/api/status');
+    document.getElementById('status').textContent = `${s.unit} :: ${s.active}/${s.sub} pid=${s.pid} exit=${s.exit}`;
+  }
+
+  document.getElementById('restart').onclick = async () => {
+    try { await api('/api/restart', { method:'POST' }); await refreshStatus(); }
+    catch(e){ showError(String(e)); }
+  };
+
+  document.getElementById('refresh').onclick = async () => {
+    try { await refreshStatus(); } catch(e){ showError(String(e)); }
+  };
+
+  document.getElementById('toggleAuto').onclick = async () => {
+    try {
+      const r = await api('/api/mode/toggle-auto', { method:'POST' });
+      document.getElementById('auto').textContent = r.auto_approve ? 'ON' : 'OFF';
+    } catch(e){ showError(String(e)); }
+  };
+
+  load();
+</script>
+</body>
+</html>

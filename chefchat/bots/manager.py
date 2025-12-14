@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import os
 from pathlib import Path
@@ -7,10 +9,11 @@ from dotenv import set_key
 
 from chefchat.core.config import VibeConfig
 
+
 class BotManager:
     """Manages the lifecycle and configuration of ChefChat bots."""
 
-    def __init__(self, config: VibeConfig):
+    def __init__(self, config: VibeConfig) -> None:
         self.config = config
         self.running_tasks: dict[str, asyncio.Task] = {}
         self.bots: dict[str, Any] = {}  # Store bot instances
