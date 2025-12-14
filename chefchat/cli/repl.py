@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+from pathlib import Path
 import sys
 import time
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -136,6 +138,7 @@ class ChefChatREPL:
             ("/clear", "Clear history"),
             ("/status", "Show status"),
             ("/stats", "Show statistics"),
+            ("/git-setup", "Configure Git settings"),
             ("/exit", "Exit application"),
             ("/quit", "Exit application"),
         ]
@@ -205,6 +208,45 @@ class ChefChatREPL:
         self.console.print(panel)
 
 
+
+    async def _handle_git_setup(self) -> None:
+        """Handle /git-setup command."""
+        from rich.prompt import Prompt
+
+        self.console.print(f"\n[{COLORS['fire']}]GitHub Setup[/{COLORS['fire']}]")
+        self.console.print("This will configure your GitHub token in the .env file.\n")
+
+        token = Prompt.ask("Enter your GitHub Token (hidden)", password=True)
+
+        if not token:
+            self.console.print(f"[{COLORS['ember']}]Cancelled.[/{COLORS['ember']}]\n")
+            return
+
+        # Update .env
+        env_path = Path(".env")
+        lines = []
+        if env_path.exists():
+            lines = env_path.read_text().splitlines()
+
+        new_lines = []
+        found = False
+        for line in lines:
+            if line.startswith("GITHUB_TOKEN="):
+                new_lines.append(f"GITHUB_TOKEN={token}")
+                found = True
+            else:
+                new_lines.append(line)
+
+        if not found:
+            new_lines.append(f"GITHUB_TOKEN={token}")
+
+        env_path.write_text("\n".join(new_lines) + "\n")
+        # Update current process env
+        os.environ["GITHUB_TOKEN"] = token
+
+        self.console.print(
+            f"[{COLORS['sage']}]✓ GITHUB_TOKEN saved to .env[/{COLORS['sage']}]\n"
+        )
 
     async def _handle_model_command(self) -> None:
         """Handle interactive model switching."""
@@ -695,6 +737,9 @@ class ChefChatREPL:
         elif cmd == "/stats":
             # Session statistics - Today's Service
             self._show_stats()
+
+        elif cmd == "/git-setup":
+            await self._handle_git_setup()
 
         else:
             self.console.print(

@@ -117,6 +117,7 @@ async def create_default_brigade() -> Brigade:
     # Imports kept inside to avoid circulars at module import time
     from chefchat.kitchen.manager import KitchenManager
     from chefchat.kitchen.stations.expeditor import Expeditor
+    from chefchat.kitchen.stations.git_chef import GitChef
     from chefchat.kitchen.stations.line_cook import LineCook
     from chefchat.kitchen.stations.sommelier import Sommelier
     from chefchat.kitchen.stations.sous_chef import SousChef
@@ -141,5 +142,9 @@ async def create_default_brigade() -> Brigade:
     # The QA / testing station
     expeditor = Expeditor(brigade.bus)
     brigade.register(expeditor)
+
+    # The git operations station
+    git_chef = GitChef(brigade.bus, manager)
+    brigade.register(git_chef)
 
     return brigade
