@@ -10,6 +10,8 @@ The Line Cook is where the actual cooking happens. They:
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
+import re
 from typing import TYPE_CHECKING
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
@@ -174,33 +176,68 @@ class LineCook(BaseStation):
             },
         )
 
-        # Simulate fix attempt
-        await asyncio.sleep(1.5)
+        try:
+            # Read the broken file
+            file_path = Path(path)
+            if not file_path.exists() or not file_path.is_file():
+                # If path is a directory (e.g. "."), we can't easily guess which file to fix
+                # without more sophisticated analysis. For now, report error.
+                raise FileNotFoundError(f"Cannot fix {path}: File not found or is a directory")
 
-        # TODO: Connect to LLM to actually fix the errors
-        # For now, simulate a fix attempt
+            original_code = file_path.read_text(encoding="utf-8")
 
-        await self.send(
-            recipient="tui",
-            action="STATUS_UPDATE",
-            payload={
-                "station": self.name,
-                "status": "complete",
-                "progress": 100,
-                "message": "✅ Fix applied",
-            },
-        )
+            # Generate fix
+            fixed_code = ""
+            async for chunk in self.brain.fix_code_stream(original_code, errors):
+                fixed_code += chunk
+                # Throttle updates
+                if len(fixed_code) % 50 == 0:
+                    await self.send(
+                        recipient="tui",
+                        action="STREAM_UPDATE",
+                        payload={"content": chunk, "full_content": fixed_code},
+                    )
 
-        # Report back to Expeditor
-        await self.send(
-            recipient="expeditor",
-            action="healing_result",
-            payload={
-                "ticket_id": ticket_id,
-                "success": True,  # Simulated success
-                "path": path,
-            },
-        )
+            # Write back to file
+            # Clean up potential markdown blocks
+            clean_fixed_code = self._clean_code(fixed_code)
+            file_path.write_text(clean_fixed_code, encoding="utf-8")
+
+            await self.send(
+                recipient="tui",
+                action="STATUS_UPDATE",
+                payload={
+                    "station": self.name,
+                    "status": "complete",
+                    "progress": 100,
+                    "message": "✅ Fix applied",
+                },
+            )
+
+            # Report back to Expeditor
+            await self.send(
+                recipient="expeditor",
+                action="healing_result",
+                payload={
+                    "ticket_id": ticket_id,
+                    "success": True,
+                    "path": path,
+                },
+            )
+
+        except Exception as e:
+            await self._send_error(str(e))
+            # Report failure to expeditor so it doesn't hang or assume success
+            await self.send(
+                recipient="expeditor",
+                action="healing_result",
+                payload={
+                    "ticket_id": ticket_id,
+                    "success": False,
+                    "path": path,
+                    "error": str(e),
+                },
+            )
 
         self._current_task = None
 
@@ -263,6 +300,16 @@ class LineCook(BaseStation):
                 "message": "✅ Refactored!",
             },
         )
+
+    def _clean_code(self, code: str) -> str:
+        """Strip Markdown code blocks from LLM output."""
+        # Check for ``` blocks
+        pattern = re.compile(r"```(?:\w+)?\n?(.*?)```", re.DOTALL)
+        matches = pattern.findall(code)
+        if matches:
+            # Return the longest block as it's likely the code
+            return max(matches, key=len).strip()
+        return code.strip()
 
     async def _send_error(self, error: str) -> None:
         """Send an error message to the TUI and Sous Chef.
