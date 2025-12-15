@@ -113,21 +113,8 @@ class Expeditor(BaseStation):
         """
         ticket_id = payload.get("ticket_id", "unknown")
         raw_tests = payload.get("tests", ["pytest", "ruff"])
-        test_types: list[TasteTestType] = []
-        unknown_tests: list[str] = []
 
-        for test_name in raw_tests:
-            match test_name.lower():
-                case "pytest":
-                    test_types.append(TasteTestType.PYTEST)
-                case "ruff":
-                    test_types.append(TasteTestType.RUFF)
-                case "pyright":
-                    test_types.append(TasteTestType.PYRIGHT)
-                case "all":
-                    test_types.append(TasteTestType.ALL)
-                case _:
-                    unknown_tests.append(test_name)
+        test_types, unknown_tests = self._parse_test_types(raw_tests)
 
         if unknown_tests:
             await self.send(
@@ -205,6 +192,26 @@ class Expeditor(BaseStation):
             await self._report_success(ticket_id, results)
         else:
             await self._handle_failure(ticket_id, target_path, results)
+
+    def _parse_test_types(
+        self, raw_tests: list[str]
+    ) -> tuple[list[TasteTestType], list[str]]:
+        test_types: list[TasteTestType] = []
+        unknown_tests: list[str] = []
+
+        for test_name in raw_tests:
+            match test_name.lower():
+                case "pytest":
+                    test_types.append(TasteTestType.PYTEST)
+                case "ruff":
+                    test_types.append(TasteTestType.RUFF)
+                case "pyright":
+                    test_types.append(TasteTestType.PYRIGHT)
+                case "all":
+                    test_types.append(TasteTestType.ALL)
+                case _:
+                    unknown_tests.append(test_name)
+        return test_types, unknown_tests
 
     async def _execute_test(
         self, test_type: TasteTestType, target_path: str

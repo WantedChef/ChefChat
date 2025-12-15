@@ -40,8 +40,17 @@ class AcpToolState(BaseToolState):
     )
 
 
-class BaseAcpTool[ArgsT: BaseModel, ResultT: BaseModel, ConfigT: BaseToolConfig, ToolState: AcpToolState](
-    BaseTool[ArgsT, ResultT, ConfigT, ToolState]
+from typing import Generic, TypeVar
+
+ArgsT = TypeVar("ArgsT", bound=BaseModel)
+ResultT = TypeVar("ResultT", bound=BaseModel)
+ConfigT = TypeVar("ConfigT", bound=BaseToolConfig)
+ToolState = TypeVar("ToolState", bound=AcpToolState)
+
+
+class BaseAcpTool(
+    BaseTool[ArgsT, ResultT, ConfigT, ToolState],
+    Generic[ArgsT, ResultT, ConfigT, ToolState],
 ):
     state: ToolState
 
@@ -49,7 +58,9 @@ class BaseAcpTool[ArgsT: BaseModel, ResultT: BaseModel, ConfigT: BaseToolConfig,
     def get_tool_instance(
         cls, tool_name: str, tool_manager: ToolManager
     ) -> BaseAcpTool[Any, Any, Any, AcpToolState]:
-        return cast(BaseAcpTool[Any, Any, Any, AcpToolState], tool_manager.get(tool_name))
+        return cast(
+            BaseAcpTool[Any, Any, Any, AcpToolState], tool_manager.get(tool_name)
+        )
 
     @classmethod
     def update_tool_state(

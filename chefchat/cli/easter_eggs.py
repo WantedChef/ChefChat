@@ -13,9 +13,13 @@ Commands:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = timezone.utc
 import random
 from typing import TYPE_CHECKING
+
+# For Python < 3.11 compatibility
+
 
 if TYPE_CHECKING:
     from chefchat.cli.mode_manager import ModeManager
@@ -166,7 +170,7 @@ def get_kitchen_status(mode_manager: ModeManager | None) -> str:
 {kitchen_mode}
 """
     else:
-        mode_section = "\n*Mode system not initialized*\n"
+        mode_section = "\\n*Mode system not initialized*\\n"
 
     # Random chef quote
     quote = random.choice(CHEF_WISDOM)
@@ -243,7 +247,7 @@ def get_modes_display(mode_manager: ModeManager | None) -> str:
         "- Use **ARCHITECT** mode for design discussions",
     ])
 
-    return "\n".join(lines)
+    return "\\n".join(lines)
 
 
 def get_random_roast() -> str:
@@ -278,24 +282,24 @@ def get_random_wisdom() -> str:
 # =============================================================================
 
 DEVELOPER_FORTUNES: tuple[str, ...] = (
-    "🥠 **Your next pull request will be merged without comments.**\n"
+    "🥠 **Your next pull request will be merged without comments.**\\n"
     "   Lucky numbers: 42, 404, 200",
-    "🥠 **A bug you thought was fixed will return... in production.**\n"
+    "🥠 **A bug you thought was fixed will return... in production.**\\n"
     "   Lucky numbers: 500, 503, NaN",
-    "🥠 **You will solve that tricky bug at 3 AM in the shower.**\n"
+    "🥠 **You will solve that tricky bug at 3 AM in the shower.**\\n"
     "   Lucky numbers: 127, 255, 0",
-    "🥠 **The rubber duck on your desk holds the answer you seek.**\n"
+    "🥠 **The rubber duck on your desk holds the answer you seek.**\\n"
     "   Lucky numbers: π, e, ∞",
-    "🥠 **YOLO mode will be your downfall... or your triumph.**\n"
+    "🥠 **YOLO mode will be your downfall... or your triumph.**\\n"
     "   Lucky numbers: 🎲 YOLO, 🚀 SHIP IT",
-    "🥠 **Your code will compile on the first try. Be suspicious.**\n"
+    "🥠 **Your code will compile on the first try. Be suspicious.**\\n"
     "   Lucky numbers: 1, 0, -1",
-    "🥠 **A merge conflict is in your future. Resolve it with patience.**\n"
+    "🥠 **A merge conflict is in your future. Resolve it with patience.**\\n"
     "   Lucky numbers: <<<<<<<, =======, >>>>>>>",
-    "🥠 **Someone will star your repo today.**\n   Lucky numbers: ⭐, 🌟, ✨",
-    "🥠 **You will discover a new library that solves all your problems.**\n"
+    "🥠 **Someone will star your repo today.**\\n   Lucky numbers: ⭐, 🌟, ✨",
+    "🥠 **You will discover a new library that solves all your problems.**\\n"
     "   Lucky numbers: npm, pip, cargo",
-    "🥠 **The missing semicolon is on line 42.**\n   Lucky numbers: ;",
+    "🥠 **The missing semicolon is on line 42.**\\n   Lucky numbers: ;",
 )
 
 

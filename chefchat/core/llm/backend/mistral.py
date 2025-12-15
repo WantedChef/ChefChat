@@ -60,12 +60,19 @@ class MistralMapper:
                 )
 
     def prepare_tool(self, tool: AvailableTool) -> mistralai.Tool:
+        # Ensure parameters is a valid JSON schema dict
+        parameters = tool.function.parameters
+        if parameters is None:
+            parameters = {}
+        elif not isinstance(parameters, dict):
+            parameters = {"type": "object", "properties": {}}
+
         return mistralai.Tool(
             type="function",
             function=mistralai.Function(
                 name=tool.function.name,
                 description=tool.function.description,
-                parameters=tool.function.parameters,
+                parameters=parameters,
             ),
         )
 
@@ -180,15 +187,11 @@ class MistralBackend:
             # Validate tool calls before sending to API
             if tools:
                 for tool in tools:
-                    if not tool.function.name or not tool.function.parameters:
-                        raise ValueError(
-                            f"Invalid tool: {tool.function.name} - missing name or parameters"
-                        )
-
-            prepared_messages = [self._mapper.prepare_message(msg) for msg in messages]
-            prepared_tools = (
-                [self._mapper.prepare_tool(tool) for tool in tools] if tools else None
-            )
+                    if not tool.function.name:
+                        raise ValueError(f"Invalid tool: missing name")
+                    # Allow empty parameters dict but not None/missing
+                    if tool.function.parameters is None:
+                        tool.function.parameters = {}
 
             response = await self._get_client().chat.complete_async(
                 model=model.name,

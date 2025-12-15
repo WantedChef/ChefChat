@@ -7,11 +7,6 @@ from pathlib import Path
 import sys
 from typing import Any, cast
 
-try:
-    from typing import override
-except ImportError:
-    from typing import override
-
 from acp import (
     PROTOCOL_VERSION,
     Agent as AcpAgent,
@@ -62,6 +57,7 @@ from chefchat.acp.utils import TOOL_OPTIONS, ToolOption, VibeSessionMode
 from chefchat.core import __version__
 from chefchat.core.agent import Agent as VibeAgent
 from chefchat.core.autocompletion.path_prompt_adapter import render_path_prompt
+from chefchat.core.compatibility import override
 from chefchat.core.config import MissingAPIKeyError, VibeConfig, load_api_keys_from_env
 from chefchat.core.types import (
     AssistantEvent,

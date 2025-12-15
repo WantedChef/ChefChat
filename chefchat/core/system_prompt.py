@@ -213,107 +213,95 @@ class ProjectContextProvider:
                 return cached_status
 
         try:
-            timeout = min(self.config.timeout_seconds, 10.0)
-            num_commits = self.config.default_commit_count
-
-            current_branch = subprocess.run(
-                ["git", "branch", "--show-current"],
-                capture_output=True,
-                check=True,
-                cwd=self.root_path,
-                stdin=subprocess.DEVNULL if is_windows() else None,
-                text=True,
-                timeout=timeout,
-            ).stdout.strip()
-
-            main_branch = "main"
-            try:
-                branches_output = subprocess.run(
-                    ["git", "branch", "-r"],
-                    capture_output=True,
-                    check=True,
-                    cwd=self.root_path,
-                    stdin=subprocess.DEVNULL if is_windows() else None,
-                    text=True,
-                    timeout=timeout,
-                ).stdout
-                if "origin/master" in branches_output:
-                    main_branch = "master"
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                pass
-
-            status_output = subprocess.run(
-                ["git", "status", "--porcelain"],
-                capture_output=True,
-                check=True,
-                cwd=self.root_path,
-                stdin=subprocess.DEVNULL if is_windows() else None,
-                text=True,
-                timeout=timeout,
-            ).stdout.strip()
-
-            if status_output:
-                status_lines = status_output.splitlines()
-                MAX_GIT_STATUS_SIZE = 50
-                if len(status_lines) > MAX_GIT_STATUS_SIZE:
-                    status = (
-                        f"({len(status_lines)} changes - use 'git status' for details)"
-                    )
-                else:
-                    status = f"({len(status_lines)} changes)"
-            else:
-                status = "(clean)"
-
-            log_output = subprocess.run(
-                ["git", "log", "--oneline", f"-{num_commits}", "--decorate"],
-                capture_output=True,
-                check=True,
-                cwd=self.root_path,
-                stdin=subprocess.DEVNULL if is_windows() else None,
-                text=True,
-                timeout=timeout,
-            ).stdout.strip()
-
-            recent_commits = []
-            for line in log_output.split("\n"):
-                if not (line := line.strip()):
-                    continue
-
-                if " " in line:
-                    commit_hash, commit_msg = line.split(" ", 1)
-                    if (
-                        "(" in commit_msg
-                        and ")" in commit_msg
-                        and (paren_index := commit_msg.rfind("(")) > 0
-                    ):
-                        commit_msg = commit_msg[:paren_index].strip()
-                    recent_commits.append(f"{commit_hash} {commit_msg}")
-                else:
-                    recent_commits.append(line)
-
-            git_info_parts = [
-                f"Current branch: {current_branch}",
-                f"Main branch (you will usually use this for PRs): {main_branch}",
-                f"Status: {status}",
-            ]
-
-            if recent_commits:
-                git_info_parts.append("Recent commits:")
-                git_info_parts.extend(recent_commits)
-
-            result = "\n".join(git_info_parts)
-
-            # Update cache
+            result = self._build_git_status()
             ProjectContextProvider._git_cache = (result, time.time())
-
             return result
-
         except subprocess.TimeoutExpired:
             return "Git operations timed out (large repository)"
         except subprocess.CalledProcessError:
             return "Not a git repository or git not available"
         except Exception as e:
             return f"Error getting git status: {e}"
+
+    def _build_git_status(self) -> str:
+        """Build the git status string from git commands."""
+        timeout = min(self.config.timeout_seconds, 10.0)
+        num_commits = self.config.default_commit_count
+
+        current_branch = self._run_git_command(
+            ["git", "branch", "--show-current"], timeout
+        )
+        main_branch = self._get_main_branch(timeout)
+        status = self._get_status_summary(timeout)
+        recent_commits = self._get_recent_commits(num_commits, timeout)
+
+        git_info_parts = [
+            f"Current branch: {current_branch}",
+            f"Main branch (you will usually use this for PRs): {main_branch}",
+            f"Status: {status}",
+        ]
+
+        if recent_commits:
+            git_info_parts.append("Recent commits:")
+            git_info_parts.extend(recent_commits)
+
+        return "\n".join(git_info_parts)
+
+    def _run_git_command(self, cmd: list[str], timeout: float) -> str:
+        """Run a git command and return stripped stdout."""
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            check=True,
+            cwd=self.root_path,
+            stdin=subprocess.DEVNULL if is_windows() else None,
+            text=True,
+            timeout=timeout,
+        ).stdout.strip()
+
+    def _get_main_branch(self, timeout: float) -> str:
+        """Determine if main branch is 'main' or 'master'."""
+        try:
+            branches_output = self._run_git_command(["git", "branch", "-r"], timeout)
+            return "master" if "origin/master" in branches_output else "main"
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            return "main"
+
+    def _get_status_summary(self, timeout: float) -> str:
+        """Get a summary of git status (clean or number of changes)."""
+        status_output = self._run_git_command(["git", "status", "--porcelain"], timeout)
+        if not status_output:
+            return "(clean)"
+
+        status_lines = status_output.splitlines()
+        max_status_size = 50
+        if len(status_lines) > max_status_size:
+            return f"({len(status_lines)} changes - use 'git status' for details)"
+        return f"({len(status_lines)} changes)"
+
+    def _get_recent_commits(self, num_commits: int, timeout: float) -> list[str]:
+        """Get a list of recent commit summaries."""
+        log_output = self._run_git_command(
+            ["git", "log", "--oneline", f"-{num_commits}", "--decorate"], timeout
+        )
+        return self._parse_commit_log(log_output)
+
+    def _parse_commit_log(self, log_output: str) -> list[str]:
+        """Parse git log output into a list of commit summaries."""
+        recent_commits = []
+        for line in log_output.split("\n"):
+            if not (line := line.strip()):
+                continue
+            if " " in line:
+                commit_hash, commit_msg = line.split(" ", 1)
+                # Remove decoration parentheses
+                if "(" in commit_msg and ")" in commit_msg:
+                    if (paren_index := commit_msg.rfind("(")) > 0:
+                        commit_msg = commit_msg[:paren_index].strip()
+                recent_commits.append(f"{commit_hash} {commit_msg}")
+            else:
+                recent_commits.append(line)
+        return recent_commits
 
     def get_full_context(self) -> str:
         structure = self.get_directory_structure()
@@ -435,6 +423,85 @@ def validate_prompt_length(
             )
 
 
+def _add_mode_and_base_sections(
+    sections: list[str], config: VibeConfig, mode_manager: ModeManager | None
+) -> None:
+    """Add mode-specific and base system prompt sections.
+
+    Args:
+        sections: List to append sections to.
+        config: The VibeConfig instance.
+        mode_manager: Optional ModeManager for mode-specific prompt injection.
+    """
+    # Inject mode-specific instructions FIRST (if mode_manager provided)
+    if mode_manager is not None:
+        mode_injection = mode_manager.get_system_prompt_modifier()
+        if mode_injection:
+            sections.append(mode_injection)
+
+    # Add the base system prompt
+    sections.append(config.system_prompt)
+
+    if config.include_model_info:
+        sections.append(f"Your model name is: `{config.active_model}`")
+
+
+def _add_tool_and_user_sections(
+    sections: list[str], tool_manager: ToolManager, config: VibeConfig
+) -> None:
+    """Add tool prompts and user instructions sections.
+
+    Args:
+        sections: List to append sections to.
+        tool_manager: The tool manager instance.
+        config: The VibeConfig instance.
+    """
+    if not config.include_prompt_detail:
+        return
+
+    sections.append(_get_os_system_prompt())
+
+    tool_prompts = []
+    active_tools = get_active_tool_classes(tool_manager, config)
+    for tool_class in active_tools:
+        if prompt := tool_class.get_tool_prompt():
+            tool_prompts.append(prompt)
+    if tool_prompts:
+        sections.append("\n---\n".join(tool_prompts))
+
+    user_instructions = config.instructions.strip() or _load_user_instructions()
+    if user_instructions.strip():
+        sections.append(user_instructions)
+
+
+def _add_project_context_section(sections: list[str], config: VibeConfig) -> None:
+    """Add project context and documentation sections.
+
+    Args:
+        sections: List to append sections to.
+        config: The VibeConfig instance.
+    """
+    if not config.include_project_context:
+        return
+
+    is_dangerous, reason = is_dangerous_directory()
+    if is_dangerous:
+        template = UtilityPrompt.DANGEROUS_DIRECTORY.read()
+        context = template.format(reason=reason.lower(), abs_path=Path(".").resolve())
+    else:
+        context = ProjectContextProvider(
+            config=config.project_context, root_path=config.effective_workdir
+        ).get_full_context()
+
+    sections.append(context)
+
+    project_doc = _load_project_doc(
+        config.effective_workdir, config.project_context.max_doc_bytes
+    )
+    if project_doc.strip():
+        sections.append(project_doc)
+
+
 def get_universal_system_prompt(
     tool_manager: ToolManager,
     config: VibeConfig,
@@ -455,51 +522,9 @@ def get_universal_system_prompt(
     """
     sections = []
 
-    # Inject mode-specific instructions FIRST (if mode_manager provided)
-    if mode_manager is not None:
-        mode_injection = mode_manager.get_system_prompt_modifier()
-        if mode_injection:
-            sections.append(mode_injection)
-
-    # Add the base system prompt
-    sections.append(config.system_prompt)
-
-    if config.include_model_info:
-        sections.append(f"Your model name is: `{config.active_model}`")
-
-    if config.include_prompt_detail:
-        sections.append(_get_os_system_prompt())
-        tool_prompts = []
-        active_tools = get_active_tool_classes(tool_manager, config)
-        for tool_class in active_tools:
-            if prompt := tool_class.get_tool_prompt():
-                tool_prompts.append(prompt)
-        if tool_prompts:
-            sections.append("\n---\n".join(tool_prompts))
-
-        user_instructions = config.instructions.strip() or _load_user_instructions()
-        if user_instructions.strip():
-            sections.append(user_instructions)
-
-    if config.include_project_context:
-        is_dangerous, reason = is_dangerous_directory()
-        if is_dangerous:
-            template = UtilityPrompt.DANGEROUS_DIRECTORY.read()
-            context = template.format(
-                reason=reason.lower(), abs_path=Path(".").resolve()
-            )
-        else:
-            context = ProjectContextProvider(
-                config=config.project_context, root_path=config.effective_workdir
-            ).get_full_context()
-
-        sections.append(context)
-
-        project_doc = _load_project_doc(
-            config.effective_workdir, config.project_context.max_doc_bytes
-        )
-        if project_doc.strip():
-            sections.append(project_doc)
+    _add_mode_and_base_sections(sections, config, mode_manager)
+    _add_tool_and_user_sections(sections, tool_manager, config)
+    _add_project_context_section(sections, config)
 
     final_prompt = "\n\n".join(sections)
 

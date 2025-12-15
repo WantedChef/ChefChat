@@ -78,7 +78,6 @@ class MessageManager:
             return
 
         self._fill_missing_tool_responses()
-        self._ensure_assistant_after_tools()
 
     def _fill_missing_tool_responses(self) -> None:
         """Ensure every tool call has a corresponding tool response."""
@@ -135,13 +134,3 @@ class MessageManager:
             insertion_count = expected_responses - actual_responses
             i = j + insertion_count
 
-    def _ensure_assistant_after_tools(self) -> None:
-        """Ensure conversation ends with assistant message if last was tool."""
-        MIN_MESSAGE_SIZE = 2
-        if len(self.messages) < MIN_MESSAGE_SIZE:
-            return
-
-        last_msg = self.messages[-1]
-        if last_msg.role is Role.tool:
-            empty_assistant_msg = LLMMessage(role=Role.assistant, content="Understood.")
-            self.messages.append(empty_assistant_msg)

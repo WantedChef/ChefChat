@@ -145,59 +145,66 @@ class SousChef(BaseStation):
         """
         parts = command.split()
         if len(parts) < MIN_CHEF_COMMAND_PARTS:
-            await self._send_error("Usage: /chef <prep|cook|recipes>")
+            await self._send_error(
+                "Usage: /chef <prep|cook|recipes|taste|status|undo|critic|git>"
+            )
             return
 
         subcommand = parts[1].lower()
+        handler_name = f"_handle_chef_{subcommand}"
+        handler = getattr(self, handler_name, None)
 
-        if subcommand == "prep":
-            await self._do_mise_en_place()
-
-        elif subcommand == "cook":
-            if len(parts) < MIN_COOK_COMMAND_PARTS:
-                await self._send_error("Usage: /chef cook <recipe_name>")
-                return
-            recipe_name = parts[2]
-            await self._ensure_snapshot("chef cook")
-            await self._cook_recipe(recipe_name)
-
-        elif subcommand == "taste":
-            # Run taste test (QA) via Expeditor
-            target_path = parts[2] if len(parts) >= MIN_OPTIONAL_PATH_PARTS else "."
-            await self._ensure_snapshot("chef taste")
-            await self._run_taste_test(target_path)
-
-        elif subcommand == "recipes":
-            await self._list_recipes()
-
-        elif subcommand == "status":
-            await self._report_graph_status()
-
-        elif subcommand == "undo":
-            await self._undo_changes()
-
-        elif subcommand == "critic":
-            target_path = parts[2] if len(parts) >= MIN_OPTIONAL_PATH_PARTS else "."
-            await self._ensure_snapshot("chef critic")
-            await self._roast_code(target_path)
-
-        elif subcommand == "git":
-            if len(parts) < MIN_GIT_COMMAND_PARTS:
-                await self._send_error("Usage: /chef git <command>")
-                return
-            git_command = " ".join(parts[2:])
-            await self.send(
-                recipient="git_chef",
-                action="GIT_COMMAND",
-                payload={"command": git_command, "ticket_id": None},
-                priority=MessagePriority.HIGH,
-            )
-
+        if handler:
+            await handler(message, parts)
         else:
             await self._send_error(
                 f"Unknown chef command: {subcommand}\n"
                 "Available: prep, cook, taste, recipes, status, undo, critic, git"
             )
+
+    async def _handle_chef_prep(self, message: ChefMessage, parts: list[str]) -> None:
+        await self._do_mise_en_place()
+
+    async def _handle_chef_cook(self, message: ChefMessage, parts: list[str]) -> None:
+        if len(parts) < MIN_COOK_COMMAND_PARTS:
+            await self._send_error("Usage: /chef cook <recipe_name>")
+            return
+        recipe_name = parts[2]
+        await self._ensure_snapshot("chef cook")
+        await self._cook_recipe(recipe_name)
+
+    async def _handle_chef_taste(self, message: ChefMessage, parts: list[str]) -> None:
+        target_path = parts[2] if len(parts) >= MIN_OPTIONAL_PATH_PARTS else "."
+        await self._ensure_snapshot("chef taste")
+        await self._run_taste_test(target_path)
+
+    async def _handle_chef_recipes(
+        self, message: ChefMessage, parts: list[str]
+    ) -> None:
+        await self._list_recipes()
+
+    async def _handle_chef_status(self, message: ChefMessage, parts: list[str]) -> None:
+        await self._report_graph_status()
+
+    async def _handle_chef_undo(self, message: ChefMessage, parts: list[str]) -> None:
+        await self._undo_changes()
+
+    async def _handle_chef_critic(self, message: ChefMessage, parts: list[str]) -> None:
+        target_path = parts[2] if len(parts) >= MIN_OPTIONAL_PATH_PARTS else "."
+        await self._ensure_snapshot("chef critic")
+        await self._roast_code(target_path)
+
+    async def _handle_chef_git(self, message: ChefMessage, parts: list[str]) -> None:
+        if len(parts) < MIN_GIT_COMMAND_PARTS:
+            await self._send_error("Usage: /chef git <command>")
+            return
+        git_command = " ".join(parts[2:])
+        await self.send(
+            recipient="git_chef",
+            action="GIT_COMMAND",
+            payload={"command": git_command, "ticket_id": None},
+            priority=MessagePriority.HIGH,
+        )
 
     async def _run_taste_test(self, target_path: str = ".") -> None:
         """Run taste test (QA) via the Expeditor.

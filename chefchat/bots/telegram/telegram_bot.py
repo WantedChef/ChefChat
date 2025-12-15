@@ -76,6 +76,8 @@ class TelegramBotService:
 
         # Ensure telegram working directory exists
         TELEGRAM_WORKDIR.mkdir(parents=True, exist_ok=True)
+        self._lock_path = TELEGRAM_WORKDIR / "telegram_bot.lock"
+        self._lock_handle: int | None = None
 
     def _get_session(self, chat_id: int, user_id_str: str) -> BotSession | None:
         if chat_id not in self.sessions:
@@ -310,79 +312,101 @@ class TelegramBotService:
             return
 
         if not context.args:
-            await update.message.reply_text(
-                "Usage:\n"
-                "/chefchat status\n"
-                "/chefchat start\n"
-                "/chefchat stop\n"
-                "/chefchat restart\n"
-                "/chefchat projects\n"
-                "/chefchat switch <project>\n"
-                "/chefchat miniapp <start|stop|restart|status> [project]\n"
-                "/chefchat tunnel <start|stop|restart|status> [project]"
-            )
+            await self._show_chefchat_help(update)
             return
 
         action = context.args[0].strip().lower()
+        await self._dispatch_chefchat_action(update, context, action)
 
+    async def _show_chefchat_help(self, update: Update) -> None:
+        """Show help for /chefchat command."""
+        await update.message.reply_text(
+            "Usage:\n"
+            "/chefchat status\n"
+            "/chefchat start\n"
+            "/chefchat stop\n"
+            "/chefchat restart\n"
+            "/chefchat projects\n"
+            "/chefchat switch <project>\n"
+            "/chefchat miniapp <start|stop|restart|status> [project]\n"
+            "/chefchat tunnel <start|stop|restart|status> [project]"
+        )
+
+    async def _dispatch_chefchat_action(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, action: str
+    ) -> None:
+        """Dispatch to the appropriate action handler."""
         if action in {"miniapp", "tunnel"}:
-            if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
-                await update.message.reply_text(
-                    f"Usage: /chefchat {action} <start|stop|restart|status> [project]"
-                )
-                return
+            await self._handle_service_action(update, context, action)
+        elif action == "projects":
+            await self._handle_projects_action(update)
+        elif action == "switch":
+            await self._handle_switch_action(update, context)
+        elif action in {"start", "stop", "restart", "status"}:
+            await self._handle_systemd_action(update, action)
+        else:
+            await update.message.reply_text("Unknown action.")
 
-            sub_action = context.args[1].strip().lower()
-            if sub_action not in {"start", "stop", "restart", "status"}:
-                await update.message.reply_text("Unknown action.")
-                return
-
-            project = (
-                context.args[2].strip()
-                if len(context.args) >= MIN_COMMAND_ARGS_SWITCH
-                else "chefchat"
+    async def _handle_service_action(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, action: str
+    ) -> None:
+        """Handle miniapp/tunnel service actions."""
+        if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
+            await update.message.reply_text(
+                f"Usage: /chefchat {action} <start|stop|restart|status> [project]"
             )
-            if self._allowed_projects and project not in self._allowed_projects:
-                await update.message.reply_text("Unknown project.")
-                return
-
-            unit_base = "chefchat-miniapp" if action == "miniapp" else "chefchat-tunnel"
-            unit = f"{unit_base}@{project}.service"
-            ok, out = await self._systemctl_user([sub_action, unit])
-            await update.message.reply_text(out if ok else f"Failed: {out}")
             return
 
-        if action == "projects":
-            projects = (
-                ", ".join(self._allowed_projects)
-                if self._allowed_projects
-                else "(none configured)"
-            )
-            await update.message.reply_text(f"Projects: {projects}")
+        sub_action = context.args[1].strip().lower()
+        if sub_action not in {"start", "stop", "restart", "status"}:
+            await update.message.reply_text("Unknown action.")
             return
 
-        if action == "switch":
-            if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
-                await update.message.reply_text("Usage: /chefchat switch <project>")
-                return
-
-            project = context.args[1].strip()
-            if self._allowed_projects and project not in self._allowed_projects:
-                await update.message.reply_text("Unknown project.")
-                return
-
-            unit = f"{self._systemd_unit_base}@{project}.service"
-            ok, out = await self._systemctl_user(["restart", unit])
-            await update.message.reply_text(out if ok else f"Failed: {out}")
+        project = (
+            context.args[2].strip()
+            if len(context.args) >= MIN_COMMAND_ARGS_SWITCH
+            else "chefchat"
+        )
+        if self._allowed_projects and project not in self._allowed_projects:
+            await update.message.reply_text("Unknown project.")
             return
 
-        if action in {"start", "stop", "restart", "status"}:
-            unit = f"{self._systemd_unit_base}.service"
-            ok, out = await self._systemctl_user([action, unit])
-            await update.message.reply_text(out if ok else f"Failed: {out}")
+        unit_base = "chefchat-miniapp" if action == "miniapp" else "chefchat-tunnel"
+        unit = f"{unit_base}@{project}.service"
+        ok, out = await self._systemctl_user([sub_action, unit])
+        await update.message.reply_text(out if ok else f"Failed: {out}")
+
+    async def _handle_projects_action(self, update: Update) -> None:
+        """Handle projects listing action."""
+        projects = (
+            ", ".join(self._allowed_projects)
+            if self._allowed_projects
+            else "(none configured)"
+        )
+        await update.message.reply_text(f"Projects: {projects}")
+
+    async def _handle_switch_action(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle project switch action."""
+        if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
+            await update.message.reply_text("Usage: /chefchat switch <project>")
             return
 
-        await update.message.reply_text("Unknown action.")
+        project = context.args[1].strip()
+        if self._allowed_projects and project not in self._allowed_projects:
+            await update.message.reply_text("Unknown project.")
+            return
+
+        unit = f"{self._systemd_unit_base}@{project}.service"
+        ok, out = await self._systemctl_user(["restart", unit])
+        await update.message.reply_text(out if ok else f"Failed: {out}")
+
+    async def _handle_systemd_action(self, update: Update, action: str) -> None:
+        """Handle basic systemd actions (start/stop/restart/status)."""
+        unit = f"{self._systemd_unit_base}.service"
+        ok, out = await self._systemctl_user([action, unit])
+        await update.message.reply_text(out if ok else f"Failed: {out}")
 
     async def _systemctl_user(self, args: list[str]) -> tuple[bool, str]:
         """Run `systemctl --user ...` and return (ok, output)."""
@@ -563,6 +587,12 @@ class TelegramBotService:
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("telegram").setLevel(logging.WARNING)
 
+        try:
+            self._acquire_lock()
+        except RuntimeError as exc:
+            logger.error(exc)
+            return
+
         self.application = ApplicationBuilder().token(token).build()
 
         # Register command handlers
@@ -586,7 +616,7 @@ class TelegramBotService:
 
         await self.application.initialize()
         await self.application.start()
-        await self.application.updater.start_polling()
+        await self.application.updater.start_polling(drop_pending_updates=True)
 
         # Notify allowed users that bot has started
         await self._notify_startup()
@@ -597,6 +627,8 @@ class TelegramBotService:
             await self.application.updater.stop()
             await self.application.stop()
             await self.application.shutdown()
+        finally:
+            self._release_lock()
 
     async def _cleanup_loop(self) -> None:
         while True:
@@ -613,15 +645,6 @@ class TelegramBotService:
                 self.approval_map.pop(short_id, None)
 
             expired_chats = [
-                chat_id
-                for chat_id, last in self._last_activity.items()
-                if (now - last) > self._session_ttl_s
-            ]
-            for chat_id in expired_chats:
-                self._last_activity.pop(chat_id, None)
-                self._chat_locks.pop(chat_id, None)
-                self.sessions.pop(chat_id, None)
-
 
 async def run_telegram_bot(config: VibeConfig) -> None:
     service = TelegramBotService(config)

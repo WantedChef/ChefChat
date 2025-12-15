@@ -20,11 +20,8 @@ logging.basicConfig(
 logger = logging.getLogger("chefchat.bots.daemon")
 
 
-async def run_daemon() -> None:
-    """Run the ChefChat bots in daemon mode."""
-    logger.info("Starting ChefChat Bot Daemon...")
-
-    # Change to designated output directory if it exists
+def _setup_working_directory() -> None:
+    """Change to designated output directory if it exists."""
     output_dir = Path("/home/chef/chefchat_output_")
     if output_dir.exists() and output_dir.is_dir():
         try:
@@ -33,37 +30,73 @@ async def run_daemon() -> None:
         except OSError as e:
             logger.warning(f"Could not change to {output_dir}: {e}")
 
+
+def _load_config() -> VibeConfig:
+    """Load configuration or exit on failure."""
     try:
         load_api_keys_from_env()
-        config = VibeConfig.load()
+        return VibeConfig.load()
     except Exception as e:
         logger.error("Failed to load configuration: %s", e)
         sys.exit(1)
 
-    manager = BotManager(config)
 
-    # Detect enabled bots
-    # We check if tokens are present in env
-    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    discord_token = os.getenv("DISCORD_BOT_TOKEN")
+async def _start_enabled_bots(manager: BotManager) -> bool:
+    """Start all enabled bots based on available tokens.
+
+    Returns True if at least one bot was started.
+    """
+    bots_to_start = [
+        ("telegram", "TELEGRAM_BOT_TOKEN"),
+        ("discord", "DISCORD_BOT_TOKEN"),
+    ]
 
     started_any = False
+    for bot_name, token_env in bots_to_start:
+        if os.getenv(token_env):
+            started_any |= await _start_single_bot(manager, bot_name)
 
-    if telegram_token:
-        try:
-            logger.info("Starting Telegram Bot...")
-            await manager.start_bot("telegram")
-            started_any = True
-        except Exception as e:
-            logger.error("Failed to start Telegram bot: %s", e)
+    return started_any
 
-    if discord_token:
-        try:
-            logger.info("Starting Discord Bot...")
-            await manager.start_bot("discord")
-            started_any = True
-        except Exception as e:
-            logger.error("Failed to start Discord bot: %s", e)
+
+async def _start_single_bot(manager: BotManager, bot_name: str) -> bool:
+    """Start a single bot, return True on success."""
+    try:
+        logger.info(f"Starting {bot_name.title()} Bot...")
+        await manager.start_bot(bot_name)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to start {bot_name.title()} bot: %s", e)
+        return False
+
+
+async def _stop_running_bots(manager: BotManager) -> None:
+    """Stop all running bots."""
+    for bot_name in ["telegram", "discord"]:
+        if manager.is_running(bot_name):
+            await manager.stop_bot(bot_name)
+
+
+def _setup_signal_handlers(stop_event: asyncio.Event) -> None:
+    """Setup graceful shutdown signal handlers."""
+
+    def _handle_stop(sig: int, _frame: object) -> None:
+        logger.info("Received signal %s. Stopping...", sig)
+        stop_event.set()
+
+    signal.signal(signal.SIGINT, _handle_stop)
+    signal.signal(signal.SIGTERM, _handle_stop)
+
+
+async def run_daemon() -> None:
+    """Run the ChefChat bots in daemon mode."""
+    logger.info("Starting ChefChat Bot Daemon...")
+
+    _setup_working_directory()
+    config = _load_config()
+    manager = BotManager(config)
+
+    started_any = await _start_enabled_bots(manager)
 
     if not started_any:
         logger.warning(
@@ -73,27 +106,16 @@ async def run_daemon() -> None:
 
     logger.info("ChefChat Bot Daemon is running. Press Ctrl+C to stop.")
 
-    # Graceful shutdown handler
     stop_event = asyncio.Event()
+    _setup_signal_handlers(stop_event)
 
-    def _handle_stop(sig: int, frame: object) -> None:
-        logger.info("Received signal %s. Stopping...", sig)
-        stop_event.set()
-
-    signal.signal(signal.SIGINT, _handle_stop)
-    signal.signal(signal.SIGTERM, _handle_stop)
-
-    # Wait until stopped
     try:
         await stop_event.wait()
     except asyncio.CancelledError:
         pass
     finally:
         logger.info("Shutting down bots...")
-        if manager.is_running("telegram"):
-            await manager.stop_bot("telegram")
-        if manager.is_running("discord"):
-            await manager.stop_bot("discord")
+        await _stop_running_bots(manager)
         logger.info("Daemon stopped.")
 
 

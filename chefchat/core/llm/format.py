@@ -102,6 +102,47 @@ def get_active_tool_classes(
     return all_tools
 
 
+def _sanitize_text(s: str) -> str:
+    # Strip control characters/NULLs to avoid API issues
+    return re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", s)
+
+
+def sanitize_message(message: LLMMessage) -> LLMMessage:
+    """Sanitize message payload for transport to providers."""
+    if not message.content:
+        return message
+    return message.model_copy(update={"content": _sanitize_text(message.content)})
+
+
+def normalize_tool_choice(
+    tool_choice: StrToolChoice | AvailableTool | None,
+) -> StrToolChoice | AvailableTool | None:
+    if tool_choice is None:
+        return None
+    if isinstance(tool_choice, str):
+        match tool_choice:
+            case "auto" | "none" | "any" | "required":
+                return tool_choice
+            case _:
+                return "auto"
+    return tool_choice
+
+
+def guard_tool_schema_size(tools: list[AvailableTool] | None, *, max_chars: int = 60_000) -> None:
+    if not tools:
+        return
+    total = 0
+    for t in tools:
+        try:
+            total += len(json.dumps(t.model_dump(exclude_none=True)))
+        except Exception:
+            total += len(str(t))
+        if total > max_chars:
+            raise RuntimeError(
+                "Tool schema too large for provider request. Disable some tools or reduce schema size."
+            )
+
+
 class ParsedToolCall(BaseModel):
     model_config = ConfigDict(frozen=True)
     tool_name: str
@@ -180,7 +221,7 @@ class APIToolFormatHandler:
                 for tc in message.tool_calls
             ]
 
-        return LLMMessage.model_validate(clean_message)
+        return sanitize_message(LLMMessage.model_validate(clean_message))
 
     def parse_message(self, message: LLMMessage) -> ParsedMessage:
         tool_calls = []
@@ -256,7 +297,7 @@ class APIToolFormatHandler:
             role=Role.tool,
             tool_call_id=tool_call.call_id,
             name=tool_call.tool_name,
-            content=result_text,
+            content=_sanitize_text(result_text),
         )
 
     def create_failed_tool_response_message(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
+from urllib.parse import urlparse
 
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -122,6 +123,37 @@ async def call_tool_http(
             result = await session.call_tool(tool_name, arguments)
             return _parse_call_result(url, tool_name, result)
 
+            return _parse_call_result(url, tool_name, result)
+
+
+def _alias_from_url(url: str) -> str:
+    p = urlparse(url)
+    host = (p.hostname or "mcp").replace(".", "_")
+    port = f"_{p.port}" if p.port else ""
+    return f"{host}{port}"
+
+
+def _alias_from_command(cmd: list[str]) -> str:
+    prog = Path(cmd[0]).name.replace(".", "_") if cmd else "mcp"
+    digest = hashlib.blake2s("\0".join(cmd).encode("utf-8"), digest_size=4).hexdigest()
+    return f"{prog}_{digest}"
+
+
+def _format_mcp_result_display(event: ToolResultEvent) -> ToolResultDisplay:
+    if not isinstance(event.result, MCPToolResult):
+        return ToolResultDisplay(
+            success=False, message=event.error or event.skip_reason or "No result"
+        )
+
+    message = f"MCP tool {event.result.tool} completed"
+    details = {}
+    if event.result.text:
+        details["text"] = event.result.text
+    if event.result.structured:
+        details["structured"] = event.result.structured
+
+    return ToolResultDisplay(success=event.result.ok, message=message, details=details)
+
 
 def create_mcp_http_proxy_tool_class(
     *,
@@ -131,14 +163,6 @@ def create_mcp_http_proxy_tool_class(
     server_hint: str | None = None,
     headers: dict[str, str] | None = None,
 ) -> type[BaseTool[_OpenArgs, MCPToolResult, BaseToolConfig, BaseToolState]]:
-    from urllib.parse import urlparse
-
-    def _alias_from_url(url: str) -> str:
-        p = urlparse(url)
-        host = (p.hostname or "mcp").replace(".", "_")
-        port = f"_{p.port}" if p.port else ""
-        return f"{host}{port}"
-
     published_name = f"{(alias or _alias_from_url(url))}_{remote.name}"
 
     class MCPHttpProxyTool(
@@ -182,22 +206,7 @@ def create_mcp_http_proxy_tool_class(
 
         @classmethod
         def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
-            if not isinstance(event.result, MCPToolResult):
-                return ToolResultDisplay(
-                    success=False,
-                    message=event.error or event.skip_reason or "No result",
-                )
-
-            message = f"MCP tool {event.result.tool} completed"
-            details = {}
-            if event.result.text:
-                details["text"] = event.result.text
-            if event.result.structured:
-                details["structured"] = event.result.structured
-
-            return ToolResultDisplay(
-                success=event.result.ok, message=message, details=details
-            )
+            return _format_mcp_result_display(event)
 
         @classmethod
         def get_status_text(cls) -> str:
@@ -234,13 +243,6 @@ def create_mcp_stdio_proxy_tool_class(
     alias: str | None = None,
     server_hint: str | None = None,
 ) -> type[BaseTool[_OpenArgs, MCPToolResult, BaseToolConfig, BaseToolState]]:
-    def _alias_from_command(cmd: list[str]) -> str:
-        prog = Path(cmd[0]).name.replace(".", "_") if cmd else "mcp"
-        digest = hashlib.blake2s(
-            "\0".join(cmd).encode("utf-8"), digest_size=4
-        ).hexdigest()
-        return f"{prog}_{digest}"
-
     computed_alias = alias or _alias_from_command(command)
     published_name = f"{computed_alias}_{remote.name}"
 
@@ -288,22 +290,7 @@ def create_mcp_stdio_proxy_tool_class(
 
         @classmethod
         def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
-            if not isinstance(event.result, MCPToolResult):
-                return ToolResultDisplay(
-                    success=False,
-                    message=event.error or event.skip_reason or "No result",
-                )
-
-            message = f"MCP tool {event.result.tool} completed"
-            details = {}
-            if event.result.text:
-                details["text"] = event.result.text
-            if event.result.structured:
-                details["structured"] = event.result.structured
-
-            return ToolResultDisplay(
-                success=event.result.ok, message=message, details=details
-            )
+            return _format_mcp_result_display(event)
 
         @classmethod
         def get_status_text(cls) -> str:

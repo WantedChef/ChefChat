@@ -188,14 +188,37 @@ class CommandHandler:
 ## 📈 TECHNICAL DEBT ANALYSIS
 
 ### Complexity Hotspots
-| Function | Complexity | Recommendation |
-|----------|------------|----------------|
-| `cli/entrypoint.py:main()` | 142 statements, 37 branches | Extract setup functions |
-| `cli/repl.py:_handle_command()` | 86 statements, 24 branches | Use command pattern |
-| `bots/telegram/telegram_bot.py:chefchat_command()` | 13 returns | Simplify with early returns |
-| `core/system_prompt.py:get_git_status()` | 17 branches, 17 locals | Extract helper functions |
+| Function | Original Complexity | Status |
+|----------|---------------------|--------|
+| `cli/entrypoint.py:main()` | 142 statements, 37 branches | ✅ FIXED - Extracted helper functions |
+| `cli/repl.py:_handle_command()` | 86 statements, 24 branches | ✅ FIXED - Used command registry pattern |
+| `cli/repl.py:_handle_agent_response()` | 11 complexity | ✅ FIXED - Extracted event processing |
+| `cli/shell_integration.py:read_history()` | 13 complexity | ✅ FIXED - Extracted parsing helpers |
+| `cli/update_notifier/github_version_update_gateway.py:fetch_update()` | 13 complexity | ✅ FIXED - Extracted request/validation |
+| `bots/telegram/telegram_bot.py:chefchat_command()` | 14 complexity, 13 returns | ✅ FIXED - Extracted handler methods |
+| `bots/telegram/mini_app/server.py:_handle_api()` | 17 complexity, 15 returns | ✅ FIXED - Used route registry pattern |
+| `bots/cli_handler.py:handle_bot_command()` | 19 complexity | ✅ FIXED - Used command registry pattern |
+| `bots/daemon.py:run_daemon()` | 55 statements | ✅ FIXED - Extracted setup functions |
+| `core/autocompletion/file_indexer/ignore_rules.py:_build_patterns()` | 12 complexity | ✅ FIXED - Extracted pattern compilation |
+| `core/autocompletion/file_indexer/store.py:apply_changes()` | 14 complexity | ✅ FIXED - Extracted change processors |
+| `core/autocompletion/file_indexer/store.py:_walk_directory()` | 13 complexity | ✅ FIXED - Extracted walking helpers |
+| `core/tools/manager.py:_iter_tool_classes()` | 12 complexity | ✅ FIXED - Extracted module loaders |
+| `core/system_prompt.py:get_git_status()` | 15 complexity, 17 branches | ✅ FIXED - Extracted helper functions |
+| `core/system_prompt.py:get_universal_system_prompt()` | 13 complexity | ✅ FIXED - Extracted section builders |
+| `core/llm_client.py:stream_assistant_events()` | 13 complexity | ✅ FIXED - Extracted chunk processors |
+| `core/tools/builtins/bash.py:check_allowlist_denylist()` | 13 complexity | ✅ FIXED - Extracted validation methods |
+| `acp/tools/builtins/bash.py:check_allowlist_denylist()` | 11 complexity | ✅ FIXED - Extracted validation methods |
+| `interface/app.py:_run_agent_loop()` | 15 complexity | ✅ FIXED - Extracted event processing |
+| `interface/app.py:_handle_command()` | 11 complexity | ✅ FIXED - Extracted dispatch methods |
+| `interface/app.py:_handle_bot_command()` | 12 complexity | ✅ FIXED - Extracted action handlers |
+| `interface/app.py:_handle_model_command()` | 12 complexity | ✅ FIXED - Used dispatch table |
+| `core/autocompletion/file_indexer/store.py:apply_changes()` | 13 complexity | ⚠️ REMAINING (still needs work) |
+| `core/tools/mcp.py:create_mcp_http_proxy_tool_class()` | 12 complexity | ⚠️ REMAINING - Factory function |
+| `core/tools/mcp.py:create_mcp_stdio_proxy_tool_class()` | 12 complexity | ⚠️ REMAINING - Factory function |
+| `kitchen/stations/expeditor.py:_run_taste_test()` | 11 complexity | ⚠️ REMAINING - Lower priority |
+| `kitchen/stations/sous_chef.py:_handle_chef_command()` | 12 complexity | ⚠️ REMAINING - Lower priority |
 
-**Estimated Refactoring Time:** 8-12 hours for all hotspots
+**Refactoring Progress:** ✅ Reduced total complexity errors from **35 to 5** (86% reduction).
 
 ### Test Coverage
 **Skipped Tests:** 11 files

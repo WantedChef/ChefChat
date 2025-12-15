@@ -3,14 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-try:
-    from typing import override
-except ImportError:
-    from typing import override
-
 import pytest
 from textual.app import App
 
+from chefchat.core.compatibility import override
 from chefchat.setup import onboarding
 
 

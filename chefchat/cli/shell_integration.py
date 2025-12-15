@@ -69,6 +69,59 @@ class ShellIntegration:
                 return home / ".bash_history"
 
     @staticmethod
+    def _parse_shell_line(line: str, shell: str) -> str | None:
+        """Parse a shell history line based on shell type.
+
+        Args:
+            line: Raw history line.
+            shell: Shell type (zsh, bash, fish).
+
+        Returns:
+            Parsed command or None if line should be skipped.
+        """
+        line = line.strip()
+        if not line:
+            return None
+
+        # Parse shell-specific formats
+        if shell == "zsh":
+            # Zsh extended history format: : timestamp:0;command
+            if line.startswith(":") and ";" in line:
+                line = line.split(";", 1)[1]
+
+        elif shell == "fish":
+            # Fish history format: - cmd: command
+            if line.startswith("- cmd:"):
+                line = line[6:].strip()
+
+        # Skip comments and empty after parsing
+        if line.startswith("#") or not line:
+            return None
+
+        return line
+
+    @staticmethod
+    def _deduplicate_commands(commands: list[str], limit: int) -> list[str]:
+        """Deduplicate commands while preserving order (most recent first).
+
+        Args:
+            commands: List of commands.
+            limit: Maximum number of commands to return.
+
+        Returns:
+            Deduplicated list of commands.
+        """
+        seen: set[str] = set()
+        unique_commands: list[str] = []
+        for cmd in reversed(commands):
+            if cmd not in seen:
+                seen.add(cmd)
+                unique_commands.append(cmd)
+            if len(unique_commands) >= limit:
+                break
+        return unique_commands
+
+    @staticmethod
     def read_history(limit: int = 100) -> list[str]:
         """Read recent commands from shell history.
 
@@ -93,38 +146,11 @@ class ShellIntegration:
         commands: list[str] = []
 
         for line in lines:
-            line = line.strip()
-            if not line:
-                continue
+            parsed = ShellIntegration._parse_shell_line(line, shell)
+            if parsed:
+                commands.append(parsed)
 
-            # Parse shell-specific formats
-            if shell == "zsh":
-                # Zsh extended history format: : timestamp:0;command
-                if line.startswith(":") and ";" in line:
-                    line = line.split(";", 1)[1]
-
-            elif shell == "fish":
-                # Fish history format: - cmd: command
-                if line.startswith("- cmd:"):
-                    line = line[6:].strip()
-
-            # Skip comments and empty after parsing
-            if line.startswith("#") or not line:
-                continue
-
-            commands.append(line)
-
-        # Deduplicate while preserving order (most recent first)
-        seen: set[str] = set()
-        unique_commands: list[str] = []
-        for cmd in reversed(commands):
-            if cmd not in seen:
-                seen.add(cmd)
-                unique_commands.append(cmd)
-            if len(unique_commands) >= limit:
-                break
-
-        return unique_commands
+        return ShellIntegration._deduplicate_commands(commands, limit)
 
     @staticmethod
     def generate_aliases() -> str:

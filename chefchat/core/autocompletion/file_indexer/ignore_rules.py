@@ -80,63 +80,79 @@ class IgnoreRules:
         self._patterns = None
         self._root = None
 
-    def _build_patterns(self, root: Path) -> list[CompiledPattern]:
+    def _compile_pattern(self, raw: str, is_exclude: bool) -> CompiledPattern:
+        """Compile a raw pattern string into a CompiledPattern.
+
+        Args:
+            raw: Raw pattern string.
+            is_exclude: Whether this is an exclude pattern.
+
+        Returns:
+            Compiled pattern object.
+        """
+        anchor_root = raw.startswith("/")
+        if anchor_root:
+            raw = raw[1:]
+
+        stripped = raw.rstrip("/")
+        return CompiledPattern(
+            raw=raw,
+            stripped=stripped,
+            is_exclude=is_exclude,
+            dir_only=raw.endswith("/"),
+            name_only="/" not in stripped,
+            anchor_root=anchor_root,
+        )
+
+    def _parse_gitignore(self, gitignore_path: Path) -> list[CompiledPattern]:
+        """Parse .gitignore file and return compiled patterns.
+
+        Args:
+            gitignore_path: Path to .gitignore file.
+
+        Returns:
+            List of compiled patterns from .gitignore.
+        """
         patterns: list[CompiledPattern] = []
-        for raw, is_exclude in self._defaults:
-            anchor_root = raw.startswith("/")
-            if anchor_root:
-                raw = raw[1:]
 
-            stripped = raw.rstrip("/")
-            patterns.append(
-                CompiledPattern(
-                    raw=raw,
-                    stripped=stripped,
-                    is_exclude=is_exclude,
-                    dir_only=raw.endswith("/"),
-                    name_only="/" not in stripped,
-                    anchor_root=anchor_root,
-                )
-            )
+        if not gitignore_path.exists():
+            return patterns
 
-        gitignore_path = root / ".gitignore"
-        if gitignore_path.exists():
-            try:
-                text = gitignore_path.read_text(encoding="utf-8")
-            except Exception:
-                return patterns
+        try:
+            text = gitignore_path.read_text(encoding="utf-8")
+        except Exception:
+            return patterns
 
-            for line in text.splitlines():
-                raw = line.strip()
-                if not raw or raw.startswith("#"):
+        for line in text.splitlines():
+            raw = line.strip()
+            if not raw or raw.startswith("#"):
+                continue
+
+            if "#" in raw:
+                raw = raw.split("#", 1)[0].rstrip()
+                if not raw:
                     continue
 
-                if "#" in raw:
-                    raw = raw.split("#", 1)[0].rstrip()
-                    if not raw:
-                        continue
+            is_exclude = not raw.startswith("!")
+            if not is_exclude:
+                raw = raw[1:].lstrip()
+                if not raw:
+                    continue
 
-                is_exclude = not raw.startswith("!")
-                if not is_exclude:
-                    raw = raw[1:].lstrip()
-                    if not raw:
-                        continue
+            patterns.append(self._compile_pattern(raw, is_exclude))
 
-                anchor_root = raw.startswith("/")
-                if anchor_root:
-                    raw = raw[1:]
+        return patterns
 
-                stripped = raw.rstrip("/")
-                patterns.append(
-                    CompiledPattern(
-                        raw=raw,
-                        stripped=stripped,
-                        is_exclude=is_exclude,
-                        dir_only=raw.endswith("/"),
-                        name_only="/" not in stripped,
-                        anchor_root=anchor_root,
-                    )
-                )
+    def _build_patterns(self, root: Path) -> list[CompiledPattern]:
+        patterns: list[CompiledPattern] = []
+
+        # Add default patterns
+        for raw, is_exclude in self._defaults:
+            patterns.append(self._compile_pattern(raw, is_exclude))
+
+        # Add .gitignore patterns
+        gitignore_path = root / ".gitignore"
+        patterns.extend(self._parse_gitignore(gitignore_path))
 
         return patterns
 

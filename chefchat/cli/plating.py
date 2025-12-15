@@ -14,7 +14,7 @@ Each presentation is mode-aware and themed with professional kitchen energy!
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +23,9 @@ from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+
+# For Python < 3.11 compatibility
+UTC = timezone.utc
 
 if TYPE_CHECKING:
     from chefchat.cli.mode_manager import ModeManager
@@ -76,7 +79,7 @@ PRESENTATION_STYLES: dict[str, dict[str, str]] = {
         "emoji": "⚡",
     },
     "yolo": {
-        "title": "🚀 CHEF'S SPECIAL",
+        "title": "�� CHEF'S SPECIAL",
         "style": "Bold presentation, no holds barred",
         "chef_note": "Send it! *chef's kiss*",
         "emoji": "🚀",
@@ -163,7 +166,7 @@ def generate_plating(
 
     metrics_table.add_row("📊 Preparations (steps)", steps)
     metrics_table.add_row("🔤 Ingredients (tokens)", tokens)
-    metrics_table.add_row("💰 Kitchen cost", cost)
+    metrics_table.add_row("�� Kitchen cost", cost)
     metrics_table.add_row("🔧 Tools employed", tool_calls)
 
     # Combine all elements
@@ -330,7 +333,7 @@ TASTE_ASPECTS = {
         "Clear as a consommé 🍜",
         "Easy to follow like a well-written recipe 📖",
         "Could use some clarifying comments 💭",
-        "A bit like reading hieroglyphics 🤔",
+        "A bit like reading hieroglyphics ��",
         "My eyes are watering like cutting onions 🧅",
     ],
     "structure": [

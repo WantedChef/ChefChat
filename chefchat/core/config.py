@@ -546,12 +546,11 @@ class VibeConfig(BaseSettings):
         return custom_sp_path.read_text()
 
     def get_active_model(self) -> ModelConfig:
+        target = (self.active_model or "").lower()
         for model in self.models:
-            if self.active_model in {model.alias, model.name}:
+            if target in {model.alias.lower(), model.name.lower()}:
                 return model
-        raise ValueError(
-            f"Active model '{self.active_model}' not found in configuration."
-        )
+        raise ValueError(f"Active model '{self.active_model}' not found in config")
 
     def get_provider_for_model(self, model: ModelConfig) -> ProviderConfig:
         for provider in self.providers:

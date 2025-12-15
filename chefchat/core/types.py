@@ -12,6 +12,7 @@ from pydantic import (
     ConfigDict,
     Field,
     computed_field,
+    field_validator,
     model_validator,
 )
 
@@ -130,7 +131,16 @@ StrToolChoice = Literal["auto", "none", "any", "required"]
 class AvailableFunction(BaseModel):
     name: str
     description: str
-    parameters: dict[str, Any]
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def _ensure_parameters_dict(cls, v: Any) -> dict[str, Any]:
+        if v is None:
+            return {}
+        if not isinstance(v, dict):
+            return {"type": "object", "properties": {}}
+        return v
 
 
 class AvailableTool(BaseModel):

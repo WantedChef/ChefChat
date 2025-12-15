@@ -258,10 +258,17 @@ class Agent:
                 self.stats.steps += 1
                 user_cancelled = False
                 self.message_manager.clean_history()
-                async for event in self._perform_llm_turn():
-                    if is_user_cancellation_event(event):
-                        user_cancelled = True
-                    yield event
+                try:
+                    async for event in self._perform_llm_turn():
+                        if is_user_cancellation_event(event):
+                            user_cancelled = True
+                        yield event
+                except Exception:
+                    # Conversations must end in user/tool message for backend compliance.
+                    if self.messages and self.messages[-1].role == Role.assistant:
+                        self.messages.pop()
+                    self._last_chunk = None
+                    raise
 
                 last_message = self.messages[-1]
                 should_break_loop = (

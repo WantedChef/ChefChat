@@ -9,9 +9,12 @@ import logging
 from pathlib import Path
 import re
 import sys
-from typing import Any
+from typing import Any, ParamSpec, TypeVar
 
 import httpx
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 from chefchat.core import __version__
 from chefchat.core.compatibility import StrEnum
@@ -171,7 +174,7 @@ def _is_retryable_http_error(e: Exception) -> bool:
     return False
 
 
-def async_retry[**P, T](
+def async_retry(
     tries: int = 3,
     delay_seconds: float = 0.5,
     backoff_factor: float = 2.0,
@@ -213,7 +216,7 @@ def async_retry[**P, T](
     return decorator
 
 
-def async_generator_retry[**P, T](
+def async_generator_retry(
     tries: int = 3,
     delay_seconds: float = 0.5,
     backoff_factor: float = 2.0,
@@ -265,7 +268,7 @@ class ConversationLimitException(Exception):
     pass
 
 
-def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
+def run_sync(coro: Coroutine[Any, Any, T]) -> T:
     """Run an async coroutine synchronously, handling nested event loops.
 
     If called from within an async context (running event loop), runs the

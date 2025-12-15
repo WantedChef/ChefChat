@@ -6,11 +6,17 @@ try:
     from enum import StrEnum
 except ImportError:
 
-    class StrEnum(enum.StrEnum):
+    class StrEnum(str, enum.Enum):
         """Enum where members are also (and must be) strings"""
 
         def __str__(self) -> str:
             return str(self.value)
 
 
-__all__ = ["StrEnum"]
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
+
+__all__ = ["StrEnum", "override"]

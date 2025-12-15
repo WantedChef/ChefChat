@@ -231,11 +231,138 @@ def _handle_session_resume(
     return loaded_messages, session_info
 
 
-def main() -> None:
-    """Main entry point for ChefChat.
+def _run_programmatic_mode(
+    args: argparse.Namespace, config: VibeConfig, loaded_messages: list | None
+) -> None:
+    """Handle programmatic mode execution."""
+    stdin_prompt = get_prompt_from_stdin()
+    programmatic_prompt = " ".join(args.prompt) if args.prompt else stdin_prompt
 
-    TUI is the default mode. Use --repl for classic REPL.
+    if not programmatic_prompt:
+        print("Error: No prompt provided for programmatic mode", file=sys.stderr)
+        sys.exit(1)
+
+    output_format = OutputFormat(args.format)
+
+    try:
+        final_response = run_programmatic(
+            config=config,
+            prompt=programmatic_prompt,
+            max_turns=args.max_turns,
+            max_price=args.max_price,
+            output_format=output_format,
+            previous_messages=loaded_messages,
+        )
+        if final_response:
+            print(final_response)
+        sys.exit(0)
+    except ConversationLimitException as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _run_bot_mode(args: argparse.Namespace, config: VibeConfig) -> None:
+    """Handle bot mode execution."""
+    from chefchat.bots.manager import BotManager
+
+    async def run_bots() -> None:
+        manager = BotManager(config)
+        if args.bot in {"telegram", "all"}:
+            try:
+                await manager.start_bot("telegram")
+                rprint("[green]🚀 Telegram bot started[/]")
+            except Exception as e:
+                ChefErrorHandler.display_error(e, context="Telegram Bot")
+
+        if args.bot in {"discord", "all"}:
+            try:
+                await manager.start_bot("discord")
+                rprint("[green]🚀 Discord bot started[/]")
+            except Exception as e:
+                ChefErrorHandler.display_error(e, context="Discord Bot")
+
+        if not manager.running_tasks:
+            rprint("[red]No bots running. Exiting.[/]")
+            return
+
+        rprint("[dim]Press Ctrl+C to stop.[/]")
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            pass
+        finally:
+            for bot in list(manager.running_tasks.keys()):
+                await manager.stop_bot(bot)
+
+    try:
+        asyncio.run(run_bots())
+    except KeyboardInterrupt:
+        rprint("\n[dim]👋 Bye![/]")
+
+
+def _run_repl_mode(args: argparse.Namespace, config: VibeConfig) -> None:
+    """Handle REPL mode execution."""
+    rprint("[bold blue]🔪 Starting REPL...[/]")
+    initial_mode = mode_from_auto_approve(args.auto_approve)
+    run_repl(config, initial_mode=initial_mode)
+
+
+def _ensure_tty_stdin() -> bool:
+    """Ensure stdin is a TTY, attempt to reopen from /dev/tty if needed.
+
+    Returns:
+        True if stdin is now a TTY, False otherwise.
     """
+    if not sys.stdin.isatty():
+        try:
+            tty = open("/dev/tty")
+            if tty.isatty():
+                sys.stdin = tty
+        except OSError:
+            pass
+    return sys.stdin.isatty()
+
+
+def _run_tui_mode(args: argparse.Namespace) -> None:
+    """Handle TUI mode execution."""
+    rprint("[bold blue]👨‍🍳 Starting TUI...[/]")
+
+    # Set environment to force Textual to work in diverse environments
+    os.environ.setdefault("FORCE_COLOR", "1")
+    os.environ.setdefault("TERM", "xterm-256color")
+
+    if not _ensure_tty_stdin():
+        rprint(
+            "[red]❌ TUI requires an interactive terminal (TTY). "
+            "Run ChefChat in a real terminal or use `--repl`.[/]"
+        )
+        sys.exit(1)
+
+    # Late import to avoid heavy dependencies if only doing --help or programmatic
+    from chefchat.interface.tui import run as run_tui
+
+    run_tui(verbose=args.verbose, layout=args.layout, active=args.active)
+
+
+def _fallback_to_repl(
+    args: argparse.Namespace, explicit_tui: bool, error_context: str
+) -> None:
+    """Fallback to REPL mode after TUI failure."""
+    if explicit_tui:
+        # If user explicitly asked for TUI, crash instead of fallback
+        sys.exit(1)
+
+    rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
+    config = load_config_or_exit(agent=args.agent)
+    initial_mode = mode_from_auto_approve(args.auto_approve)
+    run_repl(config, initial_mode=initial_mode)
+
+
+def _setup_environment() -> None:
+    """Setup environment for ChefChat."""
     # Force UTF-8 encoding for stdout on Windows to support emojis
     if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -249,9 +376,56 @@ def main() -> None:
         except OSError as e:
             rprint(f"[yellow]⚠️ Could not change to {output_dir}: {e}[/]")
 
+
+def _get_or_load_config(
+    config: VibeConfig | None, args: argparse.Namespace
+) -> VibeConfig:
+    """Get existing config or load one if missing."""
+    if config:
+        return config
+    return load_config_or_exit(agent=args.agent)
+
+
+def _run_interactive_mode(
+    args: argparse.Namespace,
+    config: VibeConfig | None,
+    loaded_messages: list | None,
+    explicit_tui: bool,
+) -> None:
+    """Dispatch to the appropriate interactive mode."""
+    # Bot mode
+    if args.bot:
+        _run_bot_mode(args, _get_or_load_config(config, args))
+        return
+
+    # REPL mode
+    if args.repl:
+        _run_repl_mode(args, _get_or_load_config(config, args))
+        return
+
+    # Default: TUI mode
+    try:
+        _run_tui_mode(args)
+    except ImportError as e:
+        ChefErrorHandler.display_error(e, context="TUI Dependencies")
+        if args.verbose:
+            traceback.print_exc()
+        _fallback_to_repl(args, explicit_tui, "TUI Dependencies")
+    except Exception as e:
+        ChefErrorHandler.display_error(e, context="TUI Launch")
+        if args.verbose:
+            traceback.print_exc()
+        _fallback_to_repl(args, explicit_tui, "TUI Launch")
+
+
+def main() -> None:
+    """Main entry point for ChefChat.
+
+    TUI is the default mode. Use --repl for classic REPL.
+    """
+    _setup_environment()
     load_api_keys_from_env()
     args = parse_arguments()
-
     explicit_tui = args.tui
 
     # Handle setup wizard
@@ -261,181 +435,23 @@ def main() -> None:
         run_onboarding()
         sys.exit(0)
 
-    # Ensure config and history files exist
     _ensure_config_files()
-
-    # Skip CLI config loading/onboarding for TUI to allow in-app onboarding
-    # unless we are in REPL or programmatic mode
-    config = None
-    if (
-        not explicit_tui
-        and not args.repl
-        and not args.prompt
-        and not get_prompt_from_stdin()
-    ):
-        # Default run (likely TUI), let TUI handle config
-        pass
-    else:
-        try:
-            config = load_config_or_exit(agent=args.agent)
-            if args.enabled_tools:
-                config.enabled_tools = args.enabled_tools
-        except Exception:
-            # If config load fails and we are forcing TUI, let TUI handle it
-            if explicit_tui:
-                pass
-            else:
-                raise
+    config = _load_config_if_needed(args, explicit_tui)
 
     try:
-        # Handle session resume (only if config loaded)
+        # Handle session resume
         loaded_messages = None
         if config:
             loaded_messages, _ = _handle_session_resume(args, config)
 
-        # Check for programmatic mode (prompt provided via args or stdin)
-        stdin_prompt = get_prompt_from_stdin()
-        if args.prompt or stdin_prompt:
-            if not config:
-                config = load_config_or_exit(agent=args.agent)
+        # Programmatic mode
+        if args.prompt or get_prompt_from_stdin():
+            _run_programmatic_mode(
+                args, _get_or_load_config(config, args), loaded_messages
+            )
 
-            programmatic_prompt = " ".join(args.prompt) if args.prompt else stdin_prompt
-            if not programmatic_prompt:
-                print(
-                    "Error: No prompt provided for programmatic mode", file=sys.stderr
-                )
-                sys.exit(1)
-
-            output_format = OutputFormat(args.format)
-
-            try:
-                final_response = run_programmatic(
-                    config=config,
-                    prompt=programmatic_prompt,
-                    max_turns=args.max_turns,
-                    max_price=args.max_price,
-                    output_format=output_format,
-                    previous_messages=loaded_messages,
-                )
-                if final_response:
-                    print(final_response)
-                sys.exit(0)
-            except ConversationLimitException as e:
-                print(str(e), file=sys.stderr)
-                sys.exit(1)
-            except RuntimeError as e:
-                print(f"Error: {e}", file=sys.stderr)
-                sys.exit(1)
-
-        # === Interactive Mode ===
-
-        # 0. Bot Mode requested
-        if args.bot:
-            if not config:
-                config = load_config_or_exit(agent=args.agent)
-
-            from chefchat.bots.manager import BotManager
-
-            async def run_bots() -> None:
-                manager = BotManager(config)
-                if args.bot in {"telegram", "all"}:
-                    try:
-                        await manager.start_bot("telegram")
-                        rprint("[green]🚀 Telegram bot started[/]")
-                    except Exception as e:
-                        ChefErrorHandler.display_error(e, context="Telegram Bot")
-
-                if args.bot in {"discord", "all"}:
-                    try:
-                        await manager.start_bot("discord")
-                        rprint("[green]🚀 Discord bot started[/]")
-                    except Exception as e:
-                        ChefErrorHandler.display_error(e, context="Discord Bot")
-
-                if not manager.running_tasks:
-                    rprint("[red]No bots running. Exiting.[/]")
-                    return
-
-                rprint("[dim]Press Ctrl+C to stop.[/]")
-                try:
-                    # Wait forever
-                    await asyncio.Event().wait()
-                except asyncio.CancelledError:
-                    pass
-                finally:
-                    for bot in list(manager.running_tasks.keys()):
-                        await manager.stop_bot(bot)
-
-            try:
-                asyncio.run(run_bots())
-            except KeyboardInterrupt:
-                rprint("\n[dim]👋 Bye![/]")
-            return
-
-        # 1. Classic REPL Mode requested
-        if args.repl:
-            if not config:
-                config = load_config_or_exit(agent=args.agent)
-            rprint("[bold blue]🔪 Starting REPL...[/]")
-            initial_mode = mode_from_auto_approve(args.auto_approve)
-            run_repl(config, initial_mode=initial_mode)
-            return
-
-        # 2. Default TUI Mode
-        rprint("[bold blue]👨‍🍳 Starting TUI...[/]")
-        try:
-            # Set environment to force Textual to work in diverse environments
-            os.environ.setdefault("FORCE_COLOR", "1")
-            os.environ.setdefault("TERM", "xterm-256color")
-
-            if not sys.stdin.isatty():
-                try:
-                    tty = open("/dev/tty")
-                    if tty.isatty():
-                        sys.stdin = tty
-                except OSError:
-                    pass
-
-            if not sys.stdin.isatty():
-                rprint(
-                    "[red]❌ TUI requires an interactive terminal (TTY). "
-                    "Run ChefChat in a real terminal or use `--repl`.[/]"
-                )
-                sys.exit(1)
-
-            # Late import to avoid heavy dependencies if only doing --help or programmatic
-            from chefchat.interface.tui import run as run_tui
-
-            run_tui(verbose=args.verbose, layout=args.layout, active=args.active)
-
-        except ImportError as e:
-            ChefErrorHandler.display_error(e, context="TUI Dependencies")
-            if args.verbose:
-                traceback.print_exc()
-
-            if explicit_tui:
-                # If user explicitly asked for TUI, crash instead of fallback
-                sys.exit(1)
-
-            rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
-            if not config:
-                config = load_config_or_exit(agent=args.agent)
-            initial_mode = mode_from_auto_approve(args.auto_approve)
-            run_repl(config, initial_mode=initial_mode)
-
-        except Exception as e:
-            ChefErrorHandler.display_error(e, context="TUI Launch")
-            if args.verbose:
-                traceback.print_exc()
-
-            if explicit_tui:
-                sys.exit(1)
-
-            rprint("\n[yellow]⚠️  Falling back to REPL mode...[/]")
-            if not config:
-                config = load_config_or_exit(agent=args.agent)
-            initial_mode = mode_from_auto_approve(args.auto_approve)
-            run_repl(config, initial_mode=initial_mode)
+        # Interactive modes (bot, REPL, TUI)
+        _run_interactive_mode(args, config, loaded_messages, explicit_tui)
 
     except (KeyboardInterrupt, EOFError):
         rprint("\n[dim]👋 Bye![/]")
@@ -445,6 +461,25 @@ def main() -> None:
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)
+
+
+def _load_config_if_needed(
+    args: argparse.Namespace, explicit_tui: bool
+) -> VibeConfig | None:
+    """Load config for non-TUI modes, allowing TUI to handle its own config."""
+    needs_config = explicit_tui or args.repl or args.prompt or get_prompt_from_stdin()
+    if not needs_config:
+        return None
+
+    try:
+        config = load_config_or_exit(agent=args.agent)
+        if args.enabled_tools:
+            config.enabled_tools = args.enabled_tools
+        return config
+    except Exception:
+        if explicit_tui:
+            return None
+        raise
 
 
 if __name__ == "__main__":

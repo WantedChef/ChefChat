@@ -81,6 +81,50 @@ class ToolManager:
         return unique
 
     @staticmethod
+    def _load_module_from_path(path: Path) -> Any | None:
+        """Load a Python module from a file path.
+
+        Args:
+            path: Path to the Python file.
+
+        Returns:
+            Loaded module or None if loading failed.
+        """
+        stem = re.sub(r"[^0-9A-Za-z_]", "_", path.stem) or "mod"
+        module_name = f"vibe_tools_discovered_{stem}"
+
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if spec is None or spec.loader is None:
+            return None
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+            return module
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_tool_classes(module: Any) -> Iterator[type[BaseTool]]:
+        """Extract BaseTool subclasses from a module.
+
+        Args:
+            module: Python module to extract from.
+
+        Yields:
+            BaseTool subclasses found in the module.
+        """
+        for obj in vars(module).values():
+            if not inspect.isclass(obj):
+                continue
+            if not issubclass(obj, BaseTool) or obj is BaseTool:
+                continue
+            if inspect.isabstract(obj):
+                continue
+            yield obj
+
+    @staticmethod
     def _iter_tool_classes(search_paths: list[Path]) -> Iterator[type[BaseTool]]:
         for base in search_paths:
             if not base.is_dir():
@@ -93,27 +137,11 @@ class ToolManager:
                 if name.startswith("_"):
                     continue
 
-                stem = re.sub(r"[^0-9A-Za-z_]", "_", path.stem) or "mod"
-                module_name = f"vibe_tools_discovered_{stem}"
-
-                spec = importlib.util.spec_from_file_location(module_name, path)
-                if spec is None or spec.loader is None:
-                    continue
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                try:
-                    spec.loader.exec_module(module)
-                except Exception:
+                module = ToolManager._load_module_from_path(path)
+                if module is None:
                     continue
 
-                for obj in vars(module).values():
-                    if not inspect.isclass(obj):
-                        continue
-                    if not issubclass(obj, BaseTool) or obj is BaseTool:
-                        continue
-                    if inspect.isabstract(obj):
-                        continue
-                    yield obj
+                yield from ToolManager._extract_tool_classes(module)
 
     @staticmethod
     def discover_tool_defaults(

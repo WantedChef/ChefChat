@@ -478,10 +478,7 @@ class ChefChatApp(App):
             return
 
         ticket_rail = self.query_one("#ticket-rail", TicketRail)
-        # ThePlate only exists in FULL_KITCHEN layout
-        plate = None
-        if self._layout == TUILayout.FULL_KITCHEN:
-            plate = self.query_one("#the-plate", ThePlate)
+        plate = self._get_plate_if_available()
         loader = self.query_one(WhiskLoader)
 
         # UI Updates directly (we are on main loop)
@@ -491,43 +488,50 @@ class ChefChatApp(App):
 
         try:
             async for event in self._agent.act(request):
-                if isinstance(event, AssistantEvent):
-                    if event.content:
-                        ticket_rail.stream_token(event.content)
-
-                elif isinstance(event, ToolCallEvent):
-                    if plate:
-                        plate.log_message(
-                            f"[bold blue]🛠️ Calling Tool:[/] {event.tool_name}\n"
-                        )
-                    loader.start(f"Running {event.tool_name}...")
-
-                elif isinstance(event, ToolResultEvent):
-                    if not event.is_error:
-                        self._tools_executed += 1
-                    if plate:
-                        status = (
-                            "[green]Success[/]"
-                            if not event.is_error
-                            else "[red]Error[/]"
-                        )
-                        plate.log_message(f"[bold]Result:[/] {status}\n")
-
-                elif isinstance(event, (CompactStartEvent, CompactEndEvent)):
-                    if plate:
-                        plate.log_message(
-                            "[dim]Compacting conversation history...[/]\n"
-                        )
-
+                self._process_tui_event(event, ticket_rail, plate, loader)
         except Exception as e:
             self.notify(f"Agent Error: {e}", severity="error")
             if plate:
                 plate.log_message(f"[bold red]Error:[/] {e}\n")
-            traceback.print_exc()  # Print stack trace to stderr
+            traceback.print_exc()
         finally:
             ticket_rail.finish_streaming_message()
             loader.stop()
             self._enter_idle()
+
+    def _get_plate_if_available(self) -> ThePlate | None:
+        """Get ThePlate widget if in FULL_KITCHEN layout."""
+        if self._layout == TUILayout.FULL_KITCHEN:
+            return self.query_one("#the-plate", ThePlate)
+        return None
+
+    def _process_tui_event(
+        self,
+        event: AssistantEvent | ToolCallEvent | ToolResultEvent,
+        ticket_rail: TicketRail,
+        plate: ThePlate | None,
+        loader: WhiskLoader,
+    ) -> None:
+        """Process an agent event and update TUI accordingly."""
+        if isinstance(event, AssistantEvent):
+            if event.content:
+                ticket_rail.stream_token(event.content)
+
+        elif isinstance(event, ToolCallEvent):
+            if plate:
+                plate.log_message(f"[bold blue]🛠️ Calling Tool:[/] {event.tool_name}\n")
+            loader.start(f"Running {event.tool_name}...")
+
+        elif isinstance(event, ToolResultEvent):
+            if not event.is_error:
+                self._tools_executed += 1
+            if plate:
+                status = "[green]Success[/]" if not event.is_error else "[red]Error[/]"
+                plate.log_message(f"[bold]Result:[/] {status}\n")
+
+        elif isinstance(event, (CompactStartEvent, CompactEndEvent)):
+            if plate:
+                plate.log_message("[dim]Compacting conversation history...[/]\n")
 
     async def _submit_ticket(self, request: str) -> None:
         """Submit a new ticket to the kitchen via the bus."""
@@ -650,69 +654,77 @@ class ChefChatApp(App):
         name = parts[0].lower()
         arg = parts[1].strip() if len(parts) > 1 else ""
 
-        # Use shared CommandRegistry to find the command
-        cmd_obj = self._command_registry.find_command(name)
-
-        if cmd_obj:
-            # Dispatch to appropriate method
-            # We map REPL handler names to TUI method names where they differ
-            handler_map = {
-                "_show_help": "_show_command_palette",
-                "_show_status": "_show_status",
-                "_show_config": "_show_config",
-                "_reload_config": "_reload_config",
-                "_clear_history": "_handle_clear",
-                "_show_log_path": "_show_log_path",
-                "_compact_history": "_compact_history",
-                "_exit_app": "_handle_quit",
-                "_chef_status": "_show_chef_status",
-                "_chef_wisdom": "_show_wisdom",
-                "_show_modes": "_show_modes",
-                "_chef_roast": "_show_roast",
-                "_chef_plate": "_handle_plate",
-                "_chef_taste": "_chef_taste",
-                "_chef_timer": "_chef_timer",
-                # Git setup
-                "_handle_git_setup": "_handle_git_setup",
-                # Model handlers
-                "_handle_model_command": "_handle_model_command",
-                # Bot handlers
-                "_handle_telegram": "_handle_telegram_command",
-                "_handle_discord": "_handle_discord_command",
-            }
-
-            handler_name = handler_map.get(cmd_obj.handler, cmd_obj.handler)
-
-            if hasattr(self, handler_name):
-                handler = getattr(self, handler_name)
-                # Check execution signature - some methods take arg, some don't
-                import inspect
-
-                sig = inspect.signature(handler)
-                if len(sig.parameters) > 0:
-                    await handler(arg)
-                else:
-                    await handler()
-                return
+        # Try command registry first
+        if await self._dispatch_registered_command(name, arg):
+            return
 
         # Fallback for TUI-specific commands not in registry
-        if name in {"/layout", "/fortune", "/api", "/model", "/mcp"}:
-            if name == "/layout":
-                await self._handle_layout_command(arg)
-            elif name == "/fortune":
-                await self._show_fortune()
-            elif name == "/api":
-                await self._handle_api_command()
-            elif name == "/model":
-                await self._handle_model_command()
-            elif name == "/mcp":
-                await self._handle_mcp_command()
+        if await self._dispatch_tui_command(name, arg):
             return
 
         # Unknown command
         self.query_one("#ticket-rail", TicketRail).add_system_message(
             f"❓ Unknown command: `{name}`\n\nType `/help` to see available commands."
         )
+
+    async def _dispatch_registered_command(self, name: str, arg: str) -> bool:
+        """Dispatch to a command from the registry. Returns True if handled."""
+        cmd_obj = self._command_registry.find_command(name)
+        if not cmd_obj:
+            return False
+
+        # Map REPL handler names to TUI method names where they differ
+        handler_map = {
+            "_show_help": "_show_command_palette",
+            "_show_status": "_show_status",
+            "_show_config": "_show_config",
+            "_reload_config": "_reload_config",
+            "_clear_history": "_handle_clear",
+            "_show_log_path": "_show_log_path",
+            "_compact_history": "_compact_history",
+            "_exit_app": "_handle_quit",
+            "_chef_status": "_show_chef_status",
+            "_chef_wisdom": "_show_wisdom",
+            "_show_modes": "_show_modes",
+            "_chef_roast": "_show_roast",
+            "_chef_plate": "_handle_plate",
+            "_chef_taste": "_chef_taste",
+            "_chef_timer": "_chef_timer",
+            "_handle_git_setup": "_handle_git_setup",
+            "_handle_model_command": "_handle_model_command",
+            "_handle_telegram": "_handle_telegram_command",
+            "_handle_discord": "_handle_discord_command",
+        }
+
+        handler_name = handler_map.get(cmd_obj.handler, cmd_obj.handler)
+
+        if hasattr(self, handler_name):
+            handler = getattr(self, handler_name)
+            import inspect
+
+            sig = inspect.signature(handler)
+            if len(sig.parameters) > 0:
+                await handler(arg)
+            else:
+                await handler()
+            return True
+        return False
+
+    async def _dispatch_tui_command(self, name: str, arg: str) -> bool:
+        """Dispatch TUI-specific commands. Returns True if handled."""
+        tui_commands = {
+            "/layout": lambda: self._handle_layout_command(arg),
+            "/fortune": lambda: self._show_fortune(),
+            "/api": lambda: self._handle_api_command(),
+            "/model": lambda: self._handle_model_command(),
+            "/mcp": lambda: self._handle_mcp_command(),
+        }
+
+        handler = tui_commands.get(name)
+        if handler:
+            await handler()
+            return True
+        return False
 
     async def _handle_api_command(self) -> None:
         """Show API key onboarding screen."""
@@ -743,91 +755,120 @@ class ChefChatApp(App):
 
     async def _handle_bot_command(self, bot_type: str, arg: str) -> None:
         """Unified handler for bot commands (telegram/discord)."""
-        ticket_rail = self.query_one("#ticket-rail", TicketRail)
         action = arg.lower().strip() if arg else "help"
 
         # Get or create bot manager
         if not hasattr(self, "_bot_manager"):
             self._bot_manager = BotManager(self._config or VibeConfig.load())
-        manager = self._bot_manager
 
-        if action == "help":
-            help_text = f"""## 🤖 {bot_type.title()} Bot Commands
+        # Dispatch to action handlers
+        handlers = {
+            "help": self._bot_cmd_help,
+            "setup": self._bot_cmd_setup,
+            "start": self._bot_cmd_start,
+            "stop": self._bot_cmd_stop,
+            "status": self._bot_cmd_status,
+        }
+
+        handler = handlers.get(action)
+        if handler:
+            await handler(bot_type)
+        else:
+            self.query_one("#ticket-rail", TicketRail).add_system_message(
+                f"❓ Unknown: `{action}`. Try `/{bot_type}`"
+            )
+
+    async def _bot_cmd_help(self, bot_type: str) -> None:
+        """Show bot help."""
+        help_text = f"""## 🤖 {bot_type.title()} Bot Commands
 
 • `/{bot_type} setup` — Configure token and user ID
 • `/{bot_type} start` — Start the bot
 • `/{bot_type} stop` — Stop the bot
 • `/{bot_type} status` — Check status
 """
-            ticket_rail.add_system_message(help_text)
-        elif action == "setup":
+        self.query_one("#ticket-rail", TicketRail).add_system_message(help_text)
 
-            def on_complete(success: bool) -> None:
-                if success:
-                    self.notify(f"{bot_type.title()} configured!", title="Setup")
-                    ticket_rail.add_system_message(
-                        f"✅ {bot_type.title()} setup complete!"
-                    )
+    async def _bot_cmd_setup(self, bot_type: str) -> None:
+        """Handle bot setup command."""
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
 
-            await self.push_screen(BotSetupScreen(bot_type), on_complete)
-        elif action == "start":
-            if manager.is_running(bot_type):
-                ticket_rail.add_system_message(
-                    f"⚠️ {bot_type.title()} bot already running."
-                )
-            else:
-                try:
-                    await manager.start_bot(bot_type)
-                    ticket_rail.add_system_message(
-                        f"🚀 {bot_type.title()} bot started!"
-                    )
-                except Exception as e:
-                    ticket_rail.add_system_message(f"❌ Failed: {e}")
-        elif action == "stop":
-            if not manager.is_running(bot_type):
-                ticket_rail.add_system_message(f"⚠️ {bot_type.title()} bot not running.")
-            else:
-                await manager.stop_bot(bot_type)
-                ticket_rail.add_system_message(f"🛑 {bot_type.title()} bot stopped.")
-        elif action == "status":
-            running = "🟢 Running" if manager.is_running(bot_type) else "🔴 Stopped"
-            allowed = ", ".join(manager.get_allowed_users(bot_type)) or "None"
-            ticket_rail.add_system_message(
-                f"**{bot_type.title()}:** {running}\n**Users:** {allowed}"
-            )
-        else:
-            ticket_rail.add_system_message(f"❓ Unknown: `{action}`. Try `/{bot_type}`")
+        def on_complete(success: bool) -> None:
+            if success:
+                self.notify(f"{bot_type.title()} configured!", title="Setup")
+                ticket_rail.add_system_message(f"✅ {bot_type.title()} setup complete!")
+
+        await self.push_screen(BotSetupScreen(bot_type), on_complete)
+
+    async def _bot_cmd_start(self, bot_type: str) -> None:
+        """Start the bot."""
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        if self._bot_manager.is_running(bot_type):
+            ticket_rail.add_system_message(f"⚠️ {bot_type.title()} bot already running.")
+            return
+        try:
+            await self._bot_manager.start_bot(bot_type)
+            ticket_rail.add_system_message(f"🚀 {bot_type.title()} bot started!")
+        except Exception as e:
+            ticket_rail.add_system_message(f"❌ Failed: {e}")
+
+    async def _bot_cmd_stop(self, bot_type: str) -> None:
+        """Stop the bot."""
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        if not self._bot_manager.is_running(bot_type):
+            ticket_rail.add_system_message(f"⚠️ {bot_type.title()} bot not running.")
+            return
+        await self._bot_manager.stop_bot(bot_type)
+        ticket_rail.add_system_message(f"🛑 {bot_type.title()} bot stopped.")
+
+    async def _bot_cmd_status(self, bot_type: str) -> None:
+        """Show bot status."""
+        running = (
+            "🟢 Running" if self._bot_manager.is_running(bot_type) else "🔴 Stopped"
+        )
+        allowed = ", ".join(self._bot_manager.get_allowed_users(bot_type)) or "None"
+        self.query_one("#ticket-rail", TicketRail).add_system_message(
+            f"**{bot_type.title()}:** {running}\n**Users:** {allowed}"
+        )
 
     async def _handle_model_command(self, arg: str = "") -> None:
         """Handle model management commands with subcommands."""
         if not self._config:
-            self._config = VibeConfig.load()
+            try:
+                self._config = VibeConfig.load()
+            except MissingAPIKeyError:
+                self.notify(
+                    "API key missing. Run /api to configure keys.",
+                    severity="warning",
+                )
+                return
+            except Exception as e:
+                self.notify(f"Config Error: {e}", severity="error")
+                return
 
         parts = arg.split(maxsplit=1)
         action = parts[0].lower() if parts else "help"
         sub_arg = parts[1].strip() if len(parts) > 1 else ""
 
-        # Dispatch to subcommand handlers
-        if action == "help" or not action:
+        # Command dispatch table
+        command_handlers = {
+            "help": lambda: self._model_show_help(),
+            "list": lambda: self._model_list(),
+            "select": lambda: self._model_select(sub_arg),
+            "info": lambda: self._model_info(sub_arg),
+            "status": lambda: self._model_status(),
+            "speed": lambda: self._model_speed(),
+            "reasoning": lambda: self._model_reasoning(),
+            "multimodal": lambda: self._model_multimodal(),
+            "compare": lambda: self._model_compare(sub_arg),
+            "manage": lambda: self._model_manage(),
+        }
+
+        handler = command_handlers.get(action)
+        if handler:
+            await handler()
+        elif not action:
             await self._model_show_help()
-        elif action == "list":
-            await self._model_list()
-        elif action == "select":
-            await self._model_select(sub_arg)
-        elif action == "info":
-            await self._model_info(sub_arg)
-        elif action == "status":
-            await self._model_status()
-        elif action == "speed":
-            await self._model_speed()
-        elif action == "reasoning":
-            await self._model_reasoning()
-        elif action == "multimodal":
-            await self._model_multimodal()
-        elif action == "compare":
-            await self._model_compare(sub_arg)
-        elif action == "manage":
-            await self._model_manage()
         else:
             # Fallback for backward compatibility - treat as direct model selection
             await self._model_select(arg)
@@ -904,10 +945,15 @@ Use `/model status` to see which model is currently active.
             await self._model_show_help()
             return
 
-        # Find model by alias
+        if not self._config:
+            self.notify("Config unavailable; cannot switch model.", severity="error")
+            return
+
+        # Find model by alias (case-insensitive)
         model = None
+        target = model_alias.lower()
         for m in self._config.models:
-            if model_alias in {m.alias, m.name}:
+            if target in {m.alias.lower(), m.name.lower()}:
                 model = m
                 break
 
@@ -938,8 +984,9 @@ Use `/model status` to see which model is currently active.
             return
 
         model = None
+        target = model_alias.lower()
         for m in self._config.models:
-            if model_alias in {m.alias, m.name}:
+            if target in {m.alias.lower(), m.name.lower()}:
                 model = m
                 break
 
@@ -951,6 +998,7 @@ Use `/model status` to see which model is currently active.
 
         is_active = model.alias == self._config.active_model
         provider = self._config.get_provider_for_model(model)
+        api_key_note = "✅ Set" if (provider.api_key_env_var and os.getenv(provider.api_key_env_var)) else "⚠️ Missing"
 
         info = f"""## 🤖 Model Details: {model.alias}
 
@@ -970,6 +1018,7 @@ Use `/model status` to see which model is currently active.
 
 ### API Key
 • **Environment Variable**: `{provider.api_key_env_var or "None"}`
+• **Status**: {api_key_note}
 """
 
         if model.features:

@@ -107,12 +107,15 @@ class ToolInfo(BaseModel):
 # =======================================================
 
 
-class BaseTool[
-    ArgsT: BaseModel,
-    ResultT: BaseModel,
-    ConfigT: BaseToolConfig,
-    StateT: BaseToolState,
-](ABC):
+from typing import Generic, TypeVar
+
+ArgsT = TypeVar("ArgsT", bound=BaseModel)
+ResultT = TypeVar("ResultT", bound=BaseModel)
+ConfigT = TypeVar("ConfigT", bound=BaseToolConfig)
+StateT = TypeVar("StateT", bound=BaseToolState)
+
+
+class BaseTool(ABC, Generic[ArgsT, ResultT, ConfigT, StateT]):
     """The main base class for defining async tools.
     Subclasses must specify four type parameters:
 

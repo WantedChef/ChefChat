@@ -10,8 +10,13 @@ from typing import TYPE_CHECKING
 
 from chefchat.core.agent import LLMResponseError
 from chefchat.core.config import DEFAULT_MAX_TOKENS, VibeConfig
-from chefchat.core.llm.backend.factory import BACKEND_FACTORY
-from chefchat.core.llm.format import APIToolFormatHandler
+from chefchat.core.llm.backend.factory import get_backend_cls
+from chefchat.core.llm.format import (
+    APIToolFormatHandler,
+    guard_tool_schema_size,
+    normalize_tool_choice,
+    sanitize_message,
+)
 from chefchat.core.llm.types import BackendLike
 from chefchat.core.middleware import MiddlewarePipeline
 from chefchat.core.types import (
@@ -61,7 +66,7 @@ class LLMClient:
     def _select_backend(self) -> BackendLike:
         active_model = self.config.get_active_model()
         provider = self.config.get_provider_for_model(active_model)
-        backend_cls = BACKEND_FACTORY[provider.backend]
+        backend_cls = get_backend_cls(provider.backend)
         return backend_cls(provider=provider, timeout=self.config.api_timeout)
 
     def reload(self, config: VibeConfig) -> None:
@@ -109,6 +114,21 @@ class LLMClient:
                     continue
         return chunks or None
 
+    @staticmethod
+    def _validate_message_sequence(messages: list[LLMMessage]) -> None:
+        """Ensure the final message is a valid role for starting a turn."""
+        if not messages:
+            msg = "Conversation history is empty; cannot query the model."
+            raise RuntimeError(msg)
+
+        if messages[-1].role not in {Role.user, Role.tool}:
+            role_name = messages[-1].role.value if messages[-1].role else "unknown"
+            msg = (
+                "Conversation desynchronised (last message role is "
+                f"'{role_name}'). Run /clear and try again."
+            )
+            raise RuntimeError(msg)
+
     def _apply_usage_from_chunk(self, chunk: LLMChunk) -> None:
         usage = chunk.usage
         if usage is None:
@@ -120,11 +140,32 @@ class LLMClient:
         self.stats.session_completion_tokens += usage.completion_tokens
         self.stats.context_tokens = usage.prompt_tokens + usage.completion_tokens
 
+    def _extra_headers_for_provider(self) -> dict[str, str]:
+        active_model = self.config.get_active_model()
+        provider = self.config.get_provider_for_model(active_model)
+        headers: dict[str, str] = {}
+        match provider.name:
+            case "groq":
+                headers["X-Request-Source"] = "chefchat"
+            case _:
+                pass
+        return headers
+
     async def chat(
         self, messages: list[LLMMessage], max_tokens: int | None = None
     ) -> LLMChunk:
+        self._validate_message_sequence(messages)
+        messages = [sanitize_message(m) for m in messages]
         active_model = self.config.get_active_model()
         provider = self.config.get_provider_for_model(active_model)
+
+        if provider.api_key_env_var and not os.getenv(provider.api_key_env_var):
+            raise RuntimeError(
+                f"Missing API key for provider '{provider.name}'. "
+                f"Set {provider.api_key_env_var} or configure via /api."
+            )
+        if not provider.api_base:
+            raise RuntimeError(f"Provider '{provider.name}' has no api_base configured.")
 
         if (mock_chunks := self._load_mock_chunks_from_env()) is not None:
             # Deterministic test harness: return the last chunk as the final answer.
@@ -138,7 +179,13 @@ class LLMClient:
             available_tools = self.format_handler.get_available_tools(
                 self.tool_manager, self.config
             )
-            tool_choice = self.format_handler.get_tool_choice()
+            guard_tool_schema_size(available_tools)
+            tool_choice = normalize_tool_choice(self.format_handler.get_tool_choice())
+
+            target_max_tokens = min(
+                max_tokens or active_model.max_tokens or DEFAULT_MAX_TOKENS,
+                active_model.max_tokens or DEFAULT_MAX_TOKENS,
+            )
 
             async with self.backend as backend:
                 result = await backend.complete(
@@ -150,10 +197,9 @@ class LLMClient:
                     extra_headers={
                         "User-Agent": get_user_agent(),
                         "x-affinity": self.session_id,
+                        **self._extra_headers_for_provider(),
                     },
-                    max_tokens=max_tokens
-                    or active_model.max_tokens
-                    or DEFAULT_MAX_TOKENS,
+                    max_tokens=target_max_tokens,
                 )
 
             end_time = time.perf_counter()
@@ -181,10 +227,8 @@ class LLMClient:
                     e.body_text[:2000] if e.body_text else "",
                 )
 
-            # Check if this is a BackendError with context-too-long
-            if isinstance(e, BackendError) and e.is_context_too_long():
-                # Convert to user-friendly error with recovery hints
-                error_msg = f"""**Prompt Too Long Error**
+                if e.is_context_too_long():
+                    error_msg = f"""**Prompt Too Long Error**
 
 The system prompt exceeded the model's token limit.
 
@@ -201,22 +245,28 @@ The system prompt exceeded the model's token limit.
 
 Press `Shift+Tab` to cycle modes or type `/modes` for options.
 """
-                raise RuntimeError(error_msg) from e
+                    raise RuntimeError(error_msg) from e
 
-            # For other errors, use the original error message
-            if isinstance(e, BackendError):
+                # For other BackendError cases, surface the provider's message.
                 detail = e.parsed_error or e.reason or "N/A"
                 raise RuntimeError(
                     f"API error from {provider.name} (model: {active_model.name}): {detail}"
                 ) from e
 
-            raise RuntimeError(
-                f"API error from {provider.name} (model: {active_model.name}): {e}"
-            ) from e
+            # Non-backend streaming issues: fall back to non-streaming completion.
+            logger.warning(
+                "Streaming failed (%s). Falling back to non-streaming completion.",
+                provider.name,
+            )
+            final = await self.chat(messages, max_tokens=max_tokens)
+            yield final
+            return
 
     async def _chat_streaming(
         self, messages: list[LLMMessage], max_tokens: int | None = None
     ) -> AsyncGenerator[LLMChunk]:
+        self._validate_message_sequence(messages)
+        messages = [sanitize_message(m) for m in messages]
         active_model = self.config.get_active_model()
         provider = self.config.get_provider_for_model(active_model)
 
@@ -233,7 +283,8 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
         available_tools = self.format_handler.get_available_tools(
             self.tool_manager, self.config
         )
-        tool_choice = self.format_handler.get_tool_choice()
+        guard_tool_schema_size(available_tools)
+        tool_choice = normalize_tool_choice(self.format_handler.get_tool_choice())
         try:
             start_time = time.perf_counter()
             last_chunk = None
@@ -247,10 +298,12 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                     extra_headers={
                         "User-Agent": get_user_agent(),
                         "x-affinity": self.session_id,
+                        **self._extra_headers_for_provider(),
                     },
-                    max_tokens=max_tokens
-                    or active_model.max_tokens
-                    or DEFAULT_MAX_TOKENS,
+                    max_tokens=min(
+                        max_tokens or active_model.max_tokens or DEFAULT_MAX_TOKENS,
+                        active_model.max_tokens or DEFAULT_MAX_TOKENS,
+                    ),
                 ):
                     yield chunk
                     last_chunk = chunk
@@ -317,43 +370,60 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                 f"API error from {provider.name} (model: {active_model.name}): {e}"
             ) from e
 
-    async def stream_assistant_events(
-        self, messages: list[LLMMessage]
-    ) -> AsyncGenerator[AssistantEvent]:
-        chunks: list[LLMChunk] = []
-        content_buffer = ""
-        chunks_with_content = 0
-        BATCH_SIZE = 1 if self._load_mock_chunks_from_env() is not None else 5
+    def _process_chunk_content(
+        self,
+        chunk: LLMChunk,
+        content_buffer: str,
+        chunks_with_content: int,
+        batch_size: int,
+    ) -> tuple[str, int, AssistantEvent | None]:
+        """Process a chunk's content and determine if an event should be yielded.
 
-        async for chunk in self._chat_streaming(messages):
-            chunks.append(chunk)
+        Args:
+            chunk: Current LLM chunk.
+            content_buffer: Accumulated content buffer.
+            chunks_with_content: Number of chunks with content.
+            batch_size: Batch size for yielding events.
 
-            if chunk.message.tool_calls and chunk.finish_reason is None:
-                if chunk.message.content:
-                    content_buffer += chunk.message.content
-                    chunks_with_content += 1
-
-                if content_buffer:
-                    yield self.create_assistant_event(content_buffer, chunk)
-                    content_buffer = ""
-                    chunks_with_content = 0
-                continue
-
+        Returns:
+            Tuple of (new_buffer, new_count, event_or_none).
+        """
+        # Handle tool calls with content
+        if chunk.message.tool_calls and chunk.finish_reason is None:
             if chunk.message.content:
                 content_buffer += chunk.message.content
                 chunks_with_content += 1
 
-                if chunks_with_content >= BATCH_SIZE:
-                    yield self.create_assistant_event(content_buffer, chunk)
-                    content_buffer = ""
-                    chunks_with_content = 0
+            if content_buffer:
+                event = self.create_assistant_event(content_buffer, chunk)
+                return "", 0, event
+            return content_buffer, chunks_with_content, None
 
-        if content_buffer:
-            last_chunk = chunks[-1] if chunks else None
-            yield self.create_assistant_event(content_buffer, last_chunk)
+        # Handle regular content
+        if chunk.message.content:
+            content_buffer += chunk.message.content
+            chunks_with_content += 1
 
+            if chunks_with_content >= batch_size:
+                event = self.create_assistant_event(content_buffer, chunk)
+                return "", 0, event
+
+        return content_buffer, chunks_with_content, None
+
+    def _merge_tool_calls(
+        self, chunks: list[LLMChunk]
+    ) -> tuple[str, list[ToolCall] | None]:
+        """Merge tool calls from all chunks into a complete set.
+
+        Args:
+            chunks: List of LLM chunks.
+
+        Returns:
+            Tuple of (full_content, merged_tool_calls).
+        """
         full_content = ""
         full_tool_calls_map = OrderedDict[int, ToolCall]()
+
         for chunk in chunks:
             full_content += chunk.message.content or ""
             if not chunk.message.tool_calls:
@@ -371,6 +441,30 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                     full_tool_calls_map[tc.index].function.arguments = new_args_str
 
         full_tool_calls = list(full_tool_calls_map.values()) or None
+        return full_content, full_tool_calls
+
+    async def stream_assistant_events(
+        self, messages: list[LLMMessage]
+    ) -> AsyncGenerator[AssistantEvent]:
+        chunks: list[LLMChunk] = []
+        content_buffer = ""
+        chunks_with_content = 0
+        BATCH_SIZE = 1 if self._load_mock_chunks_from_env() is not None else 5
+
+        async for chunk in self._chat_streaming(messages):
+            chunks.append(chunk)
+
+            content_buffer, chunks_with_content, event = self._process_chunk_content(
+                chunk, content_buffer, chunks_with_content, BATCH_SIZE
+            )
+            if event:
+                yield event
+
+        if content_buffer:
+            last_chunk = chunks[-1] if chunks else None
+            yield self.create_assistant_event(content_buffer, last_chunk)
+
+        full_content, full_tool_calls = self._merge_tool_calls(chunks)
         last_message = LLMMessage(
             role=Role.assistant, content=full_content, tool_calls=full_tool_calls
         )

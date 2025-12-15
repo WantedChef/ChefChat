@@ -153,6 +153,30 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
 
         return BashResult(stdout=stdout, stderr=stderr, returncode=returncode)
 
+    def _is_denylisted(self, command: str) -> bool:
+        """Check if command matches denylist patterns."""
+        return any(command.startswith(pattern) for pattern in self.config.denylist)
+
+    def _is_standalone_denylisted(self, command: str) -> bool:
+        """Check if command is a standalone denylisted command."""
+        parts = command.split()
+        if not parts:
+            return False
+
+        base_command = parts[0]
+        has_args = len(parts) > 1
+
+        if not has_args:
+            command_name = base_command
+            if command_name in self.config.denylist_standalone:
+                return True
+
+        return False
+
+    def _is_allowlisted(self, command: str) -> bool:
+        """Check if command matches allowlist patterns."""
+        return any(command.startswith(pattern) for pattern in self.config.allowlist)
+
     def check_allowlist_denylist(self, args: BashArgs) -> ToolPermission:
         """Check if the bash command is allowed based on allowlist/denylist."""
         command_parts = re.split(r"(?:&&|\|\||;|\|)", args.command)
@@ -161,31 +185,12 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
         if not command_parts:
             return ToolPermission.ASK
 
-        def is_denylisted(command: str) -> bool:
-            return any(command.startswith(pattern) for pattern in self.config.denylist)
-
-        def is_standalone_denylisted(command: str) -> bool:
-            parts = command.split()
-            if not parts:
-                return False
-
-            base_command = parts[0]
-            has_args = len(parts) > 1
-
-            if not has_args:
-                command_name = base_command
-                if command_name in self.config.denylist_standalone:
-                    return True
-
-            return False
-
-        def is_allowlisted(command: str) -> bool:
-            return any(command.startswith(pattern) for pattern in self.config.allowlist)
-
         for command_part in command_parts:
-            if is_denylisted(command_part) or is_standalone_denylisted(command_part):
+            if self._is_denylisted(command_part) or self._is_standalone_denylisted(
+                command_part
+            ):
                 return ToolPermission.NEVER
-            if is_allowlisted(command_part):
+            if self._is_allowlisted(command_part):
                 return ToolPermission.ALWAYS
 
         return ToolPermission.ASK

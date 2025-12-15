@@ -529,41 +529,7 @@ class ChefChatREPL:
         ):
             try:
                 async for event in self.agent.act(user_input):
-                    if isinstance(event, AssistantEvent):
-                        response_text += event.content
-
-                    elif isinstance(event, ToolCallEvent):
-                        self.console.print(
-                            ResponseDisplay.render_tool_call(
-                                event.tool_name, ctx=self._render_context
-                            )
-                        )
-
-                    elif isinstance(event, ToolResultEvent):
-                        if event.error:
-                            self.console.print(
-                                ResponseDisplay.render_tool_result(
-                                    False,
-                                    str(event.error)[:50],
-                                    ctx=self._render_context,
-                                )
-                            )
-                        elif event.skipped:
-                            self.console.print(
-                                ResponseDisplay.render_tool_result(
-                                    False,
-                                    event.skip_reason or "Skipped",
-                                    ctx=self._render_context,
-                                )
-                            )
-                        else:
-                            self.tools_executed += 1
-                            self.console.print(
-                                ResponseDisplay.render_tool_result(
-                                    True, ctx=self._render_context
-                                )
-                            )
-
+                    response_text = self._process_agent_event(event, response_text)
             except KeyboardInterrupt:
                 self.console.print(
                     f"\n  [{COLORS['honey']}]⚠ Stopped by Chef[/{COLORS['honey']}]"
@@ -584,6 +550,48 @@ class ChefChatREPL:
                 )
             )
         self.console.print()
+
+    def _process_agent_event(
+        self,
+        event: AssistantEvent | ToolCallEvent | ToolResultEvent,
+        response_text: str,
+    ) -> str:
+        """Process a single agent event and return updated response text."""
+        if isinstance(event, AssistantEvent):
+            return response_text + event.content
+
+        if isinstance(event, ToolCallEvent):
+            self.console.print(
+                ResponseDisplay.render_tool_call(
+                    event.tool_name, ctx=self._render_context
+                )
+            )
+            return response_text
+
+        if isinstance(event, ToolResultEvent):
+            self._display_tool_result(event)
+
+        return response_text
+
+    def _display_tool_result(self, event: ToolResultEvent) -> None:
+        """Display the result of a tool execution."""
+        if event.error:
+            self.console.print(
+                ResponseDisplay.render_tool_result(
+                    False, str(event.error)[:50], ctx=self._render_context
+                )
+            )
+        elif event.skipped:
+            self.console.print(
+                ResponseDisplay.render_tool_result(
+                    False, event.skip_reason or "Skipped", ctx=self._render_context
+                )
+            )
+        else:
+            self.tools_executed += 1
+            self.console.print(
+                ResponseDisplay.render_tool_result(True, ctx=self._render_context)
+            )
 
     # =========================================================================
     # MAIN LOOP
@@ -663,181 +671,22 @@ class ChefChatREPL:
                 ChefErrorHandler.display_error(e, context="REPL", show_traceback=False)
 
     # =========================================================================
-    # COMMAND HANDLING - Including Easter Eggs!
+    # COMMAND HANDLING - Using Registry Pattern
     # =========================================================================
 
     async def _handle_command(self, command: str) -> None:
         """Handle slash commands including easter eggs."""
         cmd = command.lower().strip()
 
-        # =====================================================================
-        # EASTER EGG COMMANDS - The Secret Menu
-        # =====================================================================
-
-        if cmd == "/chef":
-            # Kitchen status with mode info - returns Panel now
-            self.console.print()
-            self.console.print(get_kitchen_status(self.mode_manager))
-            self.console.print()
-
-        elif cmd == "/wisdom":
-            # Random chef wisdom - returns Panel now
-            self.console.print()
-            self.console.print(get_random_wisdom())
-            self.console.print()
-
-        elif cmd == "/roast":
-            # Gordon Ramsay style roast - returns Panel now
-            self.console.print()
-            self.console.print(get_random_roast())
-            self.console.print()
-
-        elif cmd == "/fortune":
-            # Developer fortune cookie - returns Panel now
-            self.console.print()
-            self.console.print(get_dev_fortune())
-            self.console.print()
-
-        # =====================================================================
-        # PLATING COMMAND
-        # =====================================================================
-
-        elif cmd == "/plate":
-            # Show the current session "plating" - returns Panel now
-            self.console.print()
-            stats = self.agent.stats if self.agent else None
-            self.console.print(generate_plating(self.mode_manager, stats))
-            self.console.print()
-
-        # =====================================================================
-        # STANDARD COMMANDS
-        # =====================================================================
-
-        elif cmd in {"/help", "/h", "/?"}:
-            self.console.print()
-            self.console.print(HelpDisplay.render())
-            self.console.print()
-
-        elif cmd == "/mode":
-            tips = MODE_TIPS.get(self.mode_manager.current_mode, [])
-            self.console.print()
-            self.console.print(
-                ModeTransitionDisplay.render(
-                    old_mode="",
-                    new_mode=self.mode_manager.current_mode.value.upper(),
-                    new_emoji=self.mode_manager.config.emoji,
-                    description=self.mode_manager.config.description,
-                    tips=tips,
-                    ctx=self._render_context,
-                )
-            )
-            self.console.print()
-
-        elif cmd == "/model":
-            await self._handle_model_command()
-
-        elif cmd == "/modes":
-            # Use the easter_eggs display - returns Panel now
-            self.console.print()
-            self.console.print(get_modes_display(self.mode_manager))
-            self.console.print()
-
-        elif cmd == "/theme":
-            from rich.prompt import Prompt
-
-            themes = ["chef-dark", "mono"]
-            default_theme = (
-                self.config.ui_theme if self.config.ui_theme in themes else "chef-dark"
-            )
-            choice = Prompt.ask(
-                f"[{COLORS['fire']}]Select theme[/{COLORS['fire']}]",
-                choices=themes,
-                default=default_theme,
-                show_choices=True,
-            )
-
-            self.config.ui_theme = choice
-            if choice == "mono":
-                self.config.color_enabled = False
-                self.config.emoji_enabled = False
-            else:
-                self.config.color_enabled = True
-                self.config.emoji_enabled = True
-
-            self._render_context = self._build_render_context()
-            self.console.print()
-            self.console.print(
-                f"[{COLORS['sage']}]✓ Theme switched to {choice}[/{COLORS['sage']}]"
-            )
-            self.console.print(
-                create_header(self.config, self.mode_manager, ctx=self._render_context)
-            )
-            self.console.print()
-
-        elif cmd == "/clear":
-            if self.agent:
-                self.agent.clear_history()
-                self.console.print(
-                    f"  [{COLORS['sage']}]✓ Conversation cleared - Fresh start![/{COLORS['sage']}]\n"
-                )
-            else:
-                self.console.print(
-                    f"  [{COLORS['honey']}]No active session to clear[/{COLORS['honey']}]\n"
-                )
-
-        elif cmd in {"/compact", "/summarize"}:
-            if self.agent:
-                with Live(
-                    Spinner(
-                        "dots",
-                        text=f"[{COLORS['fire']}] Compacting history...[/{COLORS['fire']}]",
-                    ),
-                    console=self.console,
-                    refresh_per_second=10,
-                    transient=True,
-                ):
-                    try:
-                        summary = await self.agent.compact()
-                        self.console.print(
-                            f"  [{COLORS['sage']}]✓ Conversation compacted![/{COLORS['sage']}]"
-                        )
-                        # Show a preview of the summary
-                        preview = (
-                            summary[:SUMMARY_PREVIEW_LIMIT] + "..."
-                            if len(summary) > SUMMARY_PREVIEW_LIMIT
-                            else summary
-                        )
-                        self.console.print(
-                            f"  [{COLORS['silver']}]Summary preview: {preview}[/{COLORS['silver']}]\n"
-                        )
-                    except Exception as e:
-                        self.console.print(
-                            f"  [{COLORS['ember']}]Failed to compact history: {e}[/{COLORS['ember']}]\n"
-                        )
-            else:
-                self.console.print(
-                    f"  [{COLORS['honey']}]No active session to compact[/{COLORS['honey']}]\n"
-                )
-
-        elif cmd == "/status":
-            self.console.print()
-            self.console.print(
-                StatusBar.render(
-                    self.mode_manager.auto_approve, ctx=self._render_context
-                )
-            )
-            self.console.print()
-
-        elif cmd == "/stats":
-            # Session statistics - Today's Service
-            self._show_stats()
-
-        elif cmd == "/git-setup":
-            await self._handle_git_setup()
-
-        elif cmd.startswith(("/telegram", "/discord")):
+        # Check for bot commands first (special case with prefix matching)
+        if cmd.startswith(("/telegram", "/discord")):
             await handle_bot_command(self, cmd)
+            return
 
+        # Look up command in registry
+        handler = self._get_command_handler(cmd)
+        if handler:
+            await handler()
         else:
             self.console.print(
                 f"  [{COLORS['honey']}]Unknown command: {command}[/{COLORS['honey']}]"
@@ -845,6 +694,183 @@ class ChefChatREPL:
             self.console.print(
                 f"  [{COLORS['smoke']}]Type /help for the menu[/{COLORS['smoke']}]\n"
             )
+
+    def _get_command_handler(self, cmd: str) -> Any | None:
+        """Get the handler for a command from the registry."""
+        command_registry: dict[str, Any] = {
+            # Easter egg commands
+            "/chef": self._cmd_chef,
+            "/wisdom": self._cmd_wisdom,
+            "/roast": self._cmd_roast,
+            "/fortune": self._cmd_fortune,
+            "/plate": self._cmd_plate,
+            # Standard commands
+            "/help": self._cmd_help,
+            "/h": self._cmd_help,
+            "/?": self._cmd_help,
+            "/mode": self._cmd_mode,
+            "/model": self._handle_model_command,
+            "/modes": self._cmd_modes,
+            "/theme": self._cmd_theme,
+            "/clear": self._cmd_clear,
+            "/compact": self._cmd_compact,
+            "/summarize": self._cmd_compact,
+            "/status": self._cmd_status,
+            "/stats": self._cmd_stats,
+            "/git-setup": self._handle_git_setup,
+        }
+        return command_registry.get(cmd)
+
+    async def _cmd_chef(self) -> None:
+        """Kitchen status with mode info."""
+        self.console.print()
+        self.console.print(get_kitchen_status(self.mode_manager))
+        self.console.print()
+
+    async def _cmd_wisdom(self) -> None:
+        """Random chef wisdom."""
+        self.console.print()
+        self.console.print(get_random_wisdom())
+        self.console.print()
+
+    async def _cmd_roast(self) -> None:
+        """Gordon Ramsay style roast."""
+        self.console.print()
+        self.console.print(get_random_roast())
+        self.console.print()
+
+    async def _cmd_fortune(self) -> None:
+        """Developer fortune cookie."""
+        self.console.print()
+        self.console.print(get_dev_fortune())
+        self.console.print()
+
+    async def _cmd_plate(self) -> None:
+        """Show the current session plating."""
+        self.console.print()
+        stats = self.agent.stats if self.agent else None
+        self.console.print(generate_plating(self.mode_manager, stats))
+        self.console.print()
+
+    async def _cmd_help(self) -> None:
+        """Show help menu."""
+        self.console.print()
+        self.console.print(HelpDisplay.render())
+        self.console.print()
+
+    async def _cmd_mode(self) -> None:
+        """Show current mode info."""
+        tips = MODE_TIPS.get(self.mode_manager.current_mode, [])
+        self.console.print()
+        self.console.print(
+            ModeTransitionDisplay.render(
+                old_mode="",
+                new_mode=self.mode_manager.current_mode.value.upper(),
+                new_emoji=self.mode_manager.config.emoji,
+                description=self.mode_manager.config.description,
+                tips=tips,
+                ctx=self._render_context,
+            )
+        )
+        self.console.print()
+
+    async def _cmd_modes(self) -> None:
+        """List all modes."""
+        self.console.print()
+        self.console.print(get_modes_display(self.mode_manager))
+        self.console.print()
+
+    async def _cmd_theme(self) -> None:
+        """Switch UI theme."""
+        from rich.prompt import Prompt
+
+        themes = ["chef-dark", "mono"]
+        default_theme = (
+            self.config.ui_theme if self.config.ui_theme in themes else "chef-dark"
+        )
+        choice = Prompt.ask(
+            f"[{COLORS['fire']}]Select theme[/{COLORS['fire']}]",
+            choices=themes,
+            default=default_theme,
+            show_choices=True,
+        )
+
+        self.config.ui_theme = choice
+        if choice == "mono":
+            self.config.color_enabled = False
+            self.config.emoji_enabled = False
+        else:
+            self.config.color_enabled = True
+            self.config.emoji_enabled = True
+
+        self._render_context = self._build_render_context()
+        self.console.print()
+        self.console.print(
+            f"[{COLORS['sage']}]✓ Theme switched to {choice}[/{COLORS['sage']}]"
+        )
+        self.console.print(
+            create_header(self.config, self.mode_manager, ctx=self._render_context)
+        )
+        self.console.print()
+
+    async def _cmd_clear(self) -> None:
+        """Clear conversation history."""
+        if self.agent:
+            self.agent.clear_history()
+            self.console.print(
+                f"  [{COLORS['sage']}]✓ Conversation cleared - Fresh start![/{COLORS['sage']}]\n"
+            )
+        else:
+            self.console.print(
+                f"  [{COLORS['honey']}]No active session to clear[/{COLORS['honey']}]\n"
+            )
+
+    async def _cmd_compact(self) -> None:
+        """Compact conversation history."""
+        if not self.agent:
+            self.console.print(
+                f"  [{COLORS['honey']}]No active session to compact[/{COLORS['honey']}]\n"
+            )
+            return
+
+        with Live(
+            Spinner(
+                "dots",
+                text=f"[{COLORS['fire']}] Compacting history...[/{COLORS['fire']}]",
+            ),
+            console=self.console,
+            refresh_per_second=10,
+            transient=True,
+        ):
+            try:
+                summary = await self.agent.compact()
+                self.console.print(
+                    f"  [{COLORS['sage']}]✓ Conversation compacted![/{COLORS['sage']}]"
+                )
+                preview = (
+                    summary[:SUMMARY_PREVIEW_LIMIT] + "..."
+                    if len(summary) > SUMMARY_PREVIEW_LIMIT
+                    else summary
+                )
+                self.console.print(
+                    f"  [{COLORS['silver']}]Summary preview: {preview}[/{COLORS['silver']}]\n"
+                )
+            except Exception as e:
+                self.console.print(
+                    f"  [{COLORS['ember']}]Failed to compact history: {e}[/{COLORS['ember']}]\n"
+                )
+
+    async def _cmd_status(self) -> None:
+        """Show status bar."""
+        self.console.print()
+        self.console.print(
+            StatusBar.render(self.mode_manager.auto_approve, ctx=self._render_context)
+        )
+        self.console.print()
+
+    async def _cmd_stats(self) -> None:
+        """Show session statistics."""
+        self._show_stats()
 
     def run(self) -> NoReturn:
         """Run the REPL."""

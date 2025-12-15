@@ -28,19 +28,24 @@ class GitHubVersionUpdateGateway(VersionUpdateGateway):
         self._timeout = timeout
         self._base_url = base_url.rstrip("/")
 
-    async def fetch_update(self) -> VersionUpdate | None:
-        headers = {
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "mistral-vibe-update-notifier",
-        }
-        if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
+    async def _execute_request(
+        self, request_path: str, headers: dict[str, str]
+    ) -> httpx.Response:
+        """Execute HTTP request to GitHub API.
 
-        request_path = f"/repos/{self._owner}/{self._repository}/releases"
+        Args:
+            request_path: API endpoint path.
+            headers: Request headers.
 
+        Returns:
+            HTTP response.
+
+        Raises:
+            VersionUpdateGatewayError: If request fails.
+        """
         try:
             if self._client is not None:
-                response = await self._client.get(
+                return await self._client.get(
                     f"{self._base_url}{request_path}",
                     headers=headers,
                     timeout=self._timeout,
@@ -49,12 +54,21 @@ class GitHubVersionUpdateGateway(VersionUpdateGateway):
                 async with httpx.AsyncClient(
                     base_url=self._base_url, timeout=self._timeout
                 ) as client:
-                    response = await client.get(request_path, headers=headers)
+                    return await client.get(request_path, headers=headers)
         except httpx.RequestError as exc:
             raise VersionUpdateGatewayError(
                 cause=VersionUpdateGatewayCause.REQUEST_FAILED
             ) from exc
 
+    def _validate_response(self, response: httpx.Response) -> None:
+        """Validate GitHub API response status.
+
+        Args:
+            response: HTTP response to validate.
+
+        Raises:
+            VersionUpdateGatewayError: If response indicates an error.
+        """
         rate_limit_remaining = response.headers.get("X-RateLimit-Remaining")
         if response.status_code == httpx.codes.TOO_MANY_REQUESTS or (
             rate_limit_remaining is not None and rate_limit_remaining == "0"
@@ -76,6 +90,18 @@ class GitHubVersionUpdateGateway(VersionUpdateGateway):
             raise VersionUpdateGatewayError(
                 cause=VersionUpdateGatewayCause.ERROR_RESPONSE
             )
+
+    async def fetch_update(self) -> VersionUpdate | None:
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "mistral-vibe-update-notifier",
+        }
+        if self._token:
+            headers["Authorization"] = f"Bearer {self._token}"
+
+        request_path = f"/repos/{self._owner}/{self._repository}/releases"
+        response = await self._execute_request(request_path, headers)
+        self._validate_response(response)
 
         try:
             data = response.json()

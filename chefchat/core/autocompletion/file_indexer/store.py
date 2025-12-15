@@ -72,10 +72,7 @@ class FileIndexStore:
                 )
 
             entries = self._walk_directory(
-                resolved_root,
-                cancel_check=should_cancel,
-                depth=0,
-                executor=executor,
+                resolved_root, cancel_check=should_cancel, depth=0, executor=executor
             )
         finally:
             if executor:
@@ -96,6 +93,55 @@ class FileIndexStore:
 
         return list(self._ordered_entries)
 
+    def _process_deleted_change(self, rel_str: str) -> bool:
+        """Process a deleted file/directory change.
+
+        Args:
+            rel_str: Relative path string.
+
+        Returns:
+            True if entry was removed, False otherwise.
+        """
+        return self._remove_entry(rel_str)
+
+    def _process_directory_change(self, rel_str: str, path: Path) -> bool:
+        """Process a directory creation/modification change.
+
+        Args:
+            rel_str: Relative path string.
+            path: Directory path.
+
+        Returns:
+            True if changes were made, False otherwise.
+        """
+        modified = False
+        dir_entry = self._create_entry(rel_str, path.name, path, True)
+        if dir_entry:
+            self._entries_by_rel[rel_str] = dir_entry
+            modified = True
+
+        for entry in self._walk_directory(path, rel_str, depth=rel_str.count("/")):
+            self._entries_by_rel[entry.rel] = entry
+            modified = True
+
+        return modified
+
+    def _process_file_change(self, rel_str: str, path: Path) -> bool:
+        """Process a file creation/modification change.
+
+        Args:
+            rel_str: Relative path string.
+            path: File path.
+
+        Returns:
+            True if changes were made, False otherwise.
+        """
+        file_entry = self._create_entry(rel_str, path.name, path, False)
+        if file_entry:
+            self._entries_by_rel[file_entry.rel] = file_entry
+            return True
+        return False
+
     def apply_changes(self, changes: list[tuple[Change, Path]]) -> None:
         if self._root is None:
             return
@@ -106,39 +152,35 @@ class FileIndexStore:
 
         modified = False
         for change, path in changes:
-            try:
-                rel_str = path.relative_to(self._root).as_posix()
-            except ValueError:
-                continue
-
-            if not rel_str:
-                continue
-
-            if change is Change.deleted:
-                if self._remove_entry(rel_str):
-                    modified = True
-                continue
-
-            if not path.exists():
-                continue
-
-            if path.is_dir():
-                dir_entry = self._create_entry(rel_str, path.name, path, True)
-                if dir_entry:
-                    self._entries_by_rel[rel_str] = dir_entry
-                    modified = True
-                for entry in self._walk_directory(path, rel_str, depth=rel_str.count("/")):
-                    self._entries_by_rel[entry.rel] = entry
-                    modified = True
-            else:
-                file_entry = self._create_entry(rel_str, path.name, path, False)
-                if file_entry:
-                    self._entries_by_rel[file_entry.rel] = file_entry
-                    modified = True
+            if self._process_single_change(change, path):
+                modified = True
 
         if modified:
             self._ordered_entries = None
             self._stats.incremental_updates += 1
+
+    def _process_single_change(self, change: Change, path: Path) -> bool:
+        if self._root is None:
+            return False
+
+        try:
+            rel_str = path.relative_to(self._root).as_posix()
+            if not rel_str:
+                return False
+        except ValueError:
+            return False
+
+        if change is Change.deleted:
+            return self._process_deleted_change(rel_str)
+
+        if path.exists():
+            return (
+                self._process_directory_change(rel_str, path)
+                if path.is_dir()
+                else self._process_file_change(rel_str, path)
+            )
+
+        return False
 
     def _create_entry(
         self, rel_str: str, name: str, path: Path, is_dir: bool
@@ -148,6 +190,47 @@ class FileIndexStore:
         return IndexEntry(
             rel=rel_str, rel_lower=rel_str.lower(), name=name, path=path, is_dir=is_dir
         )
+
+    def _should_continue_walking(self, is_dir: bool, depth: int) -> bool:
+        """Check if we should continue walking into a directory.
+
+        Args:
+            is_dir: Whether the entry is a directory.
+            depth: Current depth.
+
+        Returns:
+            True if we should continue walking, False otherwise.
+        """
+        if not is_dir:
+            return False
+        if self._max_depth is not None and depth >= self._max_depth:
+            return False
+        return True
+
+    def _collect_future_results(
+        self,
+        futures: set[Future[list[IndexEntry]]],
+        results: list[IndexEntry],
+        cancel_check: Callable[[], bool] | None,
+    ) -> None:
+        """Collect results from parallel walk futures.
+
+        Args:
+            futures: Set of pending futures.
+            results: List to append results to.
+            cancel_check: Optional cancellation check callback.
+        """
+        while futures:
+            done, futures = wait(futures, return_when=FIRST_COMPLETED)
+            if cancel_check and cancel_check():
+                for future in futures:
+                    future.cancel()
+                break
+            for future in done:
+                try:
+                    results.extend(future.result())
+                except Exception:
+                    continue
 
     def _walk_directory(
         self,
@@ -180,10 +263,7 @@ class FileIndexStore:
 
                     results.append(index_entry)
 
-                    if (
-                        not is_dir
-                        or (self._max_depth is not None and depth >= self._max_depth)
-                    ):
+                    if not self._should_continue_walking(is_dir, depth):
                         continue
 
                     if executor and self._parallel_walk:
@@ -208,17 +288,7 @@ class FileIndexStore:
                             )
                         )
 
-            while futures:
-                done, futures = wait(futures, return_when=FIRST_COMPLETED)
-                if cancel_check and cancel_check():
-                    for future in futures:
-                        future.cancel()
-                    break
-                for future in done:
-                    try:
-                        results.extend(future.result())
-                    except Exception:
-                        continue
+            self._collect_future_results(futures, results, cancel_check)
         except (PermissionError, OSError):
             pass
 

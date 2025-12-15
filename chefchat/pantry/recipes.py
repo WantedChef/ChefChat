@@ -9,12 +9,13 @@ delegating each step to the appropriate kitchen station.
 
 from __future__ import annotations
 
-from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 import yaml
+
+from chefchat.core.compatibility import StrEnum
 
 
 class StepType(StrEnum):

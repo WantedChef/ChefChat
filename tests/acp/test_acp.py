@@ -267,6 +267,53 @@ async def read_multiple_responses(
     return responses
 
 
+def _get_request_class(method: str) -> type[JsonRpcRequest] | None:
+    match method:
+        case "session/prompt":
+            return PromptJsonRpcRequest
+        case "session/request_permission":
+            return RequestPermissionJsonRpcRequest
+        case "fs/read_text_file":
+            return ReadTextFileJsonRpcRequest
+        case "fs/write_text_file":
+            return WriteTextFileJsonRpcRequest
+    return None
+
+
+def _get_notification_class(method: str) -> type[JsonRpcNotification] | None:
+    match method:
+        case "session/update":
+            return UpdateJsonRpcNotification
+    return None
+
+
+def _get_response_class(
+    message_json: dict, parsed_messages: list[JsonRpcMessage]
+) -> type[JsonRpcResponse]:
+    matching_request = next(
+        (
+            m
+            for m in parsed_messages
+            if isinstance(m, JsonRpcRequest) and m.id == message_json.get("id")
+        ),
+        None,
+    )
+    if matching_request is None:
+        return JsonRpcResponse
+
+    match matching_request.method:
+        case "session/prompt":
+            return PromptJsonRpcResponse
+        case "session/request_permission":
+            return RequestPermissionJsonRpcResponse
+        case "fs/read_text_file":
+            return ReadTextFileJsonRpcResponse
+        case "fs/write_text_file":
+            return WriteTextFileJsonRpcResponse
+
+    return JsonRpcResponse
+
+
 def parse_conversation(message_texts: list[str]) -> list[JsonRpcMessage]:
     parsed_messages: list[JsonRpcMessage] = []
     for message_text in message_texts:
@@ -281,44 +328,12 @@ def parse_conversation(message_texts: list[str]) -> list[JsonRpcMessage]:
         is_response = has_result
 
         if is_request:
-            match message_json.get("method"):
-                case "session/prompt":
-                    cls = PromptJsonRpcRequest
-                case "session/request_permission":
-                    cls = RequestPermissionJsonRpcRequest
-                case "fs/read_text_file":
-                    cls = ReadTextFileJsonRpcRequest
-                case "fs/write_text_file":
-                    cls = WriteTextFileJsonRpcRequest
+            cls = _get_request_class(message_json.get("method"))
         elif is_notification:
-            match message_json.get("method"):
-                case "session/update":
-                    cls = UpdateJsonRpcNotification
+            cls = _get_notification_class(message_json.get("method"))
         elif is_response:
-            # For responses, since we don't know the method, we need to find
-            # the matching request.
-            matching_request = next(
-                (
-                    m
-                    for m in parsed_messages
-                    if isinstance(m, JsonRpcRequest) and m.id == message_json.get("id")
-                ),
-                None,
-            )
-            if matching_request is None:
-                # No matching request found in the conversation, it most probably was
-                # not included in the conversation. We use a generic response class.
-                cls = JsonRpcResponse
-            else:
-                match matching_request.method:
-                    case "session/prompt":
-                        cls = PromptJsonRpcResponse
-                    case "session/request_permission":
-                        cls = RequestPermissionJsonRpcResponse
-                    case "fs/read_text_file":
-                        cls = ReadTextFileJsonRpcResponse
-                    case "fs/write_text_file":
-                        cls = WriteTextFileJsonRpcResponse
+            cls = _get_response_class(message_json, parsed_messages)
+
         if cls is None:
             raise ValueError(f"No valid message class found for {message_json}")
         parsed_messages.append(cls.model_validate(message_json))

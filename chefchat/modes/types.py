@@ -14,8 +14,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum
 from typing import Any
+
+from chefchat.core.compatibility import StrEnum
 
 # =============================================================================
 # ENUMS

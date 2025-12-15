@@ -113,6 +113,24 @@ vibe --resume session_123
 
 ---
 
+## 📱 Telegram Bot
+
+1. Configure the bot token and allowlist:
+   ```bash
+   echo "TELEGRAM_BOT_TOKEN=123:abc" >> .env
+   vibe /telegram allow <your_user_id>
+   ```
+2. Start the bot via the CLI:
+   ```bash
+   vibe --bot telegram
+   ```
+   A lock file is written to `~/chefchat_output_/telegram_bot.lock` to guarantee that **only one polling instance** is active. If the previous run crashed, remove the stale lock file before restarting.
+3. Stop the bot cleanly with `Ctrl+C` (the lock is released automatically).
+
+> **Tip:** If you manage the bot with systemd or another supervisor, ensure only a single service is enabled at a time to avoid `getUpdates` conflicts from Telegram.
+
+---
+
 ## ⚙️ File Indexer Performance
 
 - **Parallel walk:** enabled by default. Disable via `file_indexer_parallel_walk = false` in config or `VIBE_FILE_INDEXER_PARALLEL_WALK=false`.
