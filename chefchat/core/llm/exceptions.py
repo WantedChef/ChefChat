@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from http import HTTPStatus
 import json
+import re
 from typing import Any
 
 import httpx
@@ -145,11 +146,24 @@ class BackendError(LLMError):
             f"  request_id: {rid or 'N/A'}",
             f"  endpoint: {self.endpoint}",
             f"  model: {self.model}",
-            f"  provider_message: {self.parsed_error or 'N/A'}",
-            f"  body_excerpt: {self._excerpt(self.body_text)}",
+            f"  provider_message: {self._sanitize_content(self.parsed_error) or 'N/A'}",
+            f"  body_excerpt: {self._sanitize_content(self._excerpt(self.body_text))}",
             f"  payload_summary: {self.payload_summary.model_dump_json(exclude_none=True)}",
         ]
         return "\n".join(parts)
+
+    @staticmethod
+    def _sanitize_content(text: str | None) -> str:
+        if not text:
+            return ""
+        # Mask potential API keys (e.g., sk-...) and long alphanumeric strings that look like keys
+        # 1. Standard OpenAI-style keys
+        text = re.sub(r"(sk-[a-zA-Z0-9]{10,})", "sk-***", text)
+        # 2. Generic Bearer tokens (often in headers if dumped)
+        text = re.sub(
+            r"(Bearer\s+)[a-zA-Z0-9._-]{10,}", r"\1***", text, flags=re.IGNORECASE
+        )
+        return text
 
     @staticmethod
     def _excerpt(s: str, *, n: int = 400) -> str:

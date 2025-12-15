@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     pass
 
 # MAX_FEATURES_DISPLAY imported from interface.constants
+CHEAP_MODEL_PRICE_THRESHOLD = 0.5
 
 
 class ModelManagerScreen(ModalScreen[str | None]):
@@ -89,37 +90,45 @@ class ModelManagerScreen(ModalScreen[str | None]):
         return []
 
     def _populate_all_models(self) -> None:
-        """Populate all models tab."""
-        tab = self.query_one("#all-models", TabPane)
-        tab.remove_children()
+        """Populate all models tab initially."""
+        self._apply_filter("all")
 
-        container = Container()
+    def _create_model_widget(self, model: Any, is_active: bool) -> Vertical:
+        """Create a widget for a single model."""
+        status_icon = "🟢" if is_active else "⚪"
+        select_status = "✅ Selected" if model.alias == self._selected_model else ""
 
-        for model in self._config.models:
-            is_active = model.alias == self._config.active_model
-            status = "✅ Active" if is_active else "⚪ Available"
+        # Determine button variant
+        if is_active:
+            variant = "success"
+        elif model.alias == self._selected_model:
+            variant = "primary"
+        else:
+            variant = "default"
 
-            model_widget = Vertical(
-                Static(f"**{model.alias}** {status}"),
-                Static(f"• Name: `{model.name}`"),
-                Static(f"• Provider: {model.provider}"),
-                Static(f"• Temperature: {model.temperature}"),
-            )
+        btn = Button(
+            f"{status_icon} {model.alias} {select_status}",
+            id=f"model-{model.alias}",
+            variant=variant,
+            classes="model-btn",
+        )
 
-            if model.input_price or model.output_price:
-                model_widget.mount(
-                    Static(
-                        f"• Pricing: ${model.input_price}/M in, ${model.output_price}/M out"
-                    )
-                )
+        details = [f"• Provider: {model.provider}", f"• Temp: {model.temperature}"]
 
-            if model.features:
-                features_str = ", ".join(sorted(model.features))
-                model_widget.mount(Static(f"• Features: {features_str}"))
+        if model.input_price or model.output_price:
+            details.append(f"• ${model.input_price}/{model.output_price} (in/out)")
 
-            container.mount(model_widget)
+        if model.features:
+            features = ", ".join(sorted(model.features)[:MAX_FEATURES_DISPLAY])
+            if len(model.features) > MAX_FEATURES_DISPLAY:
+                features += "..."
+            details.append(f"• {features}")
 
-        tab.mount(container)
+        return Vertical(
+            btn,
+            Static("\n".join(details), classes="model-details"),
+            classes="model-container",
+        )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
@@ -136,6 +145,23 @@ class ModelManagerScreen(ModalScreen[str | None]):
         elif button_id.startswith("filter-"):
             filter_type = button_id.replace("filter-", "")
             self._apply_filter(filter_type)
+        elif button_id.startswith("model-"):
+            # Handle direct model selection from list
+            alias = button_id.replace("model-", "")
+            self._selected_model = alias
+            self.notify(f"Selected: {alias}")
+            # Refresh current view to update button states
+            current_tab = self.query_one("#model-tabs", TabbedContent).active
+            # Map tab ID back to filter type
+            filter_map = {
+                "all-models": "all",
+                "speed-models": "speed",
+                "reasoning-models": "reasoning",
+                "multimodal-models": "multimodal",
+                "cost-models": "cost",
+            }
+            if current_tab in filter_map:
+                self._apply_filter(filter_map[current_tab])
 
     def _apply_filter(self, filter_type: str) -> None:
         """Apply filter to model list."""
@@ -155,35 +181,13 @@ class ModelManagerScreen(ModalScreen[str | None]):
 
         if tab:
             tab.remove_children()
-            container = Container()
+            # Use a Scrollable Container
+            container = Container(classes="scrollable-list")
 
             for model in filtered_models:
                 is_active = model.alias == self._config.active_model
-                status = "🟢 Active" if is_active else "⚪ Available"
-
-                model_widget = Vertical(
-                    Static(f"**{model.alias}** {status}"),
-                    Static(f"• Name: `{model.name}`"),
-                    Static(f"• Provider: {model.provider}"),
-                    Static(f"• Temperature: {model.temperature}"),
-                )
-
-                if model.input_price or model.output_price:
-                    model_widget.mount(
-                        Static(
-                            f"• Pricing: ${model.input_price}/M in, ${model.output_price}/M out"
-                        )
-                    )
-
-                if model.features:
-                    features_str = ", ".join(
-                        sorted(model.features)[:MAX_FEATURES_DISPLAY]
-                    )
-                    if len(model.features) > MAX_FEATURES_DISPLAY:
-                        features_str += "..."
-                    model_widget.mount(Static(f"• Features: {features_str}"))
-
-                container.mount(model_widget)
+                widget = self._create_model_widget(model, is_active)
+                container.mount(widget)
 
             tab.mount(container)
 
@@ -252,15 +256,27 @@ class ModelManagerScreen(ModalScreen[str | None]):
         border: round $primary;
     }
 
-    Vertical {
+    .model-container {
         border: solid $accent;
-        padding: 1;
+        padding: 0 1;
         margin: 0 0 1 0;
         height: auto;
         background: $surface;
     }
 
-    Static {
+    .model-btn {
+        width: 100%;
+        margin-top: 1;
+    }
+
+    .model-details {
+        color: $text-muted;
+        margin-left: 1;
         margin-bottom: 1;
+    }
+
+    .scrollable-list {
+        height: 1fr;
+        overflow-y: auto;
     }
     """

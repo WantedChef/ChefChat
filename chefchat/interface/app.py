@@ -37,6 +37,7 @@ from chefchat.interface.constants import (
     MARKDOWN_SANITIZE_CHARS,
     MAX_FEATURES_DISPLAY,
     MIN_MODELS_TO_COMPARE,
+    SUMMARY_PREVIEW_LENGTH,
     BusAction,
     PayloadKey,
     StationStatus,
@@ -1606,15 +1607,96 @@ Use `/model status` to see which model is currently active.
 """
         self.query_one("#ticket-rail", TicketRail).add_system_message(status)
 
-    async def _show_model_info(self) -> None:
-        """Show current model information."""
-        info = """## 🤖 Model Information
+    async def _handle_model_command(self, arg: str = "") -> None:
+        """Handle /model command - interactive or subcommand."""
+        arg = arg.strip().lower()
 
-**Status**: Model information not available in TUI mode.
+        # Check for subcommands
+        if arg == "status":
+            await self._show_model_status()
+            return
 
-Use the **REPL** (`uv run vibe`) for full model configuration.
-"""
-        self.query_one("#ticket-rail", TicketRail).add_system_message(info)
+        if arg == "list":
+            await self._list_available_models()
+            return
+
+        if arg.startswith("select "):
+            alias = arg.replace("select ", "").strip()
+            await self._switch_model(alias)
+            return
+
+        # Default: Open Interactive Manager
+        await self._open_model_manager()
+
+    async def _show_model_status(self) -> None:
+        """Show realtime model status."""
+        if not self._config:
+            self._config = VibeConfig.load()
+
+        active_model = self._config.get_active_model()
+        provider = self._config.get_provider_for_model(active_model)
+
+        status_text = (
+            f"## 🤖 Realtime Model Status\n\n"
+            f"🌟 **Active Model**: `{active_model.alias}`\n"
+            f"📦 **Provider**: {provider.name}\n"
+            f"🆔 **Model ID**: `{active_model.name}`\n"
+            f"🌡️ **Temperature**: {active_model.temperature}\n"
+            f"💰 **Cost**: ${active_model.input_price}/M in, ${active_model.output_price}/M out"
+        )
+        self.query_one("#ticket-rail", TicketRail).add_system_message(status_text)
+
+    async def _list_available_models(self) -> None:
+        """List all available models (realtime)."""
+        if not self._config:
+            self._config = VibeConfig.load()
+
+        lines = ["## 📦 Available Models", ""]
+        active = self._config.active_model
+
+        # Sort by alias
+        for m in sorted(self._config.models, key=lambda x: x.alias):
+            marker = "✅" if m.alias == active else "⚪"
+            lines.append(f"{marker} **{m.alias}** ({m.provider})")
+
+        self.query_one("#ticket-rail", TicketRail).add_system_message("\n".join(lines))
+
+    async def _switch_model(self, alias: str) -> None:
+        """Switch model by alias."""
+        if not self._config:
+            self._config = VibeConfig.load()
+
+        target = next((m for m in self._config.models if m.alias == alias), None)
+        if not target:
+            self.query_one("#ticket-rail", TicketRail).add_system_message(
+                f"❌ Model `{alias}` not found. Use `/model list` to see available."
+            )
+            return
+
+        self._config.active_model = target.alias
+        VibeConfig.save_updates({"active_model": target.alias})
+
+        # Update active agent if exists
+        try:
+            asyncio.create_task(self._initialize_agent())
+        except Exception:
+            pass
+
+        self.query_one("#ticket-rail", TicketRail).add_system_message(
+            f"✅ Switched active model to **{target.alias}**"
+        )
+        self.notify(f"Model: {target.alias}")
+
+    async def _open_model_manager(self) -> None:
+        """Open the interactive model manager screen."""
+        if not self._config:
+            self._config = VibeConfig.load()
+
+        def on_complete(selected_alias: str | None) -> None:
+            if selected_alias:
+                asyncio.create_task(self._switch_model(selected_alias))
+
+        await self.push_screen(ModelManagerScreen(self._config), on_complete)
 
     async def _show_config(self) -> None:
         """Show configuration info."""

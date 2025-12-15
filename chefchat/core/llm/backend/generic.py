@@ -441,7 +441,8 @@ class GenericBackend:
         total = 0
         for msg in messages:
             total += count_tokens(msg.content or "", model.name)
-            total += 4  # Approximate overhead per message (role, structure)
+            overhead = getattr(self._provider, "message_overhead", 4)
+            total += overhead  # Configurable overhead per message
 
         if tools:
             # Rough estimate for tools definition
@@ -452,7 +453,9 @@ class GenericBackend:
 
         return total
 
-    async def list_models(self, *, extra_headers: dict[str, str] | None = None) -> list[str]:
+    async def list_models(
+        self, *, extra_headers: dict[str, str] | None = None
+    ) -> list[str]:
         """Fetch available models from the provider's API."""
         api_key = (
             os.getenv(self._provider.api_key_env_var)

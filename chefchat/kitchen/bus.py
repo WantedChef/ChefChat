@@ -23,6 +23,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Import validation utilities
+try:
+    from chefchat.kitchen.validation import InputValidator
+except ImportError:
+    # Fallback if validation module not available
+    InputValidator = None
+
 
 class MessagePriority(IntEnum):
     """Priority levels for kitchen messages.
@@ -103,6 +110,17 @@ class KitchenBus:
         Args:
             message: The ChefMessage to send
         """
+        # Validate message if validator available
+        if InputValidator:
+            try:
+                InputValidator.validate_message_payload(message.payload)
+                InputValidator.validate_station_name(message.sender)
+                InputValidator.validate_station_name(message.recipient)
+                InputValidator.validate_action(message.action)
+            except Exception as e:
+                logger.error(f"Message validation failed: {e}")
+                return  # Drop invalid message
+
         prioritized = PrioritizedMessage(priority=message.priority, message=message)
         await self._queue.put(prioritized)
 

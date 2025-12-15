@@ -27,6 +27,46 @@ class TerminalSession:
     command: str = ""
     cwd: Path = field(default_factory=lambda: Path.home() / "chefchat_output_")
 
+    def _read_output_unix(self) -> list[str]:
+        """Read output from process using Unix select()."""
+        import select
+
+        output_lines: list[str] = []
+        ready, _, _ = select.select([self.process.stdout], [], [], 0.5)
+        if not ready:
+            return output_lines
+
+        while True:
+            ready, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if not ready:
+                break
+            line = self.process.stdout.readline()
+            if not line:
+                break
+            output_lines.append(line.strip())
+        return output_lines
+
+    def _read_output_windows(self) -> list[str]:
+        """Read output from process on Windows (blocking fallback)."""
+        import time
+
+        output_lines: list[str] = []
+        time.sleep(0.5)
+        while True:
+            line = self.process.stdout.readline()
+            if not line:
+                break
+            output_lines.append(line.strip())
+        return output_lines
+
+    def _read_output(self) -> list[str]:
+        """Read available output from the process."""
+        import sys
+
+        if sys.platform != "win32":
+            return self._read_output_unix()
+        return self._read_output_windows()
+
     def send_input(self, text: str) -> str:
         """Send input to the terminal and return output."""
         try:
@@ -39,41 +79,20 @@ class TerminalSession:
             self.last_activity = datetime.now()
 
             # Read output (with timeout)
-            output_lines = []
             try:
-                # Read available output
-                import select
-                import sys
-
-                if sys.platform != "win32":
-                    # Use select on Unix
-                    ready, _, _ = select.select([self.process.stdout], [], [], 0.5)
-                    if ready:
-                        while True:
-                            ready, _, _ = select.select(
-                                [self.process.stdout], [], [], 0.1
-                            )
-                            if not ready:
-                                break
-                            line = self.process.stdout.readline()
-                            if not line:
-                                break
-                            output_lines.append(line.strip())
-                else:
-                    # Windows fallback
-                    import time
-
-                    time.sleep(0.5)
-                    while True:
-                        line = self.process.stdout.readline()
-                        if not line:
-                            break
-                        output_lines.append(line.strip())
+                output_lines = self._read_output()
             except Exception as e:
                 logger.warning(f"Error reading output: {e}")
+                output_lines = []
 
-            output = "\n".join(output_lines) if output_lines else "(no output)"
-            return f"```\n{output}\n```"
+            if not output_lines:
+                return (
+                    "💻 **Terminal**: (no output)\n"
+                    "_(Session active: type `/termclose` to exit)_"
+                )
+
+            output = "\n".join(output_lines)
+            return f"💻 **Terminal**:\n```\n{output}\n```"
 
         except Exception as e:
             logger.exception("Failed to send input to terminal")
@@ -99,7 +118,7 @@ class TerminalSession:
 class TerminalManager:
     """Manages multiple terminal sessions for different chats."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sessions: dict[int, TerminalSession] = {}
 
     def create_session(

@@ -10,12 +10,52 @@ The Line Cook is where the actual cooking happens. They:
 from __future__ import annotations
 
 import asyncio
+import pathlib
 from typing import TYPE_CHECKING
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
 
 if TYPE_CHECKING:
     from chefchat.kitchen.manager import KitchenManager
+
+
+class PathValidator:
+    """Validates and sanitizes file paths to prevent traversal attacks."""
+
+    @staticmethod
+    def validate_file_path(
+        file_path: str | pathlib.Path, allowed_root: pathlib.Path
+    ) -> pathlib.Path | None:
+        """Validate a file path is within allowed bounds.
+
+        Args:
+            file_path: The path to validate
+            allowed_root: The root directory that paths must stay within
+
+        Returns:
+            Resolved absolute path if valid, None if invalid
+        """
+        try:
+            # Convert to Path object
+            path = pathlib.Path(file_path)
+
+            # Resolve to absolute path (this normalizes ../ etc.)
+            resolved = path.resolve()
+
+            # Make sure allowed root is also resolved
+            root = allowed_root.resolve()
+
+            # Check if resolved path is within allowed root
+            try:
+                resolved.relative_to(root)
+                return resolved
+            except ValueError:
+                # Path is outside allowed root
+                return None
+
+        except (OSError, ValueError):
+            # Path resolution failed
+            return None
 
 
 class LineCook(BaseStation):
@@ -225,10 +265,14 @@ class LineCook(BaseStation):
 
         # Read the file content
         try:
-            file_path = pathlib.Path(path)
-            if not file_path.is_absolute():
-                # Assuming relative to current working directory for now
-                file_path = pathlib.Path.cwd() / path
+            # Validate path to prevent traversal (use project root as boundary)
+            project_root = pathlib.Path.cwd()
+            file_path = PathValidator.validate_file_path(path, project_root)
+
+            if file_path is None:
+                raise ValueError(
+                    f"Invalid path: {path}. Path must be within project directory."
+                )
 
             if not file_path.exists():
                 raise FileNotFoundError(f"File not found: {path}")

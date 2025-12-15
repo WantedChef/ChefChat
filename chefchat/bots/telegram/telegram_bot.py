@@ -14,6 +14,8 @@ from typing import Any
 # Telegram bot working directory
 TELEGRAM_WORKDIR = Path.home() / "chefchat_output_"
 
+import shlex
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
 from telegram.ext import (
     Application,
@@ -29,7 +31,9 @@ from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
 from chefchat.bots.telegram import fun_commands
 from chefchat.core.config import VibeConfig
+from chefchat.core.tools.executor import SecureCommandExecutor
 from chefchat.core.utils import ApprovalResponse
+from chefchat.kitchen.stations.git_chef import GitCommandValidator
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +43,10 @@ MIN_COMMAND_ARGS_MINIAPP = 2
 MIN_COMMAND_ARGS_SWITCH = 3
 MAX_TELEGRAM_API_RETRIES = 3
 TELEGRAM_API_RETRY_DELAY_S = 1.0
+MIN_COMMAND_ARGS_MODEL_SELECT = 2
+GIT_OUTPUT_MAX_LEN = 3000
+MODEL_MENU_BUTTONS_PER_ROW = 2
+CHEAP_MODEL_PRICE_THRESHOLD = 0.5
 
 
 class TelegramBotService:
@@ -87,6 +95,7 @@ class TelegramBotService:
         from chefchat.bots.telegram.terminal_manager import TerminalManager
 
         self.terminal_manager = TerminalManager()
+        self.executor = SecureCommandExecutor(TELEGRAM_WORKDIR)
 
     def _acquire_lock(self) -> None:
         if self._lock_handle is not None:
@@ -261,6 +270,70 @@ class TelegramBotService:
                 parse_mode=constants.ParseMode.MARKDOWN,
             )
 
+    async def _try_dispatch_text_command(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        chat_id: int,
+        message_text: str,
+    ) -> bool:
+        """Try to dispatch message as a special text command.
+
+        Returns True if handled, False otherwise.
+        """
+        # Command keyword mapping
+        keyword_handlers = {
+            "start": self.start,
+            "stop": self.stop_command,
+            "clear": self.clear_command,
+            "help": self.help_command,
+            "status": self.status_command,
+            "stats": lambda u, c: fun_commands.stats_command(self, u, c),
+            "files": self.files_command,
+            "pwd": self.pwd_command,
+            "model": self.model_command,
+            "modelstatus": self.model_command,
+            "modellist": lambda u, c: self._handle_model_list(u, c),
+            "modelselect": lambda u, c: self._handle_model_select_prompt(u, c),
+            "chef": lambda u, c: fun_commands.chef_command(self, u, c),
+            "wisdom": lambda u, c: fun_commands.wisdom_command(self, u, c),
+            "roast": lambda u, c: fun_commands.roast_command(self, u, c),
+            "fortune": lambda u, c: fun_commands.fortune_command(self, u, c),
+            "reload": lambda u, c: fun_commands.reload_command(self, u, c),
+            "chefchat": self.chefchat_command,
+            "git": self.git_command,
+        }
+
+        # Check mode keyword
+        if message_text == "mode":
+            await self.mode_command(update, context)
+            return True
+
+        # Check mode switch keywords
+        mode_keywords = {
+            "plan": "PLAN",
+            "normal": "NORMAL",
+            "auto": "AUTO",
+            "yolo": "YOLO",
+            "architect": "ARCHITECT",
+        }
+        if message_text in mode_keywords:
+            await self._handle_mode_switch(update, context, mode_keywords[message_text])
+            return True
+
+        # Check single-word command
+        if message_text in keyword_handlers:
+            await keyword_handlers[message_text](update, context)
+            return True
+
+        # Check active terminal session
+        if self.terminal_manager.has_active_session(chat_id):
+            output = self.terminal_manager.send_to_session(chat_id, update.message.text)
+            await self._send_message(chat_id, output)
+            return True
+
+        return False
+
     async def handle_message(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
@@ -287,57 +360,9 @@ class TelegramBotService:
         # Check if message is a command keyword (without /)
         message_text = update.message.text.strip().lower()
 
-        # Command keyword mapping
-        keyword_handlers = {
-            "start": self.start,
-            "stop": self.stop_command,
-            "clear": self.clear_command,
-            "help": self.help_command,
-            "status": self.status_command,
-            "stats": lambda u, c: fun_commands.stats_command(self, u, c),
-            "files": self.files_command,
-            "pwd": self.pwd_command,
-            "model": self.model_command,
-            "modelstatus": self.model_command,
-            "modellist": lambda u, c: self._handle_model_list(u, c),
-            "modelselect": lambda u, c: self._handle_model_select_prompt(u, c),
-            "chef": lambda u, c: fun_commands.chef_command(self, u, c),
-            "wisdom": lambda u, c: fun_commands.wisdom_command(self, u, c),
-            "roast": lambda u, c: fun_commands.roast_command(self, u, c),
-            "fortune": lambda u, c: fun_commands.fortune_command(self, u, c),
-            "reload": lambda u, c: fun_commands.reload_command(self, u, c),
-            "chefchat": self.chefchat_command,
-        }
-
-        # Add mode keyword
-        if message_text == "mode":
-            await self.mode_command(update, context)
-            return
-
-        # Add mode switch keywords (plan, normal, auto, yolo, architect)
-        mode_keywords = {
-            "plan": "PLAN",
-            "normal": "NORMAL",
-            "auto": "AUTO",
-            "yolo": "YOLO",
-            "architect": "ARCHITECT",
-        }
-
-        if message_text in mode_keywords:
-            await self._handle_mode_switch(update, context, mode_keywords[message_text])
-            return
-
-        # Check if it's a single-word command
-        if message_text in keyword_handlers:
-            handler = keyword_handlers[message_text]
-            await handler(update, context)
-            return
-
-        # Check if user has active terminal session
-        if self.terminal_manager.has_active_session(chat_id):
-            # Send message as terminal input
-            output = self.terminal_manager.send_to_session(chat_id, update.message.text)
-            await self._send_message(chat_id, output)
+        if await self._try_dispatch_text_command(
+            update, context, chat_id, message_text
+        ):
             return
 
         # Run sequentially per chat to avoid overlapping agent loops.
@@ -363,11 +388,19 @@ class TelegramBotService:
         if not data:
             return
 
+        # Handle model selection callbacks
+        if data.startswith(("mod:", "mcat:", "mmain")):
+            await self._handle_model_callback(update, context)
+            return
+
         action, short_id = data.split(":")
         tool_call_id = self.approval_map.get(short_id)
 
         if not tool_call_id:
-            await query.edit_message_text("❌ Session expired or unknown request.")
+            try:
+                await query.edit_message_text("❌ Session expired or unknown request.")
+            except Exception:
+                pass
             return
 
         chat_id = update.effective_chat.id
@@ -526,6 +559,69 @@ class TelegramBotService:
         unit = f"{self._systemd_unit_base}.service"
         ok, out = await self._systemctl_user([action, unit])
         await update.message.reply_text(out if ok else f"Failed: {out}")
+
+    async def git_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle /git commands safely."""
+        user = update.effective_user
+        if not user:
+            return
+
+        user_id_str = str(user.id)
+        if user_id_str not in self.bot_manager.get_allowed_users("telegram"):
+            await update.message.reply_text("Access denied.")
+            return
+
+        # Get the full command arguments
+        if not context.args:
+            await update.message.reply_text(
+                "Usage: /git <command> (e.g., status, log, diff)"
+            )
+            return
+
+        raw_args = " ".join(context.args)
+
+        # Validate using GitChef's validator
+        validated_args = GitCommandValidator.parse_and_validate(raw_args)
+        if validated_args is None:
+            await update.message.reply_text("❌ Invalid or unsafe git command.")
+            return
+
+        # Execute
+        await update.message.reply_text(f"🔧 Running git {validated_args[1]}...")
+
+        try:
+            # Reconstruct safe command string for executor
+            safe_command = " ".join(shlex.quote(arg) for arg in validated_args)
+
+            # Pass GITHUB_TOKEN if available
+            env = {}
+            if token := os.environ.get("GITHUB_TOKEN"):
+                env["GITHUB_TOKEN"] = token
+
+            stdout, stderr, returncode = await self.executor.execute(
+                safe_command, timeout=30, env=env
+            )
+
+            output = (stdout if stdout else stderr).strip()
+            if not output:
+                output = "(No output)"
+
+            icon = "✅" if returncode == 0 else "❌"
+            header = f"{icon} Git {validated_args[1]} finished (code {returncode})"
+
+            # Truncate if too long for Telegram
+            if len(output) > GIT_OUTPUT_MAX_LEN:
+                output = output[:GIT_OUTPUT_MAX_LEN] + "\n...(truncated)"
+
+            await update.message.reply_text(
+                f"**{header}**\n```\n{output}\n```",
+                parse_mode=constants.ParseMode.MARKDOWN,
+            )
+
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error executing git: {e}")
 
     async def _systemctl_user(self, args: list[str]) -> tuple[bool, str]:
         """Run `systemctl --user ...` and return (ok, output)."""
@@ -698,6 +794,8 @@ class TelegramBotService:
             "• termvim - Vim editor\n"
             "• termstatus - Session status\n"
             "• termclose - Close session\n\n"
+            "**Tools:** 🛠️\n"
+            "• git - Run git commands (status, log, etc)\n\n"
             "**Advanced:**\n"
             "• reload - Reload configuration\n"
             "• chefchat - Systemd controls\n\n"
@@ -707,17 +805,191 @@ class TelegramBotService:
             help_text, parse_mode=constants.ParseMode.MARKDOWN
         )
 
+    async def _perform_model_list(self, update: Update) -> None:
+        """Helper to list available models."""
+        lines = ["Available models:"]
+        active = (self.config.active_model or "").lower()
+        for m in sorted(self.config.models, key=lambda x: x.alias):
+            is_active = m.alias.lower() == active or m.name.lower() == active
+            marker = "✅" if is_active else "•"
+            lines.append(f"{marker} {m.alias} ({m.provider})")
+        await update.message.reply_text("\n".join(lines))
+
+    async def _perform_model_select(self, update: Update, args: list[str]) -> None:
+        """Helper to select a model."""
+        if len(args) < MIN_COMMAND_ARGS_MODEL_SELECT:
+            await update.message.reply_text("Usage: /model select <alias>")
+            return
+
+        target = args[1].lower()
+        model = next(
+            (
+                m
+                for m in self.config.models
+                if target in {m.alias.lower(), m.name.lower()}
+            ),
+            None,
+        )
+        if model is None:
+            await update.message.reply_text(
+                f"Model '{args[1]}' not found. Use /model list."
+            )
+            return
+
+        self.config.active_model = model.alias
+        VibeConfig.save_updates({"active_model": model.alias})
+        await update.message.reply_text(f"✅ Switched model to: {model.alias}")
+
+    async def _handle_model_callback(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle model selection callbacks."""
+        query = update.callback_query
+        data = query.data
+
+        if data == "mmain":
+            await self._show_model_root_menu(update)
+            return
+
+        if data.startswith("mcat:"):
+            category = data.split(":", 1)[1]
+            await self._show_model_category(update, category)
+            return
+
+        if data.startswith("mod:"):
+            alias = data.split(":", 1)[1]
+            await self._select_model_and_confirm(update, alias)
+            return
+
+    async def _show_model_root_menu(self, update: Update) -> None:
+        """Show the root model selection menu."""
+        active_model = self.config.get_active_model()
+
+        # Categories
+        categories = [
+            ("👨‍💻 Coding", "coding"),
+            ("🧠 Reasoning", "reasoning"),
+            ("⚡ Speed", "speed"),
+            ("👁️ Vision", "vision"),
+            ("💰 Free/Cheap", "cost_effective"),
+            ("📦 All Models", "all"),
+        ]
+
+        buttons = []
+        row = []
+        for label, tag in categories:
+            row.append(InlineKeyboardButton(label, callback_data=f"mcat:{tag}"))
+            if len(row) == MODEL_MENU_BUTTONS_PER_ROW:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        text = (
+            f"🧠 **Model Control Strategy**\n\n"
+            f"Current Active Model:\n"
+            f"🌟 **{active_model.alias}**\n"
+            f"Testing: {active_model.name}\n"
+            f"Provider: {active_model.provider}\n\n"
+            f"👇 **Select a specialized fleet:**"
+        )
+
+        reply_markup = InlineKeyboardMarkup(buttons)
+        try:
+            await update.callback_query.edit_message_text(
+                text=text,
+                reply_markup=reply_markup,
+                parse_mode=constants.ParseMode.MARKDOWN,
+            )
+        except Exception:
+            # Fallback if message is same
+            pass
+
+    async def _show_model_category(self, update: Update, category: str) -> None:
+        """Show models in a specific category."""
+        models = []
+        active = (self.config.active_model or "").lower()
+
+        # Filter models
+        for m in self.config.models:
+            if category == "all":
+                models.append(m)
+                continue
+
+            # Feature matching
+            has_feature = False
+            if m.features and category in m.features:
+                has_feature = True
+
+            # Special logic for "free/cheap" if not explicitly tagged but low price
+            if category == "cost_effective":
+                if (m.input_price or 0) < CHEAP_MODEL_PRICE_THRESHOLD:
+                    has_feature = True
+
+            if has_feature:
+                models.append(m)
+
+        # Sort: Active first, then by alias
+        models.sort(key=lambda x: (x.alias != active, x.alias))
+
+        buttons = []
+        for m in models:
+            marker = "✅" if m.alias == active else ""
+            label = f"{marker} {m.alias} [{m.provider}]"
+            buttons.append([
+                InlineKeyboardButton(label, callback_data=f"mod:{m.alias}")
+            ])
+
+        buttons.append([
+            InlineKeyboardButton("🔙 Back to Fleets", callback_data="mmain")
+        ])
+
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        cat_names = {
+            "coding": "👨‍💻 Coding Specialists",
+            "reasoning": "🧠 Reasoning Engines",
+            "speed": "⚡ High Speed Models",
+            "vision": "👁️ Multimodal/Vision",
+            "cost_effective": "💰 High Efficiency",
+            "all": "📦 All Available Models",
+        }
+        cat_title = cat_names.get(category, "Models")
+
+        text = f"**{cat_title}**\nSelect a model to deploy:"
+
+        await update.callback_query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=constants.ParseMode.MARKDOWN,
+        )
+
+    async def _select_model_and_confirm(self, update: Update, alias: str) -> None:
+        """Switch model and show confirmation."""
+        # Find model
+        model = next((m for m in self.config.models if m.alias == alias), None)
+        if not model:
+            await update.callback_query.answer("Model not found!", show_alert=True)
+            return
+
+        # Switch
+        self.config.active_model = model.alias
+        VibeConfig.save_updates({"active_model": model.alias})
+
+        # Update sessions
+        for session in self.sessions.values():
+            session.config.active_model = model.alias
+            session.agent.config.active_model = model.alias
+
+        await update.callback_query.answer(f"Switched to {model.alias}")
+
+        # Return to root menu to show updated status
+        await self._show_model_root_menu(update)
+
     async def model_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Handle /model commands in Telegram.
-
-        Supported:
-        - /model
-        - /model status
-        - /model list
-        - /model select <alias>
-        """
+        """Handle /model commands in Telegram."""
         user = update.effective_user
         if not user or not update.message:
             return
@@ -729,58 +1001,76 @@ class TelegramBotService:
             return
 
         args = [a.strip() for a in (context.args or []) if a.strip()]
-        action = args[0].lower() if args else "status"
+        action = args[0].lower() if args else ""
 
-        if action in {"help", "h"}:
-            await update.message.reply_text(
-                "Usage:\n/model status\n/model list\n/model select <alias>"
-            )
+        if action in {"list", "select", "status"}:
+            # Legacy handling if user types specific args
+            await self._legacy_model_handler(update, context, action, args[1:])
             return
 
-        if action == "list":
-            lines = ["Available models:"]
-            active = (self.config.active_model or "").lower()
-            for m in sorted(self.config.models, key=lambda x: x.alias):
-                is_active = m.alias.lower() == active or m.name.lower() == active
-                marker = "✅" if is_active else "•"
-                lines.append(f"{marker} {m.alias} ({m.provider})")
-            await update.message.reply_text("\n".join(lines))
-            return
-
-        if action == "select":
-            if len(args) < 2:
-                await update.message.reply_text("Usage: /model select <alias>")
-                return
-
-            target = args[1].lower()
-            model = next(
-                (
-                    m
-                    for m in self.config.models
-                    if target in {m.alias.lower(), m.name.lower()}
-                ),
-                None,
-            )
-            if model is None:
-                await update.message.reply_text(
-                    f"Model '{args[1]}' not found. Use /model list."
-                )
-                return
-
-            self.config.active_model = model.alias
-            VibeConfig.save_updates({"active_model": model.alias})
-            await update.message.reply_text(f"✅ Switched model to: {model.alias}")
-            return
-
-        # Default: status
+        # Default: Show Interactive Menu
         active_model = self.config.get_active_model()
-        provider = self.config.get_provider_for_model(active_model)
-        await update.message.reply_text(
-            "Current model:\n"
-            f"• Alias: {active_model.alias}\n"
-            f"• Provider: {provider.name}\n"
-            f"• Model ID: {active_model.name}"
+
+        # Categories
+        categories = [
+            ("👨‍💻 Coding", "coding"),
+            ("🧠 Reasoning", "reasoning"),
+            ("⚡ Speed", "speed"),
+            ("👁️ Vision", "vision"),
+            ("💰 Free/Cheap", "cost_effective"),
+            ("📦 All Models", "all"),
+        ]
+
+        buttons = []
+        row = []
+        for label, tag in categories:
+            row.append(InlineKeyboardButton(label, callback_data=f"mcat:{tag}"))
+            if len(row) == MODEL_MENU_BUTTONS_PER_ROW:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        text = (
+            f"🧠 **Model Control Strategy**\n\n"
+            f"Current Active Model:\n"
+            f"🌟 **{active_model.alias}**\n"
+            f"Testing: {active_model.name}\n"
+            f"Provider: {active_model.provider}\n\n"
+            f"👇 **Select a specialized fleet:**"
         )
+
+        reply_markup = InlineKeyboardMarkup(buttons)
+        await update.message.reply_text(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=constants.ParseMode.MARKDOWN,
+        )
+
+    async def _legacy_model_handler(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        action: str,
+        args: list[str],
+    ) -> None:
+        """Keep old logic for specific subcommands if needed."""
+        if action == "list":
+            await self._perform_model_list(update)
+        elif action == "select":
+            # Need to reconstruct args for helper
+            full_args = ["select"] + args
+            await self._perform_model_select(update, full_args)
+        elif action == "status":
+            # Just show status text, no menu
+            active_model = self.config.get_active_model()
+            provider = self.config.get_provider_for_model(active_model)
+            await update.message.reply_text(
+                "Current model:\n"
+                f"• Alias: {active_model.alias}\n"
+                f"• Provider: {provider.name}\n"
+                f"• Model ID: {active_model.name}"
+            )
 
     async def _handle_model_list(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -1030,6 +1320,141 @@ class TelegramBotService:
             except Exception as e:
                 logger.warning(f"Could not notify user {user_id}: {e}")
 
+    def _register_basic_handlers(self) -> None:
+        """Register basic command handlers."""
+        handlers = [
+            ("start", self.start),
+            ("stop", self.stop_command),
+            ("clear", self.clear_command),
+            ("status", self.status_command),
+            ("files", self.files_command),
+            ("pwd", self.pwd_command),
+            ("help", self.help_command),
+            ("model", self.model_command),
+            ("mode", self.mode_command),
+            ("chefchat", self.chefchat_command),
+        ]
+        for cmd, handler in handlers:
+            self.application.add_handler(CommandHandler(cmd, handler))
+
+    def _register_fun_handlers(self) -> None:
+        """Register fun/easter egg command handlers."""
+        fun_handlers = [
+            ("chef", fun_commands.chef_command),
+            ("wisdom", fun_commands.wisdom_command),
+            ("roast", fun_commands.roast_command),
+            ("fortune", fun_commands.fortune_command),
+            ("stats", fun_commands.stats_command),
+            ("reload", fun_commands.reload_command),
+        ]
+        for cmd, func in fun_handlers:
+            # Capture func in closure properly
+            self.application.add_handler(
+                CommandHandler(cmd, lambda u, c, f=func: f(self, u, c))
+            )
+
+    def _register_model_handlers(self) -> None:
+        """Register model-related command handlers."""
+        self.application.add_handler(
+            CommandHandler("modellist", lambda u, c: self._handle_model_list(u, c))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "modelselect", lambda u, c: self._handle_model_select_prompt(u, c)
+            )
+        )
+        self.application.add_handler(CommandHandler("modelstatus", self.model_command))
+
+    def _register_mode_handlers(self) -> None:
+        """Register mode switch command handlers."""
+        mode_commands = [
+            ("plan", "PLAN"),
+            ("normal", "NORMAL"),
+            ("auto", "AUTO"),
+            ("yolo", "YOLO"),
+            ("architect", "ARCHITECT"),
+        ]
+        for cmd, mode in mode_commands:
+            self.application.add_handler(
+                CommandHandler(
+                    cmd, lambda u, c, m=mode: self._handle_mode_switch(u, c, m)
+                )
+            )
+
+    def _register_terminal_handlers(self) -> None:
+        """Register terminal command handlers."""
+        self.application.add_handler(CommandHandler("term", self.term_command))
+        self.application.add_handler(
+            CommandHandler("termstatus", self.termstatus_command)
+        )
+        self.application.add_handler(
+            CommandHandler("termclose", self.termclose_command)
+        )
+
+        # Terminal shortcut commands
+        shortcuts = [
+            ("termbash", "bash"),
+            ("termpython3", "python3"),
+            ("termvim", "vim"),
+            ("termnode", "node"),
+            ("termnpm", "npm"),
+        ]
+        for cmd, shell_cmd in shortcuts:
+            self.application.add_handler(
+                CommandHandler(
+                    cmd, lambda u, c, s=shell_cmd: self._term_shortcut(u, c, s)
+                )
+            )
+
+    def _register_message_handlers(self) -> None:
+        """Register message and callback handlers."""
+        # Route unknown slash-commands into the normal chat pipeline
+        self.application.add_handler(
+            MessageHandler(filters.COMMAND, self.handle_message)
+        )
+        self.application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+        )
+        self.application.add_handler(CallbackQueryHandler(self.handle_callback))
+        self.application.add_error_handler(self.error_handler)
+
+    def _register_all_handlers(self) -> None:
+        """Register all command, message, and callback handlers."""
+        self._register_basic_handlers()
+        self._register_fun_handlers()
+        self._register_model_handlers()
+        self._register_mode_handlers()
+        self._register_terminal_handlers()
+        self._register_message_handlers()
+
+    async def _shutdown_gracefully(self, started: bool, polling: bool) -> None:
+        """Gracefully shutdown the application."""
+        try:
+            if self.application is not None and polling:
+                await self.application.updater.stop()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.warning("Telegram updater stop failed: %s", e)
+
+        try:
+            if self.application is not None and started:
+                await self.application.stop()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.warning("Telegram application stop failed: %s", e)
+
+        try:
+            if self.application is not None:
+                await self.application.shutdown()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.warning("Telegram application shutdown failed: %s", e)
+
+        self._release_lock()
+
     async def run(self) -> None:
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         if not token:
@@ -1047,117 +1472,9 @@ class TelegramBotService:
             return
 
         self.application = ApplicationBuilder().token(token).build()
-
-        # Register command handlers
-        self.application.add_handler(CommandHandler("start", self.start))
-        self.application.add_handler(CommandHandler("stop", self.stop_command))
-        self.application.add_handler(CommandHandler("clear", self.clear_command))
-        self.application.add_handler(CommandHandler("status", self.status_command))
-        self.application.add_handler(CommandHandler("files", self.files_command))
-        self.application.add_handler(CommandHandler("pwd", self.pwd_command))
-        self.application.add_handler(CommandHandler("help", self.help_command))
-        self.application.add_handler(CommandHandler("model", self.model_command))
-        self.application.add_handler(CommandHandler("mode", self.mode_command))
-        self.application.add_handler(CommandHandler("chefchat", self.chefchat_command))
-
-        # Fun commands
-        self.application.add_handler(
-            CommandHandler("chef", lambda u, c: fun_commands.chef_command(self, u, c))
-        )
-        self.application.add_handler(
-            CommandHandler(
-                "wisdom", lambda u, c: fun_commands.wisdom_command(self, u, c)
-            )
-        )
-        self.application.add_handler(
-            CommandHandler("roast", lambda u, c: fun_commands.roast_command(self, u, c))
-        )
-        self.application.add_handler(
-            CommandHandler(
-                "fortune", lambda u, c: fun_commands.fortune_command(self, u, c)
-            )
-        )
-        self.application.add_handler(
-            CommandHandler("stats", lambda u, c: fun_commands.stats_command(self, u, c))
-        )
-        self.application.add_handler(
-            CommandHandler(
-                "reload", lambda u, c: fun_commands.reload_command(self, u, c)
-            )
-        )
-
-        # Model command aliases
-        self.application.add_handler(
-            CommandHandler("modellist", lambda u, c: self._handle_model_list(u, c))
-        )
-        self.application.add_handler(
-            CommandHandler(
-                "modelselect", lambda u, c: self._handle_model_select_prompt(u, c)
-            )
-        )
-        self.application.add_handler(CommandHandler("modelstatus", self.model_command))
-
-        # Mode command aliases
-        self.application.add_handler(
-            CommandHandler("plan", lambda u, c: self._handle_mode_switch(u, c, "PLAN"))
-        )
-        self.application.add_handler(
-            CommandHandler(
-                "normal", lambda u, c: self._handle_mode_switch(u, c, "NORMAL")
-            )
-        )
-        self.application.add_handler(
-            CommandHandler("auto", lambda u, c: self._handle_mode_switch(u, c, "AUTO"))
-        )
-        self.application.add_handler(
-            CommandHandler("yolo", lambda u, c: self._handle_mode_switch(u, c, "YOLO"))
-        )
-        self.application.add_handler(
-            CommandHandler(
-                "architect", lambda u, c: self._handle_mode_switch(u, c, "ARCHITECT")
-            )
-        )
-
-        # Terminal commands
-        self.application.add_handler(CommandHandler("term", self.term_command))
-        self.application.add_handler(
-            CommandHandler("termstatus", self.termstatus_command)
-        )
-        self.application.add_handler(
-            CommandHandler("termclose", self.termclose_command)
-        )
-
-        # Terminal shortcut commands
-        self.application.add_handler(
-            CommandHandler("termbash", lambda u, c: self._term_shortcut(u, c, "bash"))
-        )
-        self.application.add_handler(
-            CommandHandler(
-                "termpython3", lambda u, c: self._term_shortcut(u, c, "python3")
-            )
-        )
-        self.application.add_handler(
-            CommandHandler("termvim", lambda u, c: self._term_shortcut(u, c, "vim"))
-        )
-        self.application.add_handler(
-            CommandHandler("termnode", lambda u, c: self._term_shortcut(u, c, "node"))
-        )
-        self.application.add_handler(
-            CommandHandler("termnpm", lambda u, c: self._term_shortcut(u, c, "npm"))
-        )
-        # Route unknown slash-commands (e.g. /model, /modes) into the normal chat pipeline.
-        self.application.add_handler(
-            MessageHandler(filters.COMMAND, self.handle_message)
-        )
-        self.application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
-        )
-        self.application.add_handler(CallbackQueryHandler(self.handle_callback))
-        self.application.add_error_handler(self.error_handler)
+        self._register_all_handlers()
 
         logger.info("Starting Telegram Bot polling...")
-
-        # Start a background cleanup loop
         asyncio.create_task(self._cleanup_loop())
 
         started = False
@@ -1169,39 +1486,12 @@ class TelegramBotService:
             await self.application.updater.start_polling(drop_pending_updates=True)
             polling = True
 
-            # Notify allowed users that bot has started
             await self._notify_startup()
-
             await asyncio.Event().wait()
         except asyncio.CancelledError:
-            # Normal shutdown path when the task is cancelled.
             pass
         finally:
-            try:
-                if self.application is not None and polling:
-                    await self.application.updater.stop()
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.warning("Telegram updater stop failed: %s", e)
-
-            try:
-                if self.application is not None and started:
-                    await self.application.stop()
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.warning("Telegram application stop failed: %s", e)
-
-            try:
-                if self.application is not None:
-                    await self.application.shutdown()
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.warning("Telegram application shutdown failed: %s", e)
-
-            self._release_lock()
+            await self._shutdown_gracefully(started, polling)
 
     async def _cleanup_loop(self) -> None:
         while True:

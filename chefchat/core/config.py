@@ -165,6 +165,7 @@ class ProviderConfig(BaseModel):
     api_key_env_var: str = ""
     api_style: str = "openai"
     backend: Backend = Backend.GENERIC
+    message_overhead: int = 4
     features: set[str] = Field(default_factory=set, description="Provider capabilities")
 
 

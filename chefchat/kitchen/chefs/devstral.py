@@ -10,6 +10,14 @@ from typing import TYPE_CHECKING, Any
 
 from chefchat.kitchen.core import ChefBrain
 
+# Import security utilities
+try:
+    from chefchat.kitchen.security import SecurityRedactor, enable_automatic_redaction
+
+    enable_automatic_redaction()
+except ImportError:
+    SecurityRedactor = None
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -32,12 +40,20 @@ class DevstralChef(ChefBrain):
         try:
             from mistralai import Mistral
 
-            self._client = Mistral(api_key=self._api_key)
+            # Store API key securely (don't log it)
+            api_key_to_use = self._api_key
+            self._client = Mistral(api_key=api_key_to_use)
             return True
         except ImportError:
             # gracefully handle missing package
             return False
-        except Exception:
+        except Exception as e:
+            # Redact API key from error messages
+            if SecurityRedactor:
+                error_msg = SecurityRedactor.redact_sensitive_data(str(e))
+            else:
+                error_msg = str(e)
+            # Don't log the full error to avoid API key exposure
             return False
 
     async def cook_recipe(

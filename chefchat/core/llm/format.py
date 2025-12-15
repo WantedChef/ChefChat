@@ -6,7 +6,7 @@ import json
 import re
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from chefchat.core.tools.base import BaseTool
 from chefchat.core.types import (
@@ -35,6 +35,10 @@ def _is_regex_hint(pattern: str) -> bool:
 
 @lru_cache(maxsize=256)
 def _compile_icase(expr: str) -> re.Pattern | None:
+    # Validation: Prevent ReDoS and memory exhaustion
+    if len(expr) > 1000:  # Arbitrary limit for pattern complexity
+        return None
+
     try:
         return re.compile(expr, re.IGNORECASE)
     except re.error:
@@ -128,7 +132,9 @@ def normalize_tool_choice(
     return tool_choice
 
 
-def guard_tool_schema_size(tools: list[AvailableTool] | None, *, max_chars: int = 60_000) -> None:
+def guard_tool_schema_size(
+    tools: list[AvailableTool] | None, *, max_chars: int = 60_000
+) -> None:
     if not tools:
         return
     total = 0
@@ -148,6 +154,28 @@ class ParsedToolCall(BaseModel):
     tool_name: str
     raw_args: dict[str, Any]
     call_id: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_args_safety(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            args = data.get("raw_args")
+            if args is None:
+                return data
+
+            if not isinstance(args, dict):
+                raise ValueError("raw_args must be a dictionary")
+
+            # 1. Size validation (max 1MB)
+            try:
+                serialized = json.dumps(args)
+                if len(serialized) > 1_048_576:
+                    raise ValueError("Tool arguments too large (max 1MB)")
+            except (TypeError, ValueError) as e:
+                # 2. Type validation / Sanitization
+                # If it cannot be dumped to JSON, it contains unsafe types
+                raise ValueError(f"Unsafe data types in tool arguments: {e}")
+        return data
 
 
 class ResolvedToolCall(BaseModel):
