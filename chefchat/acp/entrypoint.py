@@ -8,9 +8,12 @@ from chefchat.acp.acp_agent import run_acp_server
 from chefchat.setup.onboarding import run_onboarding
 
 # Configure line buffering for subprocess communication
-sys.stdout.reconfigure(line_buffering=True)  # pyright: ignore[reportAttributeAccessIssue]
-sys.stderr.reconfigure(line_buffering=True)  # pyright: ignore[reportAttributeAccessIssue]
-sys.stdin.reconfigure(line_buffering=True)  # pyright: ignore[reportAttributeAccessIssue]
+try:
+    sys.stdout.reconfigure(line_buffering=True)  # pyright: ignore[reportAttributeAccessIssue]
+    sys.stderr.reconfigure(line_buffering=True)  # pyright: ignore[reportAttributeAccessIssue]
+    sys.stdin.reconfigure(line_buffering=True)  # pyright: ignore[reportAttributeAccessIssue]
+except (AttributeError, OSError):
+    pass  # Fallback for platforms/versions where reconfigure is not available
 
 
 @dataclass

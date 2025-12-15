@@ -365,10 +365,13 @@ def _setup_environment() -> None:
     """Setup environment for ChefChat."""
     # Force UTF-8 encoding for stdout on Windows to support emojis
     if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
 
     # Change to designated output directory if it exists
-    output_dir = Path("/home/chef/chefchat_output_")
+    output_dir = Path.home() / "chefchat_output_"
     if output_dir.exists() and output_dir.is_dir():
         try:
             os.chdir(output_dir)

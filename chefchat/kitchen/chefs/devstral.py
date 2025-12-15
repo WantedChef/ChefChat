@@ -50,9 +50,10 @@ class DevstralChef(ChefBrain):
         except Exception as e:
             # Redact API key from error messages
             if SecurityRedactor:
-                error_msg = SecurityRedactor.redact_sensitive_data(str(e))
+                redacted_error = SecurityRedactor.redact_sensitive_data(str(e))
+                # Note: redacted_error contains the safe error message for potential logging
             else:
-                error_msg = str(e)
+                redacted_error = str(e)
             # Don't log the full error to avoid API key exposure
             return False
 

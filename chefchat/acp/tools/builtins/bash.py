@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 import shlex
+import os
 from typing import final
 
 from acp import CreateTerminalRequest, TerminalHandle
@@ -114,12 +115,20 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
                 terminal_handle.wait_for_exit(), timeout=timeout
             )
         except TimeoutError:
+            # Capture output before killing for better error context
+            partial_output = ""
+            try:
+                output_response = await terminal_handle.current_output()
+                partial_output = output_response.output[:500] if output_response.output else ""
+            except Exception:
+                pass
+            
             try:
                 await terminal_handle.kill()
             except Exception as e:
                 logger.error(f"Failed to kill terminal: {e!r}")
 
-            raise self._build_timeout_error(command, timeout)
+            raise self._build_timeout_error(command, timeout, partial_output)
 
     @classmethod
     def tool_call_session_update(cls, event: ToolCallEvent) -> ToolCallStart:
@@ -135,8 +144,11 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
             rawInput=event.args.model_dump_json(),
         )
 
-    def _build_timeout_error(self, command: str, timeout: int) -> ToolError:
-        return ToolError(f"Command timed out after {timeout}s: {command!r}")
+    def _build_timeout_error(self, command: str, timeout: int, partial_output: str = "") -> ToolError:
+        msg = f"Command timed out after {timeout}s: {command!r}"
+        if partial_output:
+            msg += f"\nPartial output: {partial_output}"
+        return ToolError(msg)
 
     @final
     def _build_result(
@@ -153,9 +165,40 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
 
         return BashResult(stdout=stdout, stderr=stderr, returncode=returncode)
 
+    def _validate_command_safety(self, command: str) -> bool:
+        """
+        Validate command safety by checking for dangerous shell operators.
+        
+        Returns True if command is safe (no shell operators), False otherwise.
+        """
+        # Dangerous shell operators that allow command chaining or execution
+        # && = AND operator
+        # || = OR operator
+        # ; = Command separator
+        # | = Pipe (can be dangerous if used to chain)
+        # ` = Backticks for command substitution
+        # $() = Command substitution
+        dangerous_patterns = [";", "&&", "||", "|", "`", "$("]
+        
+        return not any(pattern in command for pattern in dangerous_patterns)
+
     def _is_denylisted(self, command: str) -> bool:
         """Check if command matches denylist patterns."""
-        return any(command.startswith(pattern) for pattern in self.config.denylist)
+        # Check against patterns directly
+        if any(command.startswith(pattern) for pattern in self.config.denylist):
+            return True
+            
+        # Check full path commands against base names
+        # e.g. /bin/rm should match rm
+        parts = command.split()
+        if not parts:
+            return False
+            
+        cmd_name = parts[0]
+        base_name = os.path.basename(cmd_name)
+        
+        return any(base_name == pattern or base_name.startswith(pattern + " ") 
+                  for pattern in self.config.denylist)
 
     def _is_standalone_denylisted(self, command: str) -> bool:
         """Check if command is a standalone denylisted command."""
@@ -163,12 +206,15 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
         if not parts:
             return False
 
-        base_command = parts[0]
+        # Check both full command and basename
+        cmd_name = parts[0]
+        base_name = os.path.basename(cmd_name)
         has_args = len(parts) > 1
 
         if not has_args:
-            command_name = base_command
-            if command_name in self.config.denylist_standalone:
+            if cmd_name in self.config.denylist_standalone:
+                return True
+            if base_name in self.config.denylist_standalone:
                 return True
 
         return False
@@ -179,6 +225,22 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
 
     def check_allowlist_denylist(self, args: BashArgs) -> ToolPermission:
         """Check if the bash command is allowed based on allowlist/denylist."""
+        
+        # First, check for dangerous shell operators
+        if not self._validate_command_safety(args.command):
+            # If command contains dangerous operators, we MUST ask unless it's explicitly explicitly 
+            # safe. But for now, let's enable strict mode where we ASK or BLOCK.
+            # To be safe, if we detect chaining, we treat it as potentially dangerous.
+            # We can't easily parse complex chained commands to check each part against allowlist.
+            # So if it's complex, we default to stricter checking or just ASK.
+            
+            # Additional check: if command mimics a known safe command but has operators, 
+            # maybe we still want to block?
+            # For this remediation, we will BLOCK dangerous operators if they are not 
+            # fundamentally required for simple operations.
+            logger.warning(f"Blocking command with dangerous operators: {args.command}")
+            return ToolPermission.NEVER
+
         command_parts = re.split(r"(?:&&|\|\||;|\|)", args.command)
         command_parts = [part.strip() for part in command_parts if part.strip()]
 
@@ -186,14 +248,21 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
             return ToolPermission.ASK
 
         for command_part in command_parts:
+            # Check denylists first (highest priority)
             if self._is_denylisted(command_part) or self._is_standalone_denylisted(
                 command_part
             ):
+                logger.warning(f"Blocking denylisted command: {command_part}")
                 return ToolPermission.NEVER
-            if self._is_allowlisted(command_part):
-                return ToolPermission.ALWAYS
+                
+            # If any part is NOT allowlisted, we must ASK
+            if not self._is_allowlisted(command_part):
+                return ToolPermission.ASK
 
-        return ToolPermission.ASK
+        # If we got here, all parts passed denylist and are allowlisted. 
+        # But wait, if we had multiple parts (chaining), _validate_command_safety would have caught it.
+        # So we really only process single commands here.
+        return ToolPermission.ALWAYS
 
     @classmethod
     def tool_result_session_update(

@@ -14,48 +14,10 @@ import pathlib
 from typing import TYPE_CHECKING
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
+from chefchat.kitchen.validation import PathValidator
 
 if TYPE_CHECKING:
     from chefchat.kitchen.manager import KitchenManager
-
-
-class PathValidator:
-    """Validates and sanitizes file paths to prevent traversal attacks."""
-
-    @staticmethod
-    def validate_file_path(
-        file_path: str | pathlib.Path, allowed_root: pathlib.Path
-    ) -> pathlib.Path | None:
-        """Validate a file path is within allowed bounds.
-
-        Args:
-            file_path: The path to validate
-            allowed_root: The root directory that paths must stay within
-
-        Returns:
-            Resolved absolute path if valid, None if invalid
-        """
-        try:
-            # Convert to Path object
-            path = pathlib.Path(file_path)
-
-            # Resolve to absolute path (this normalizes ../ etc.)
-            resolved = path.resolve()
-
-            # Make sure allowed root is also resolved
-            root = allowed_root.resolve()
-
-            # Check if resolved path is within allowed root
-            try:
-                resolved.relative_to(root)
-                return resolved
-            except ValueError:
-                # Path is outside allowed root
-                return None
-
-        except (OSError, ValueError):
-            # Path resolution failed
-            return None
 
 
 class LineCook(BaseStation):
@@ -233,8 +195,6 @@ class LineCook(BaseStation):
         Args:
             payload: Error details from Expeditor
         """
-        import pathlib
-
         ticket_id = payload.get("ticket_id", "unknown")
         attempt = payload.get("attempt", 1)
         max_attempts = payload.get("max_attempts", 3)

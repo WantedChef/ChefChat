@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, ClassVar
 
 
 class SecurityRedactor:
     """Redacts sensitive information from logs and messages."""
 
     # Patterns for sensitive data
-    API_KEY_PATTERNS = [
+    API_KEY_PATTERNS: ClassVar[list[str]] = [
         # Generic API keys (alphanumeric, 20+ chars)
         r'(api[_-]?key["\'\s]*[:=]["\'\s]*)([a-zA-Z0-9]{20,})',
         # Bearer tokens
@@ -24,14 +24,14 @@ class SecurityRedactor:
     ]
 
     # Password patterns
-    PASSWORD_PATTERNS = [
+    PASSWORD_PATTERNS: ClassVar[list[str]] = [
         r'(password["\'\s]*[:=]["\'\s]*)([^"\'\\s]{8,})',
         r'(passwd["\'\s]*[:=]["\'\s]*)([^"\'\\s]{8,})',
         r'(pwd["\'\s]*[:=]["\'\s]*)([^"\'\\s]{8,})',
     ]
 
     # URL patterns with credentials
-    URL_CREDS_PATTERNS = [r"(https?://)([^:@]+:[^:@]+@)([^/]+)"]
+    URL_CREDS_PATTERNS: ClassVar[list[str]] = [r"(https?://)([^:@]+:[^:@]+@)([^/]+)"]
 
     @classmethod
     def redact_sensitive_data(cls, text: str) -> str:
@@ -108,23 +108,22 @@ class SecurityRedactor:
                     redacted[key] = cls.redact_sensitive_data(value)
                 else:
                     redacted[key] = "***REDACTED***"
+            # Recursively redact nested structures
+            elif isinstance(value, str):
+                redacted[key] = cls.redact_sensitive_data(value)
+            elif isinstance(value, dict):
+                redacted[key] = cls.redact_dict_keys(value)
+            elif isinstance(value, list):
+                redacted[key] = [
+                    cls.redact_dict_keys(item)
+                    if isinstance(item, dict)
+                    else cls.redact_sensitive_data(item)
+                    if isinstance(item, str)
+                    else item
+                    for item in value
+                ]
             else:
-                # Recursively redact nested structures
-                if isinstance(value, str):
-                    redacted[key] = cls.redact_sensitive_data(value)
-                elif isinstance(value, dict):
-                    redacted[key] = cls.redact_dict_keys(value)
-                elif isinstance(value, list):
-                    redacted[key] = [
-                        cls.redact_dict_keys(item)
-                        if isinstance(item, dict)
-                        else cls.redact_sensitive_data(item)
-                        if isinstance(item, str)
-                        else item
-                        for item in value
-                    ]
-                else:
-                    redacted[key] = value
+                redacted[key] = value
 
         return redacted
 
@@ -139,7 +138,7 @@ original_logger_debug = logging.Logger.debug
 original_logger_exception = logging.Logger.exception
 
 
-def _safe_log_error(self, msg, *args, **kwargs):
+def _safe_log_error(self: logging.Logger, msg: str, *args: Any, **kwargs: Any) -> None:
     """Safe error logging with redaction."""
     if args:
         args = tuple(SecurityRedactor.redact_sensitive_data(str(arg)) for arg in args)
@@ -150,7 +149,9 @@ def _safe_log_error(self, msg, *args, **kwargs):
     )
 
 
-def _safe_log_warning(self, msg, *args, **kwargs):
+def _safe_log_warning(
+    self: logging.Logger, msg: str, *args: Any, **kwargs: Any
+) -> None:
     """Safe warning logging with redaction."""
     if args:
         args = tuple(SecurityRedactor.redact_sensitive_data(str(arg)) for arg in args)
@@ -161,7 +162,7 @@ def _safe_log_warning(self, msg, *args, **kwargs):
     )
 
 
-def _safe_log_info(self, msg, *args, **kwargs):
+def _safe_log_info(self: logging.Logger, msg: str, *args: Any, **kwargs: Any) -> None:
     """Safe info logging with redaction."""
     if args:
         args = tuple(SecurityRedactor.redact_sensitive_data(str(arg)) for arg in args)
@@ -172,7 +173,7 @@ def _safe_log_info(self, msg, *args, **kwargs):
     )
 
 
-def _safe_log_debug(self, msg, *args, **kwargs):
+def _safe_log_debug(self: logging.Logger, msg: str, *args: Any, **kwargs: Any) -> None:
     """Safe debug logging with redaction."""
     if args:
         args = tuple(SecurityRedactor.redact_sensitive_data(str(arg)) for arg in args)
@@ -183,7 +184,9 @@ def _safe_log_debug(self, msg, *args, **kwargs):
     )
 
 
-def _safe_log_exception(self, msg, *args, **kwargs):
+def _safe_log_exception(
+    self: logging.Logger, msg: str, *args: Any, **kwargs: Any
+) -> None:
     """Safe exception logging with redaction."""
     if args:
         args = tuple(SecurityRedactor.redact_sensitive_data(str(arg)) for arg in args)
@@ -194,7 +197,7 @@ def _safe_log_exception(self, msg, *args, **kwargs):
     )
 
 
-def enable_automatic_redaction():
+def enable_automatic_redaction() -> None:
     """Enable automatic redaction for all logging."""
     logging.Logger.error = _safe_log_error
     logging.Logger.warning = _safe_log_warning

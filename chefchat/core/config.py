@@ -58,6 +58,27 @@ def load_api_keys_from_env() -> None:
         for key, value in env_vars.items():
             if value:
                 os.environ.setdefault(key, value)
+    
+    # Try loading from keyring if available
+    try:
+        import keyring
+        known_keys = [
+            "MISTRAL_API_KEY", 
+            "OPENAI_API_KEY", 
+            "ANTHROPIC_API_KEY", 
+            "GROQ_API_KEY", 
+            "OPENROUTER_API_KEY"
+        ]
+        for key in known_keys:
+            if not os.getenv(key):
+                try:
+                    secret = keyring.get_password("chefchat", key)
+                    if secret:
+                        os.environ[key] = secret
+                except Exception:
+                    pass
+    except ImportError:
+        pass
 
 
 CONFIG_FILE = resolve_config_file()

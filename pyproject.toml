@@ -51,6 +51,7 @@ dependencies = [
     "python-telegram-bot>=22.5",
     "discord-py>=2.6.4",
     "toml>=0.10.2",
+    "keyring>=25.0.0",
 ]
 [project.urls]
 Homepage = "https://github.com/chefchat/chefchat"

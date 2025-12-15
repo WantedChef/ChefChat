@@ -99,7 +99,7 @@ class KitchenBus:
 
     def __init__(self) -> None:
         """Initialize the kitchen bus."""
-        self._queue: asyncio.PriorityQueue[PrioritizedMessage] = asyncio.PriorityQueue()
+        self._queue: asyncio.PriorityQueue[PrioritizedMessage] = asyncio.PriorityQueue(maxsize=1000)
         self._subscribers: dict[str, list[Callable[[ChefMessage], None]]] = {}
         self._running = False
         self._task: asyncio.Task[None] | None = None

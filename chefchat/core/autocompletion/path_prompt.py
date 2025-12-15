@@ -93,6 +93,15 @@ def _to_resource(candidate: str, base_dir: Path) -> PathResource | None:
     if not resolved.exists():
         return None
 
+    # CRITICAL SECURITY FIX: Path Traversal Prevention
+    # Ensure the resolved path is actually inside the base_dir (or is the base_dir)
+    # This blocks attempts like "../../../etc/passwd"
+    try:
+        resolved.relative_to(base_dir.resolve())
+    except ValueError:
+        # Path escaped the base directory
+        return None
+
     kind = "directory" if resolved.is_dir() else "file"
     return PathResource(path=resolved, alias=candidate, kind=kind)
 

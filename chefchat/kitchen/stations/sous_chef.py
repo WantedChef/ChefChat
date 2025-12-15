@@ -18,53 +18,11 @@ from uuid import uuid4
 
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePriority
 from chefchat.kitchen.mise_en_place import create_snapshot
-
-# Import validation utilities
-try:
-    from chefchat.kitchen.validation import InputValidator
-except ImportError:
-    InputValidator = None
+from chefchat.kitchen.validation import InputValidator, PathValidator
 
 if TYPE_CHECKING:
     from chefchat.pantry.ingredients import IngredientsManager
     from chefchat.pantry.recipes import RecipeExecutor
-
-
-class PathValidator:
-    """Validates and sanitizes file paths to prevent traversal attacks."""
-
-    @staticmethod
-    def validate_file_path(file_path: str | Path, allowed_root: Path) -> Path | None:
-        """Validate a file path is within allowed bounds.
-
-        Args:
-            file_path: The path to validate
-            allowed_root: The root directory that paths must stay within
-
-        Returns:
-            Resolved absolute path if valid, None if invalid
-        """
-        try:
-            # Convert to Path object
-            path = Path(file_path)
-
-            # Resolve to absolute path (this normalizes ../ etc.)
-            resolved = path.resolve()
-
-            # Make sure the allowed root is also resolved
-            root = allowed_root.resolve()
-
-            # Check if the resolved path is within the allowed root
-            try:
-                resolved.relative_to(root)
-                return resolved
-            except ValueError:
-                # Path is outside allowed root
-                return None
-
-        except (OSError, ValueError):
-            # Path resolution failed
-            return None
 
 
 # Command argument count constants
@@ -579,14 +537,12 @@ class SousChef(BaseStation):
             },
         )
 
-async def _roast_code(self, target_path: str = ".") -> None:
+    async def _roast_code(self, target_path: str = ".") -> None:
         """Generate a sarcastic code review (Critic mode).
 
         Args:
             target_path: Path to file to roast
         """
-        from pathlib import Path
-
         from chefchat.kitchen.manager import KitchenManager
 
         # Validate path to prevent traversal

@@ -65,7 +65,11 @@ from chefchat.core.types import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from chefchat.core.utils import CancellationReason, get_user_cancellation_message
+from chefchat.core.utils import (
+    CancellationReason,
+    get_user_cancellation_message,
+    logger,
+)
 
 
 class AcpSession(BaseModel):
@@ -439,9 +443,9 @@ def run_acp_server() -> None:
     except KeyboardInterrupt:
         # This is expected when the server is terminated
         pass
-    except Exception as e:
-        # Log any unexpected errors
-        print(f"ACP Agent Server error: {e}", file=sys.stderr)
+    except Exception:
+        # Log any unexpected errors with full traceback and context
+        logger.exception("ACP Agent Server encountered a critical error")
         raise
 
 

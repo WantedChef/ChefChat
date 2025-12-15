@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+import uuid
 
 from chefchat.bots.telegram.mini_app.auth import verify_init_data
 from chefchat.bots.telegram.mini_app.control import (
@@ -74,10 +75,15 @@ class MiniAppServer:
     def _json(
         self, handler: SimpleHTTPRequestHandler, status: int, payload: dict[str, Any]
     ) -> None:
+        # Generate request ID for tracking
+        request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())[:8]
+        payload["request_id"] = request_id
+
         body = json.dumps(payload).encode("utf-8")
         handler.send_response(status)
         handler.send_header("Content-Type", "application/json")
         handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
         handler.end_headers()
         handler.wfile.write(body)
 
@@ -92,14 +98,27 @@ class MiniAppServer:
             return False
         return True
 
+    # Maximum allowed request body size (10KB)
+    MAX_BODY_SIZE = 10 * 1024
+
     def _read_json_body(self, handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
-        """Read and parse JSON body from request."""
+        """Read and parse JSON body from request with size limits."""
         length = int(handler.headers.get("Content-Length", "0") or "0")
-        raw = handler.rfile.read(length) if length else b"{}"
+
+        # Enforce max body size
+        if length > self.MAX_BODY_SIZE:
+            return {"error": "Request body too large"}
+
+        if length == 0:
+            return {}
+
+        raw = handler.rfile.read(length)
         try:
             return json.loads(raw.decode("utf-8"))
-        except Exception:
-            return {}
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            return {"error": f"Invalid JSON: {type(e).__name__}"}
+        except Exception as e:
+            return {"error": f"Request parsing error: {type(e).__name__}"}
 
     def _handle_api(self, handler: SimpleHTTPRequestHandler) -> bool:
         """Dispatch API requests to route handlers."""

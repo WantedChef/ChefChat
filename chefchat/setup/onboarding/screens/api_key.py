@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import keyring
 import os
 from typing import ClassVar
 
-from dotenv import set_key
+from dotenv import set_key, unset_key
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Center, Horizontal, Vertical
@@ -26,9 +27,21 @@ CONFIG_DOCS_URL = (
 )
 
 
-def _save_api_key_to_env_file(env_key: str, api_key: str) -> None:
-    GLOBAL_ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
-    set_key(GLOBAL_ENV_FILE, env_key, api_key)
+def _save_api_key_secure(env_key: str, api_key: str) -> None:
+    """Save API key securely to keyring, falling back to .env file."""
+    try:
+        keyring.set_password("chefchat", env_key, api_key)
+        # If successfully saved to keyring, remove from .env if it exists
+        if GLOBAL_ENV_FILE.exists():
+            unset_key(GLOBAL_ENV_FILE, env_key)
+    except Exception:
+        # Fallback to .env file
+        GLOBAL_ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+        set_key(GLOBAL_ENV_FILE, env_key, api_key)
+        try:
+            GLOBAL_ENV_FILE.chmod(0o600)
+        except Exception:
+            pass
 
 
 class ApiKeyScreen(OnboardingScreen):
@@ -145,7 +158,7 @@ class ApiKeyScreen(OnboardingScreen):
         # Save to .env
         os.environ[self.env_var] = api_key
         try:
-            _save_api_key_to_env_file(self.env_var, api_key)
+            _save_api_key_secure(self.env_var, api_key)
 
             # Also update local config to use this provider's model as active
             active_model = "groq-8b"  # Default fallback (Groq 8b)

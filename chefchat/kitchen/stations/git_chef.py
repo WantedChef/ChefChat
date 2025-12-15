@@ -9,9 +9,9 @@ The Git Chef handles:
 from __future__ import annotations
 
 import os
-import shlex
 from pathlib import Path
-from typing import TYPE_CHECKING
+import shlex
+from typing import TYPE_CHECKING, ClassVar
 
 from chefchat.core.tools.executor import SecureCommandExecutor
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
@@ -19,6 +19,7 @@ from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus
 # Import security utilities
 try:
     from chefchat.kitchen.security import SecurityRedactor, enable_automatic_redaction
+
     enable_automatic_redaction()
 except ImportError:
     SecurityRedactor = None
@@ -30,8 +31,11 @@ if TYPE_CHECKING:
 class GitCommandValidator:
     """Validates and sanitizes git commands to prevent injection."""
 
+    # Minimum number of args required (git + subcommand)
+    MIN_REQUIRED_ARGS: ClassVar[int] = 2
+
     # Allowed git subcommands (whitelist approach)
-    ALLOWED_SUBCOMMANDS = {
+    ALLOWED_SUBCOMMANDS: ClassVar[set[str]] = {
         "add",
         "branch",
         "checkout",
@@ -58,7 +62,7 @@ class GitCommandValidator:
     }
 
     # Dangerous flags that should never be allowed
-    FORBIDDEN_FLAGS = {
+    FORBIDDEN_FLAGS: ClassVar[set[str]] = {
         "--exec-path",
         "--html-path",
         "--man-path",
@@ -87,7 +91,7 @@ class GitCommandValidator:
                 # Prepend 'git' and parse
                 args = shlex.split(f"git {command_str}")
 
-            if len(args) < 2:
+            if len(args) < cls.MIN_REQUIRED_ARGS:
                 return None  # Need at least 'git' + subcommand
 
             # Validate subcommand
@@ -176,9 +180,11 @@ class GitChef(BaseStation):
         if token:
             env["GITHUB_TOKEN"] = token
 
-try:
+        try:
             # Execute using safe command string (reconstructed from validated args)
-            stdout, stderr, returncode = await self.executor.execute(safe_command, env=env)
+            stdout, stderr, returncode = await self.executor.execute(
+                safe_command, env=env
+            )
 
             status = "complete" if returncode == 0 else "error"
             icon = "✅" if returncode == 0 else "❌"
@@ -198,19 +204,19 @@ try:
             )
 
             # Redact any sensitive info from output
-        if SecurityRedactor:
-            safe_output = SecurityRedactor.redact_sensitive_data(output)
-        else:
-            safe_output = output
+            if SecurityRedactor:
+                safe_output = SecurityRedactor.redact_sensitive_data(output)
+            else:
+                safe_output = output
 
-        await self.send(
-            recipient="tui",
-            action="LOG_MESSAGE",
-            payload={
-                "type": "assistant" if returncode == 0 else "system",
-                "content": f"**Git Output**:\n```\n{safe_output}\n```",
-            },
-        )
+            await self.send(
+                recipient="tui",
+                action="LOG_MESSAGE",
+                payload={
+                    "type": "assistant" if returncode == 0 else "system",
+                    "content": f"**Git Output**:\n```\n{safe_output}\n```",
+                },
+            )
 
             if ticket_id:
                 await self.send(
@@ -262,9 +268,12 @@ try:
             safe_message = SecurityRedactor.redact_sensitive_data(message)
         else:
             safe_message = message
-            
+
         await self.send(
             recipient="tui",
             action="LOG_MESSAGE",
-            payload={"type": "system", "content": f"❌ **Git Chef Error**: {safe_message}"},
+            payload={
+                "type": "system",
+                "content": f"❌ **Git Chef Error**: {safe_message}",
+            },
         )
