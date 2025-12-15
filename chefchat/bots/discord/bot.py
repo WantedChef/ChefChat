@@ -6,12 +6,12 @@ import os
 from pathlib import Path
 from typing import Any
 
-from chefchat.bots.discord.handlers.admin import AdminHandlers
-from chefchat.bots.discord.handlers.model import ModelHandlers
-from chefchat.bots.discord.handlers.terminal import TerminalHandlers
 import discord
 from discord.ext import commands
 
+from chefchat.bots.discord.handlers.admin import AdminHandlers
+from chefchat.bots.discord.handlers.model import ModelHandlers
+from chefchat.bots.discord.handlers.terminal import TerminalHandlers
 from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
 from chefchat.bots.terminal import TerminalManager
