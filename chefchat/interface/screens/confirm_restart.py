@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import ClassVar
 
 from textual.app import ComposeResult
@@ -10,8 +9,10 @@ from textual.containers import Container, Horizontal
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static
 
+from chefchat.core.config import get_vibe_home
+
 # TUI Preferences File (persists layout choice etc.)
-TUI_PREFS_FILE = Path.home() / ".vibe" / "tui_prefs.json"
+TUI_PREFS_FILE = get_vibe_home() / "tui_prefs.json"
 
 
 def load_tui_preferences() -> dict:

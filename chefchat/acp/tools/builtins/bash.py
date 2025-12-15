@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import shlex
-import os
 from typing import final
 
 from acp import CreateTerminalRequest, TerminalHandle
@@ -166,8 +166,7 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
         return BashResult(stdout=stdout, stderr=stderr, returncode=returncode)
 
     def _validate_command_safety(self, command: str) -> bool:
-        """
-        Validate command safety by checking for dangerous shell operators.
+        """Validate command safety by checking for dangerous shell operators.
         
         Returns True if command is safe (no shell operators), False otherwise.
         """
@@ -225,7 +224,6 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
 
     def check_allowlist_denylist(self, args: BashArgs) -> ToolPermission:
         """Check if the bash command is allowed based on allowlist/denylist."""
-        
         # First, check for dangerous shell operators
         if not self._validate_command_safety(args.command):
             # If command contains dangerous operators, we MUST ask unless it's explicitly explicitly 

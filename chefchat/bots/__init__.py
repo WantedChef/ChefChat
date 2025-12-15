@@ -37,7 +37,7 @@ def run_telegram_bot(*args: Any, **kwargs: Any) -> Coroutine[Any, Any, None]:
 def run_discord_bot(*args: Any, **kwargs: Any) -> Coroutine[Any, Any, None]:
     """Run the Discord bot. Requires discord.py package."""
     try:
-        from chefchat.bots.discord_bot import run_discord_bot as _run
+        from chefchat.bots.discord.bot import run_discord_bot as _run
     except ImportError as e:
         raise ImportError(
             "Discord bot requires 'discord.py' package. "

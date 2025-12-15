@@ -1,8 +1,12 @@
-import time
-import hmac
+from __future__ import annotations
+
 import hashlib
+import hmac
+import time
 from urllib.parse import urlencode
-from chefchat.bots.telegram.mini_app.auth import verify_init_data, _used_nonces
+
+from chefchat.bots.telegram.mini_app.auth import _used_nonces, verify_init_data
+
 
 def generate_valid_init_data(token="test_token", auth_date=None, **kwargs):
     if auth_date is None:

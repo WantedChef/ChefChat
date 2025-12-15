@@ -1,7 +1,9 @@
-import os
-import pytest
-from unittest.mock import MagicMock, patch
+from __future__ import annotations
+
+from unittest.mock import patch
+
 from chefchat.setup.onboarding.screens.api_key import _save_api_key_secure
+
 
 def test_keyring_storage_preferred():
     with patch("keyring.set_password") as mock_set_pw, \

@@ -11,14 +11,14 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chefchat.interface.protocols import ChefAppProtocol
 
 # Type aliases for handler functions
-CommandHandler: TypeAlias = Callable[["ChefAppProtocol", str], Awaitable[None]]
-SimpleHandler: TypeAlias = Callable[["ChefAppProtocol"], Awaitable[None]]
+type CommandHandler = Callable[["ChefAppProtocol", str], Awaitable[None]]
+type SimpleHandler = Callable[["ChefAppProtocol"], Awaitable[None]]
 
 
 @dataclass

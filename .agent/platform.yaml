@@ -1,0 +1,28 @@
+version: "1.0.0"
+tier: "legendary"
+
+platform:
+  name: "ChefChat AI Platform"
+  root: ".agent"
+
+defaults:
+  model: "gemini-2.0-flash-exp"
+  temperature: 0.7
+  provider: "vertex_ai"
+
+paths:
+  agents: "agents"
+  workflows: "workflows"
+  memory: "memory"
+  tools: "tools"
+
+cli:
+  supported_clis:
+    - "gemini"
+    - "codex"
+    - "opencode"
+  default_cli: "gemini"
+
+security:
+  allow_command_execution: false
+  secret_scanning: true

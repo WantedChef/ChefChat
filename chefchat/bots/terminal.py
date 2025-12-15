@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
+import os
 from pathlib import Path
 import subprocess
 from typing import TYPE_CHECKING
@@ -25,7 +26,12 @@ class TerminalSession:
     created_at: datetime = field(default_factory=datetime.now)
     last_activity: datetime = field(default_factory=datetime.now)
     command: str = ""
-    cwd: Path = field(default_factory=lambda: Path.home() / "chefchat_output_")
+    cwd: Path = field(
+        default_factory=lambda: Path(
+            os.getenv("CHEFCHAT_HOME", Path.home() / ".chefchat")
+        )
+        / "shells"
+    )
 
     def _read_output_unix(self) -> list[str]:
         """Read output from process using Unix select()."""
@@ -73,8 +79,9 @@ class TerminalSession:
             if self.process.poll() is not None:
                 return "❌ Terminal session has ended."
 
-            # Send input with newline
-            self.process.stdin.write(f"{text}\n")
+            # Support multi-line input
+            for line in text.splitlines():
+                self.process.stdin.write(f"{line}\n")
             self.process.stdin.flush()
             self.last_activity = datetime.now()
 
@@ -132,7 +139,10 @@ class TerminalManager:
 
         try:
             if cwd is None:
-                cwd = Path.home() / "chefchat_output_"
+                cwd = Path(
+                    os.getenv("CHEFCHAT_HOME", Path.home() / ".chefchat")
+                ) / "shells"
+            cwd.mkdir(parents=True, exist_ok=True)
 
             # Start interactive shell
             process = subprocess.Popen(

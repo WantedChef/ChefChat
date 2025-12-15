@@ -20,6 +20,8 @@ from chefchat.core.types import (
 from chefchat.core.utils import async_generator_retry, async_retry
 from chefchat.utils.tokenizer import count_tokens
 
+HTTP_NOT_FOUND = 404
+
 if TYPE_CHECKING:
     from chefchat.core.config import ModelConfig, ProviderConfig
 
@@ -498,7 +500,7 @@ class GenericBackend:
 
         except httpx.HTTPStatusError as e:
             # If models endpoint not supported, return empty list
-            if e.response.status_code == 404:
+            if e.response.status_code == HTTP_NOT_FOUND:
                 return []
             raise BackendErrorBuilder.build_http_error(
                 provider=self._provider.name,

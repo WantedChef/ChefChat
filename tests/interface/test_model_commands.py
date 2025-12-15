@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -181,7 +181,7 @@ async def test_model_manage_screen(app, mock_config):
 
     with patch(
         "chefchat.interface.screens.model_manager.ModelManagerScreen"
-    ) as mock_screen:
+    ):
         mock_push_screen = AsyncMock()
         app.push_screen = mock_push_screen
 

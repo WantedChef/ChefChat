@@ -5,12 +5,11 @@ from pathlib import Path
 import re
 import shlex
 
-from chefchat.core.compatibility import StrEnum
-
 try:
     import tomllib
 except ImportError:
     import tomli as tomllib
+from collections.abc import Iterable, Sequence
 from typing import Annotated, Any, Literal
 
 from dotenv import dotenv_values
@@ -24,33 +23,96 @@ from pydantic_settings import (
 )
 import tomli_w
 
+from chefchat.core.compatibility import StrEnum
 from chefchat.core.prompts import SystemPrompt
 from chefchat.core.tools.base import BaseToolConfig
 
+APP_CONFIG_DIR_NAMES = (".chefchat", ".vibe")
+APP_HOME_ENV_VARS = ("CHEFCHAT_HOME", "VIBE_HOME")
+DEFAULT_MAX_TOKENS = 8192
+KNOWN_API_KEY_ENV_VARS = [
+    "MISTRAL_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+    "ZEN_API_KEY",
+    "NVIDIA_API_KEY",
+]
+
 
 def get_vibe_home() -> Path:
-    if vibe_home := os.getenv("VIBE_HOME"):
-        return Path(vibe_home).expanduser().resolve()
-    return Path.home() / ".vibe"
+    """Return the preferred ChefChat home directory."""
+    home_dirs = get_global_config_dirs()
+    for directory in home_dirs:
+        if (directory / "config.toml").is_file():
+            return directory
+    for directory in home_dirs:
+        if directory.exists():
+            return directory
+    return home_dirs[0]
+
+
+def get_global_config_dirs() -> list[Path]:
+    """Return ordered list of global config directories to search."""
+    candidates: list[Path] = []
+    for env_var in APP_HOME_ENV_VARS:
+        if custom := os.getenv(env_var):
+            candidates.append(Path(custom).expanduser())
+    if not candidates:
+        home = Path.home()
+        candidates.extend(home / name for name in APP_CONFIG_DIR_NAMES)
+    else:
+        home = Path.home()
+        candidates.extend(home / name for name in APP_CONFIG_DIR_NAMES)
+    return _deduplicate_paths(candidates)
+
+
+def _deduplicate_paths(paths: Iterable[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for raw in paths:
+        resolved = raw.expanduser()
+        try:
+            resolved = resolved.resolve()
+        except OSError:
+            pass
+        if resolved not in seen:
+            seen.add(resolved)
+            ordered.append(resolved)
+    return ordered
 
 
 GLOBAL_CONFIG_DIR = get_vibe_home()
 GLOBAL_CONFIG_FILE = GLOBAL_CONFIG_DIR / "config.toml"
 GLOBAL_ENV_FILE = GLOBAL_CONFIG_DIR / ".env"
-DEFAULT_MAX_TOKENS = 8192
 
 
 def resolve_config_file() -> Path:
     for directory in (cwd := Path.cwd(), *cwd.parents):
-        if (candidate := directory / ".vibe" / "config.toml").is_file():
+        for dirname in APP_CONFIG_DIR_NAMES:
+            candidate = directory / dirname / "config.toml"
+            if candidate.is_file():
+                return candidate
+
+    global_dirs = get_global_config_dirs()
+    for home_dir in global_dirs:
+        candidate = home_dir / "config.toml"
+        if candidate.is_file():
             return candidate
-    return GLOBAL_CONFIG_FILE
+
+    return global_dirs[0] / "config.toml"
 
 
 def load_api_keys_from_env() -> None:
-    project_env_file = CONFIG_DIR / ".env"
-    cwd_env_file = Path.cwd() / ".env"
-    for env_file in (cwd_env_file, project_env_file, GLOBAL_ENV_FILE):
+    config_parent = CONFIG_DIR.parent
+    env_candidates = [
+        Path.cwd() / ".env",
+        *(config_parent / dirname / ".env" for dirname in APP_CONFIG_DIR_NAMES),
+        *(home_dir / ".env" for home_dir in get_global_config_dirs()),
+    ]
+
+    for env_file in _deduplicate_paths(env_candidates):
         if not env_file.is_file():
             continue
 
@@ -58,27 +120,25 @@ def load_api_keys_from_env() -> None:
         for key, value in env_vars.items():
             if value:
                 os.environ.setdefault(key, value)
-    
-    # Try loading from keyring if available
+
+    _load_api_keys_from_keyring(KNOWN_API_KEY_ENV_VARS)
+
+
+def _load_api_keys_from_keyring(keys: Sequence[str]) -> None:
     try:
         import keyring
-        known_keys = [
-            "MISTRAL_API_KEY", 
-            "OPENAI_API_KEY", 
-            "ANTHROPIC_API_KEY", 
-            "GROQ_API_KEY", 
-            "OPENROUTER_API_KEY"
-        ]
-        for key in known_keys:
-            if not os.getenv(key):
-                try:
-                    secret = keyring.get_password("chefchat", key)
-                    if secret:
-                        os.environ[key] = secret
-                except Exception:
-                    pass
     except ImportError:
-        pass
+        return
+
+    for key in keys:
+        if os.getenv(key):
+            continue
+        try:
+            secret = keyring.get_password("chefchat", key)
+        except Exception:
+            continue
+        if secret:
+            os.environ[key] = secret
 
 
 CONFIG_FILE = resolve_config_file()
@@ -331,9 +391,45 @@ DEFAULT_PROVIDERS = [
         backend=Backend.GENERIC,
         features={"multimodal", "tool_use", "reasoning", "vision", "large_context"},
     ),
+    ProviderConfig(
+        name="opencode",
+        api_base=os.getenv("OPENCODE_API_BASE", "https://api.zeninference.ai/v1"),
+        api_key_env_var="ZEN_API_KEY",
+        api_style="openai",
+        backend=Backend.GENERIC,
+        features={"coding", "tool_use", "reasoning"},
+    ),
+    ProviderConfig(
+        name="nvidia",
+        api_base="https://integrate.api.nvidia.com/v1",
+        api_key_env_var="NVIDIA_API_KEY",
+        api_style="openai",
+        backend=Backend.GENERIC,
+        features={"multimodal", "tool_use", "reasoning", "vision", "speed"},
+    ),
 ]
 
 DEFAULT_MODELS = [
+    ModelConfig(
+        name="mistral-small-latest",
+        provider="mistral",
+        alias="mistral-small",
+        temperature=0.2,
+        input_price=0.2,
+        output_price=0.6,
+        max_tokens=32000,
+        features={"speed", "coding", "tool_use", "cost_effective"},
+    ),
+    ModelConfig(
+        name="mistral-large-latest",
+        provider="mistral",
+        alias="mistral-large",
+        temperature=0.2,
+        input_price=2.0,
+        output_price=6.0,
+        max_tokens=128000,
+        features={"reasoning", "coding", "tool_use", "large_context"},
+    ),
     ModelConfig(
         name="codestral-2501",
         provider="mistral",
@@ -598,11 +694,74 @@ DEFAULT_MODELS = [
         max_tokens=32768,
         features={"reasoning", "coding", "multilingual"},
     ),
+    # OpenCode Zen models (via opencode provider)
+    ModelConfig(
+        name="opencode/zen-1",
+        provider="opencode",
+        alias="zen-1",
+        temperature=0.2,
+        input_price=0.0,
+        output_price=0.0,
+        max_tokens=32768,
+        features={"coding", "reasoning", "tool_use"},
+    ),
+    ModelConfig(
+        name="opencode/zen-mini",
+        provider="opencode",
+        alias="zen-mini",
+        temperature=0.2,
+        input_price=0.0,
+        output_price=0.0,
+        max_tokens=16000,
+        features={"speed", "coding", "cost_effective"},
+    ),
+    ModelConfig(
+        name="bigpick/grok-fast-code-1",
+        provider="opencode",
+        alias="zen-grok-fast",
+        temperature=0.2,
+        input_price=0.0,
+        output_price=0.0,
+        max_tokens=16000,
+        features={"coding", "speed", "free"},
+    ),
+    # NVIDIA NIM models
+    ModelConfig(
+        name="meta/llama-3.1-70b-instruct",
+        provider="nvidia",
+        alias="nvidia-llama-70b",
+        temperature=0.2,
+        input_price=0.0,
+        output_price=0.0,
+        max_tokens=32768,
+        multimodal=True,
+        features={"multimodal", "vision", "tool_use", "reasoning"},
+    ),
+    ModelConfig(
+        name="meta/llama-3.1-8b-instruct",
+        provider="nvidia",
+        alias="nvidia-llama-8b",
+        temperature=0.2,
+        input_price=0.0,
+        output_price=0.0,
+        max_tokens=32768,
+        features={"speed", "coding", "cost_effective"},
+    ),
+    ModelConfig(
+        name="minimax/minimax-text-01",
+        provider="nvidia",
+        alias="nvidia-minimax-m2",
+        temperature=0.2,
+        input_price=0.0,
+        output_price=0.0,
+        max_tokens=8192,
+        features={"coding", "reasoning", "tool_use", "speed"},
+    ),
 ]
 
 
 class VibeConfig(BaseSettings):
-    active_model: str = "groq-8b"
+    active_model: str = "mistral-small"
     vim_keybindings: bool = False
     disable_welcome_banner_animation: bool = False
     displayed_workdir: str = ""

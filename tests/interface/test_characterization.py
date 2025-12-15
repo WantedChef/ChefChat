@@ -58,7 +58,6 @@ def app_with_config(app: ChefChatApp) -> ChefChatApp:
 @pytest.fixture
 def mock_ticket_rail() -> MagicMock:
     """Mock TicketRail widget for capturing output."""
-
     rail = MagicMock()
     rail.clear_tickets = AsyncMock()
     rail.add_user_message = MagicMock()

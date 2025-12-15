@@ -14,6 +14,9 @@ from chefchat.core import config as core_config
 from chefchat.setup.onboarding import OnboardingApp
 import chefchat.setup.onboarding.screens.api_key as api_key_module
 from chefchat.setup.onboarding.screens.api_key import ApiKeyScreen
+from chefchat.setup.onboarding.screens.provider_selection import (
+    ProviderSelectionScreen,
+)
 from chefchat.setup.onboarding.screens.theme_selection import (
     THEMES,
     ThemeSelectionScreen,
@@ -38,17 +41,18 @@ async def _wait_for(
 def onboarding_app(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> tuple[OnboardingApp, Path, dict[str, Any]]:
-    vibe_home = tmp_path / ".vibe"
-    env_file = vibe_home / ".env"
+    chefchat_home = tmp_path / ".chefchat"
+    env_file = chefchat_home / ".env"
     saved_updates: dict[str, Any] = {}
 
     def record_updates(updates: dict[str, Any]) -> None:
         saved_updates.update(updates)
 
-    monkeypatch.setenv("VIBE_HOME", str(vibe_home))
+    monkeypatch.setenv("CHEFCHAT_HOME", str(chefchat_home))
+    monkeypatch.setenv("VIBE_HOME", str(chefchat_home))
 
     for module in (core_config, api_key_module):
-        monkeypatch.setattr(module, "GLOBAL_CONFIG_DIR", vibe_home, raising=False)
+        monkeypatch.setattr(module, "GLOBAL_CONFIG_DIR", chefchat_home, raising=False)
         monkeypatch.setattr(module, "GLOBAL_ENV_FILE", env_file, raising=False)
 
     monkeypatch.setattr(
@@ -80,6 +84,8 @@ async def test_ui_gets_through_the_onboarding_successfully(
         await pass_welcome_screen(pilot)
 
         await pilot.press("enter")
+        await _wait_for(lambda: isinstance(app.screen, ProviderSelectionScreen), pilot)
+        await pilot.press("1")
         await _wait_for(lambda: isinstance(app.screen, ApiKeyScreen), pilot)
         api_screen = app.screen
         input_widget = api_screen.query_one("#key", Input)
@@ -93,7 +99,7 @@ async def test_ui_gets_through_the_onboarding_successfully(
 
     assert env_file.is_file()
     env_contents = env_file.read_text(encoding="utf-8")
-    assert "MISTRAL_API_KEY" in env_contents
+    assert "OPENAI_API_KEY" in env_contents
     assert api_key_value in env_contents
 
     assert config_updates.get("textual_theme") == app.theme
@@ -122,6 +128,8 @@ async def test_ui_can_pick_a_theme_and_saves_selection(
         await pilot.press(*["down"] * steps_down)
         assert app.theme == target_theme
         await pilot.press("enter")
+        await _wait_for(lambda: isinstance(app.screen, ProviderSelectionScreen), pilot)
+        await pilot.press("1")
         await _wait_for(lambda: isinstance(app.screen, ApiKeyScreen), pilot)
 
     assert config_updates.get("textual_theme") == target_theme

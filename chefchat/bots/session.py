@@ -29,12 +29,15 @@ class BotSession:
         update_message: Callable[[Any, str], Awaitable[None]],
         request_approval: Callable[[str, dict[str, Any], str], Awaitable[Any]],
         user_id: str,
+        tool_policy: str = "dev",
     ) -> None:
         self.config = config
         self.send_message = send_message
         self.update_message = update_message
         self.request_approval = request_approval
         self.user_id = user_id
+        self.tool_policy = tool_policy  # dev | chat | combo
+        self.safe_auto_tools = {"read_file", "grep"}
 
         # Initialize agent
         # We might want to pass a modified config or mode_manager if needed
@@ -52,6 +55,16 @@ class BotSession:
         self, tool_name: str, args: dict[str, Any], tool_call_id: str
     ) -> tuple[str, str | None]:
         """Called by Agent when a tool needs approval."""
+        # Enforce tool policy before surfacing the approval UI
+        if self.tool_policy == "chat":
+            return (
+                ApprovalResponse.NO,
+                f"Tools zijn uitgeschakeld (bot-mode: chat). Tool: {tool_name}",
+            )
+
+        if self.tool_policy == "combo" and tool_name in self.safe_auto_tools:
+            return (ApprovalResponse.ALWAYS, "Auto-goedgekeurd in Combo-modus.")
+
         approval_id = tool_call_id  # Use tool_call_id as correlation ID
 
         future = asyncio.get_running_loop().create_future()
@@ -71,6 +84,10 @@ class BotSession:
             return result
         finally:
             self._pending_approvals.pop(approval_id, None)
+
+    def set_tool_policy(self, policy: str) -> None:
+        """Update tool policy for this session."""
+        self.tool_policy = policy
 
     def resolve_approval(
         self, approval_id: str, response: str, message: str | None = None

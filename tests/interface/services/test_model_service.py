@@ -2,181 +2,139 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from dataclasses import dataclass
 
 import pytest
 
-from chefchat.interface.services.model_service import ModelInfo, ModelService
+from chefchat.core.config import ModelConfig, ProviderConfig
+from chefchat.interface.services.model_service import ModelService
+
+
+@dataclass
+class DummyConfig:
+    models: list[ModelConfig]
+    providers: list[ProviderConfig]
+    active_model: str
+
+    def ensure_config(self) -> DummyConfig:
+        return self
+
+    def get_active_model(self) -> ModelConfig:
+        target = self.active_model.lower()
+        for model in self.models:
+            if target in {model.alias.lower(), model.name.lower()}:
+                return model
+        raise ValueError("Active model not found")
+
+    def get_provider_for_model(self, model: ModelConfig) -> ProviderConfig:
+        for provider in self.providers:
+            if provider.name == model.provider:
+                return provider
+        raise ValueError("Provider not found")
 
 
 @pytest.fixture
-def mock_model() -> MagicMock:
-    """Create a mock model configuration."""
-    model = MagicMock()
-    model.alias = "test-model"
-    model.name = "Test Model"
-    model.provider = "test-provider"
-    model.temperature = 0.7
-    model.input_price = 0.1
-    model.output_price = 0.2
-    model.features = ["feature1", "feature2"]
-    model.multimodal = False
-    model.max_file_size = None
-    return model
+def provider(monkeypatch: pytest.MonkeyPatch) -> ProviderConfig:
+    monkeypatch.setenv("TEST_API_KEY", "secret")
+    return ProviderConfig(
+        name="test-provider",
+        api_base="https://api.test.com",
+        api_key_env_var="TEST_API_KEY",
+    )
 
 
 @pytest.fixture
-def mock_config(mock_model: MagicMock) -> MagicMock:
-    """Create a mock VibeConfig."""
-    config = MagicMock()
-    config.active_model = "test-model"
-    config.models = {"test-model": mock_model}
-
-    # Mock get_active_model
-    config.get_active_model.return_value = mock_model
-
-    # Mock get_provider_for_model
-    provider = MagicMock()
-    provider.api_key_env_var = "TEST_API_KEY"
-    provider.api_base = "https://api.test.com"
-    config.get_provider_for_model.return_value = provider
-
-    return config
+def other_provider() -> ProviderConfig:
+    return ProviderConfig(name="other", api_base="https://api.other.com")
 
 
-class TestModelService:
-    """Tests for ModelService class."""
-
-    def test_get_active_model_alias(self, mock_config: MagicMock) -> None:
-        """Test getting active model alias."""
-        service = ModelService(mock_config)
-        assert service.get_active_model_alias() == "test-model"
-
-    def test_get_active_model_info(self, mock_config: MagicMock) -> None:
-        """Test getting active model as ModelInfo."""
-        service = ModelService(mock_config)
-        info = service.get_active_model_info()
-
-        assert info is not None
-        assert info.alias == "test-model"
-        assert info.is_active is True
-        assert info.temperature == 0.7
-
-    def test_find_model_by_alias_found(
-        self, mock_config: MagicMock, mock_model: MagicMock
-    ) -> None:
-        """Test finding model by alias when it exists."""
-        mock_config.models = {"test-model": mock_model}
-        service = ModelService(mock_config)
-
-        info = service.find_model_by_alias("test-model")
-        assert info is not None
-        assert info.alias == "test-model"
-
-    def test_find_model_by_alias_case_insensitive(
-        self, mock_config: MagicMock, mock_model: MagicMock
-    ) -> None:
-        """Test case-insensitive model lookup."""
-        mock_config.models = {"test-model": mock_model}
-        service = ModelService(mock_config)
-
-        info = service.find_model_by_alias("TEST-MODEL")
-        assert info is not None
-        assert info.alias == "test-model"
-
-    def test_find_model_by_alias_not_found(self, mock_config: MagicMock) -> None:
-        """Test finding non-existent model returns None."""
-        mock_config.models = {}
-        service = ModelService(mock_config)
-
-        info = service.find_model_by_alias("nonexistent")
-        assert info is None
-
-    def test_list_all_models(
-        self, mock_config: MagicMock, mock_model: MagicMock
-    ) -> None:
-        """Test listing all models."""
-        mock_model2 = MagicMock()
-        mock_model2.alias = "second-model"
-        mock_model2.name = "Second Model"
-        mock_model2.provider = "other-provider"
-        mock_model2.temperature = 0.5
-        mock_model2.input_price = 0.05
-        mock_model2.output_price = 0.1
-        mock_model2.features = []
-        mock_model2.multimodal = False
-        mock_model2.max_file_size = None
-
-        mock_config.models = {"test-model": mock_model, "second-model": mock_model2}
-        service = ModelService(mock_config)
-
-        models = service.list_all_models()
-        assert len(models) == 2
-        aliases = {m.alias for m in models}
-        assert "test-model" in aliases
-        assert "second-model" in aliases
-
-    def test_get_speed_models(self, mock_config: MagicMock) -> None:
-        """Test getting speed models returns expected format."""
-        service = ModelService(mock_config)
-        speed_models = service.get_speed_models()
-
-        assert len(speed_models) > 0
-        assert all(len(m) == 3 for m in speed_models)  # (alias, speed, pricing)
-
-    def test_get_reasoning_models(self, mock_config: MagicMock) -> None:
-        """Test getting reasoning models returns expected format."""
-        service = ModelService(mock_config)
-        reasoning_models = service.get_reasoning_models()
-
-        assert len(reasoning_models) > 0
-        assert all(len(m) == 4 for m in reasoning_models)
-
-    def test_compare_models(
-        self, mock_config: MagicMock, mock_model: MagicMock
-    ) -> None:
-        """Test comparing models."""
-        mock_config.models = {"test-model": mock_model}
-        service = ModelService(mock_config)
-
-        results = service.compare_models(["test-model"])
-        assert len(results) == 1
-        assert results[0]["alias"] == "test-model"
-        assert "price" in results[0]
-
-    def test_compare_models_max_three(
-        self, mock_config: MagicMock, mock_model: MagicMock
-    ) -> None:
-        """Test that comparison is limited to 3 models."""
-        mock_config.models = {"test-model": mock_model}
-        service = ModelService(mock_config)
-
-        # Try to compare 5 models (only first 3 should be processed)
-        results = service.compare_models(["test-model", "a", "b", "c", "d"])
-        # Only test-model exists, others will be skipped
-        assert len(results) <= 3
-
-
-class TestModelInfo:
-    """Tests for ModelInfo dataclass."""
-
-    def test_model_info_creation(self) -> None:
-        """Test creating ModelInfo instance."""
-        info = ModelInfo(
-            alias="test",
-            name="Test Model",
-            provider="provider",
-            is_active=True,
-            api_key_status="set",
-            temperature=0.7,
+@pytest.fixture
+def config(provider: ProviderConfig, other_provider: ProviderConfig) -> DummyConfig:
+    models = [
+        ModelConfig(
+            name="fast-model",
+            provider="test-provider",
+            alias="fast",
             input_price=0.1,
             output_price=0.2,
-            features=["a", "b"],
-        )
+            max_tokens=2048,
+            features={"speed", "tool_use"},
+            multimodal=True,
+        ),
+        ModelConfig(
+            name="thinker",
+            provider="test-provider",
+            alias="think",
+            input_price=0.2,
+            output_price=0.4,
+            max_tokens=4096,
+            features={"reasoning"},
+        ),
+        ModelConfig(
+            name="general",
+            provider="other",
+            alias="general",
+            input_price=0.0,
+            output_price=0.0,
+            features=set(),
+        ),
+    ]
+    return DummyConfig(models=models, providers=[provider, other_provider], active_model="think")
 
-        assert info.alias == "test"
-        assert info.is_active is True
-        assert info.api_key_status == "set"
-        assert info.features == ["a", "b"]
-        assert info.multimodal is False  # default
-        assert info.context_size is None  # default
+
+def test_get_active_model_alias(config: DummyConfig) -> None:
+    service = ModelService(config)
+    assert service.get_active_model_alias() == "think"
+
+
+def test_get_model_info_defaults_to_active(config: DummyConfig) -> None:
+    service = ModelService(config)
+    info = service.get_model_info("")
+    assert info is not None
+    assert info.alias == "think"
+    assert info.is_active is True
+
+
+def test_find_model_by_alias_case_insensitive(config: DummyConfig) -> None:
+    service = ModelService(config)
+    info = service.find_model_by_alias("FAST")
+    assert info is not None
+    assert info.alias == "fast"
+    assert info.supports_function_calling is True
+    assert info.supports_vision is True
+
+
+def test_list_all_models_includes_all(config: DummyConfig) -> None:
+    service = ModelService(config)
+    aliases = {m.alias for m in service.list_all_models()}
+    assert aliases == {"fast", "think", "general"}
+
+
+def test_speed_and_reasoning_filters(config: DummyConfig) -> None:
+    service = ModelService(config)
+    speed_aliases = {m.alias for m in service.get_speed_models()}
+    reasoning_aliases = {m.alias for m in service.get_reasoning_models()}
+
+    assert speed_aliases == {"fast"}
+    assert reasoning_aliases == {"think"}
+
+
+def test_compare_models_limits_and_order(config: DummyConfig) -> None:
+    service = ModelService(config)
+    compared = service.compare_models(["fast", "unknown", "think", "fast", "general"])
+
+    assert [m.alias for m in compared] == ["fast", "think", "general"]
+    # Max three entries enforced
+    assert len(compared) == 3
+
+
+def test_list_provider_info_reports_keys(
+    config: DummyConfig, provider: ProviderConfig
+) -> None:
+    service = ModelService(config)
+    providers = {p.name: p for p in service.list_provider_info()}
+
+    assert "test-provider" in providers
+    assert providers["test-provider"].has_api_key is True
+    assert providers["test-provider"].model_count == 2
+    assert providers["other"].has_api_key is False

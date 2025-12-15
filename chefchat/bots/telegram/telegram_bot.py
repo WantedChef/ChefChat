@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 import fcntl
+import importlib.metadata
 import logging
 import os
 from pathlib import Path
@@ -13,8 +14,6 @@ from typing import Any
 
 # Telegram bot working directory
 TELEGRAM_WORKDIR = Path.home() / "chefchat_output_"
-
-import shlex
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
 from telegram.ext import (
@@ -30,10 +29,19 @@ from telegram.ext import (
 from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
 from chefchat.bots.telegram import fun_commands
+from chefchat.bots.telegram.cli_providers import CLI_PROVIDERS, CLIProviderManager
+from chefchat.bots.telegram.handlers.admin import AdminHandlers
+from chefchat.bots.telegram.handlers.cli import CLIHandlers
+from chefchat.bots.telegram.handlers.core import CoreHandlers
+from chefchat.bots.telegram.handlers.models import ModelHandlers
+from chefchat.bots.telegram.handlers.policy import PolicyHandlers
+from chefchat.bots.telegram.handlers.tasks import TaskHandlers
+from chefchat.bots.telegram.handlers.terminal import TerminalHandlers
+from chefchat.bots.telegram.task_manager import TaskManager
 from chefchat.core.config import VibeConfig
 from chefchat.core.tools.executor import SecureCommandExecutor
 from chefchat.core.utils import ApprovalResponse
-from chefchat.kitchen.stations.git_chef import GitCommandValidator
+from chefchat.interface.services import ModelService
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +55,9 @@ MIN_COMMAND_ARGS_MODEL_SELECT = 2
 GIT_OUTPUT_MAX_LEN = 3000
 MODEL_MENU_BUTTONS_PER_ROW = 2
 CHEAP_MODEL_PRICE_THRESHOLD = 0.5
+# Idle and session controls
+SESSION_IDLE_WARNING_S = 45 * 60
+SESSION_IDLE_TTL_S = 60 * 60
 
 
 class TelegramBotService:
@@ -54,6 +65,16 @@ class TelegramBotService:
         self.config = config
         self.bot_manager = BotManager(config)
         self.sessions: dict[int, BotSession] = {}
+        self.TELEGRAM_WORKDIR = TELEGRAM_WORKDIR
+        self.MIN_COMMAND_ARGS_MINIAPP = MIN_COMMAND_ARGS_MINIAPP
+        self.MIN_COMMAND_ARGS_SWITCH = MIN_COMMAND_ARGS_SWITCH
+        self.MIN_COMMAND_ARGS_MODEL_SELECT = MIN_COMMAND_ARGS_MODEL_SELECT
+        self.GIT_OUTPUT_MAX_LEN = GIT_OUTPUT_MAX_LEN
+        self.max_sessions_per_user = (
+            int(os.getenv("CHEFCHAT_TELEGRAM_MAX_SESSIONS", "0")) or None
+        )
+        self._user_session_counts: dict[str, int] = {}
+        self.session_limit_override: bool = False
 
         self._chat_locks: dict[int, asyncio.Lock] = {}
         self._last_activity: dict[int, float] = {}
@@ -64,12 +85,19 @@ class TelegramBotService:
         self._rate_limit_max_events = 6
 
         # Cleanup settings
-        self._session_ttl_s = 60.0 * 60.0  # 1 hour
+        self._session_ttl_s = SESSION_IDLE_TTL_S
         self._approval_ttl_s = 10.0 * 60.0  # 10 minutes
 
         # Map short ID to full tool_call_id for callbacks
         self.approval_map: dict[str, str] = {}
+        self._approval_chat_map: dict[str, int] = {}
+        self._approval_tool_map: dict[str, str] = {}
         self._approval_created_at: dict[str, float] = {}
+        self._warned_idle: set[int] = set()
+        self._version_file = (
+            Path(os.getenv("CHEFCHAT_HOME", Path.home() / ".chefchat"))
+            / "telegram_bot_version"
+        )
 
         # Optional systemd control (for switching project instances)
         self._enable_systemd_control = os.getenv(
@@ -92,10 +120,31 @@ class TelegramBotService:
         self._lock_handle: int | None = None
 
         # Initialize terminal manager for interactive sessions
-        from chefchat.bots.telegram.terminal_manager import TerminalManager
+        from chefchat.bots.terminal import TerminalManager
 
         self.terminal_manager = TerminalManager()
         self.executor = SecureCommandExecutor(TELEGRAM_WORKDIR)
+
+        # Initialize CLI provider manager for AI CLI sessions (Gemini, Codex, OpenCode)
+        self.cli_manager = CLIProviderManager()
+        # Task tracking and per-chat tool policies
+        self.task_manager = TaskManager()
+        self.tool_policies: dict[int, str] = {}
+        # Handler modules
+        self.model_service = ModelService(self.config)
+        self.models = ModelHandlers(
+            self,
+            MODEL_MENU_BUTTONS_PER_ROW,
+            CHEAP_MODEL_PRICE_THRESHOLD,
+            MIN_COMMAND_ARGS_MODEL_SELECT,
+            model_service=self.model_service,
+        )
+        self.cli_handlers = CLIHandlers(self)
+        self.task_handlers = TaskHandlers(self)
+        self.policy = PolicyHandlers(self)
+        self.core = CoreHandlers(self)
+        self.admin = AdminHandlers(self)
+        self.term_handlers = TerminalHandlers(self)
 
     def _acquire_lock(self) -> None:
         if self._lock_handle is not None:
@@ -125,12 +174,32 @@ class TelegramBotService:
             os.close(self._lock_handle)
             self._lock_handle = None
 
+    def _forget_session(self, chat_id: int) -> None:
+        session = self.sessions.pop(chat_id, None)
+        if session:
+            user_id = getattr(session, "user_id", None)
+            if user_id and user_id in self._user_session_counts:
+                self._user_session_counts[user_id] = max(
+                    0, self._user_session_counts[user_id] - 1
+                )
+        self._chat_locks.pop(chat_id, None)
+        self._last_activity.pop(chat_id, None)
+        self._warned_idle.discard(chat_id)
+
     def _get_session(self, chat_id: int, user_id_str: str) -> BotSession | None:
         if chat_id not in self.sessions:
             # Check allowlist
             allowed = self.bot_manager.get_allowed_users("telegram")
             if user_id_str not in allowed:
                 return None
+
+            if (
+                self.max_sessions_per_user is not None
+                and not self.session_limit_override
+            ):
+                current = self._user_session_counts.get(user_id_str, 0)
+                if current >= self.max_sessions_per_user:
+                    return None
 
             # Create a modified config with telegram-specific working directory
             from copy import deepcopy
@@ -146,7 +215,12 @@ class TelegramBotService:
                     chat_id, t, a, i
                 ),
                 user_id=user_id_str,
+                tool_policy=self.tool_policies.get(chat_id, "dev"),
             )
+            self._user_session_counts[user_id_str] = (
+                self._user_session_counts.get(user_id_str, 0) + 1
+            )
+            self.tool_policies.setdefault(chat_id, "dev")
         return self.sessions[chat_id]
 
     def _touch_activity(self, chat_id: int) -> None:
@@ -231,44 +305,39 @@ class TelegramBotService:
         short_id = tool_call_id[:8]
         self.approval_map[short_id] = tool_call_id
         self._approval_created_at[short_id] = time.monotonic()
+        self._approval_chat_map[short_id] = chat_id
+        self._approval_tool_map[short_id] = tool_name
 
         keyboard = [
             [
                 InlineKeyboardButton("Approve", callback_data=f"app:{short_id}"),
                 InlineKeyboardButton("Deny", callback_data=f"deny:{short_id}"),
             ],
-            [InlineKeyboardButton("Always", callback_data=f"always:{short_id}")],
+            [
+                InlineKeyboardButton("Always", callback_data=f"always:{short_id}"),
+                InlineKeyboardButton("Dismiss", callback_data=f"dismiss:{short_id}"),
+            ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+
+        bot_mode = self.policy.get_current(chat_id)
 
         # Do NOT use Markdown here: args can contain characters that break markdown.
         # Keep it plain text to ensure approvals always render.
         assert self.application is not None, "Application not initialized"
         await self.application.bot.send_message(
             chat_id=chat_id,
-            text=f"Approval Required\nTool: {tool_name}\nArgs: {args}",
+            text=(
+                "Approval Required\n"
+                f"Bot-mode: {bot_mode}\n"
+                f"Tool: {tool_name}\n"
+                f"Args: {args}"
+            ),
             reply_markup=reply_markup,
         )
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        user = update.effective_user
-        if not user:
-            return
-
-        user_id = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-
-        if user_id in allowed:
-            await update.message.reply_text(
-                f"Welcome back, Chef {user.first_name}! 👨‍🍳\nSend me a message to start cooking."
-            )
-        else:
-            await update.message.reply_text(
-                f"🔒 Access Denied.\nYour User ID is: `{user_id}`\n\n"
-                f"To enable access, run this in your terminal:\n"
-                f"`/telegram allow {user_id}`",
-                parse_mode=constants.ParseMode.MARKDOWN,
-            )
+        await self.core.start(update, context)
 
     async def _try_dispatch_text_command(
         self,
@@ -276,6 +345,7 @@ class TelegramBotService:
         context: ContextTypes.DEFAULT_TYPE,
         chat_id: int,
         message_text: str,
+        raw_text: str,
     ) -> bool:
         """Try to dispatch message as a special text command.
 
@@ -300,8 +370,42 @@ class TelegramBotService:
             "roast": lambda u, c: fun_commands.roast_command(self, u, c),
             "fortune": lambda u, c: fun_commands.fortune_command(self, u, c),
             "reload": lambda u, c: fun_commands.reload_command(self, u, c),
-            "chefchat": self.chefchat_command,
-            "git": self.git_command,
+            "chefchat": self.admin.chefchat_command,
+            "git": self.admin.git_command,
+            # CLI providers (AI assistants)
+            "gemini": lambda u, c: self._cli_shortcut(u, c, "gemini"),
+            "codex": lambda u, c: self._cli_shortcut(u, c, "codex"),
+            "opencode": lambda u, c: self._cli_shortcut(u, c, "opencode"),
+            "cli": self.cli_command,
+            "clistatus": self.cli_status_command,
+            "cliclose": self.cli_close_command,
+            "cliproviders": self.cli_providers_command,
+            "clirun": self.cli_run_command,
+            "clihistory": self.cli_history_command,
+            "clidiag": self.cli_diag_command,
+            "clisetup": self.cli_setup_command,
+            "clicancel": self.cli_cancel_command,
+            "cliretry": self.cli_retry_command,
+            "task": self.task_command,
+            "tasks": self.task_command,
+            "botmode": self.botmode_command,
+            "devmode": lambda u, c: self._handle_botmode_shortcut(u, c, "dev"),
+            "chatmode": lambda u, c: self._handle_botmode_shortcut(u, c, "chat"),
+            "combimode": lambda u, c: self._handle_botmode_shortcut(u, c, "combo"),
+            "modelrefresh": self.model_refresh_command,
+            "term": self.term_handlers.term_command,
+            "termstatus": self.term_handlers.termstatus_command,
+            "termclose": self.term_handlers.termclose_command,
+            "termbash": lambda u, c: self.term_handlers.term_shortcut(u, c, "bash"),
+            "termpython3": lambda u, c: self.term_handlers.term_shortcut(
+                u, c, "python3"
+            ),
+            "termvim": lambda u, c: self.term_handlers.term_shortcut(u, c, "vim"),
+            "termnode": lambda u, c: self.term_handlers.term_shortcut(u, c, "node"),
+            "termnpm": lambda u, c: self.term_handlers.term_shortcut(u, c, "npm"),
+            "termswitch": self.term_handlers.term_switch_command,
+            "termupload": self.term_handlers.term_upload_command,
+            "context": self.context_command,
         }
 
         # Check mode keyword
@@ -323,7 +427,43 @@ class TelegramBotService:
 
         # Check single-word command
         if message_text in keyword_handlers:
+            logger.debug(
+                "dispatch: command %s -> %s",
+                message_text,
+                keyword_handlers[message_text],
+            )
             await keyword_handlers[message_text](update, context)
+            return True
+
+        # Inline provider prefix, e.g. "gemini: build README"
+        for provider_key in CLI_PROVIDERS:
+            prefix_colon = f"{provider_key}:"
+            prefix_arrow = f"{provider_key}>"
+            if raw_text.lower().startswith(prefix_colon) or raw_text.lower().startswith(
+                prefix_arrow
+            ):
+                prompt = (
+                    raw_text[len(prefix_colon) :].strip()
+                    if raw_text.lower().startswith(prefix_colon)
+                    else raw_text[len(prefix_arrow) :].strip()
+                )
+                if not prompt:
+                    await self._send_message(chat_id, "❌ No prompt provided.")
+                    return True
+                logger.debug("dispatch: inline cli %s", provider_key)
+                await self._send_message(chat_id, "⏳ Running CLI request...")
+                output = await self.cli_manager.execute_prompt(
+                    chat_id, prompt, provider_override=provider_key, persist=True
+                )
+                await self._send_message(chat_id, output)
+                return True
+
+        # Check active CLI session (AI providers like Gemini, Codex, OpenCode)
+        if self.cli_manager.has_active_session(chat_id):
+            # Show processing message
+            await self._send_message(chat_id, "⏳ Processing...")
+            output = await self.cli_manager.execute_prompt(chat_id, update.message.text)
+            await self._send_message(chat_id, output)
             return True
 
         # Check active terminal session
@@ -359,9 +499,10 @@ class TelegramBotService:
 
         # Check if message is a command keyword (without /)
         message_text = update.message.text.strip().lower()
+        raw_text = update.message.text.strip()
 
         if await self._try_dispatch_text_command(
-            update, context, chat_id, message_text
+            update, context, chat_id, message_text, raw_text
         ):
             return
 
@@ -382,15 +523,24 @@ class TelegramBotService:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         query = update.callback_query
+        logger.debug(
+            "dispatch: callback chat=%s data=%s",
+            update.effective_chat.id if update.effective_chat else "?",
+            getattr(query, "data", None),
+        )
         await query.answer()
 
         data = query.data
         if not data:
             return
 
+        if data.startswith("botmode:"):
+            await self.policy.handle_callback(update, data)
+            return
+
         # Handle model selection callbacks
         if data.startswith(("mod:", "mcat:", "mmain")):
-            await self._handle_model_callback(update, context)
+            await self.models._handle_model_callback(update, context)
             return
 
         action, short_id = data.split(":")
@@ -420,12 +570,20 @@ class TelegramBotService:
             response = ApprovalResponse.NO
             msg = "User denied via Telegram"
             await query.edit_message_text("🚫 Denied")
+        elif action == "dismiss":
+            response = ApprovalResponse.NO
+            msg = "Dismissed without feedback"
+            await query.edit_message_text("ℹ️ Dismissed")
         elif action == "always":
             response = ApprovalResponse.ALWAYS
             await query.edit_message_text("⚡ Always Approved")
 
         # Unblock the waiting tool approval in the session
         session.resolve_approval(tool_call_id, response, msg)
+        self._approval_chat_map.pop(short_id, None)
+        self._approval_tool_map.pop(short_id, None)
+        self._approval_created_at.pop(short_id, None)
+        self.approval_map.pop(short_id, None)
 
     async def clear_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -442,186 +600,48 @@ class TelegramBotService:
         await session.clear_history()
         await update.message.reply_text("🧹 History cleared.")
 
-    async def chefchat_command(
+    async def context_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Optional remote systemd control.
-
-        Enabled only when CHEFCHAT_ENABLE_TELEGRAM_SYSTEMD_CONTROL is set.
-        """
-        if not self._enable_systemd_control:
-            await update.message.reply_text("This command is disabled on this server.")
+        """Manage conversation context."""
+        if not update.message:
             return
-
+        args = [a.strip() for a in (context.args or []) if a.strip()]
+        sub = args[0].lower() if args else "status"
         user = update.effective_user
         if not user:
             return
 
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
+        session = self._get_session(update.effective_chat.id, str(user.id))
+        if not session:
+            await self.start(update, context)
             return
 
-        if not context.args:
-            await self._show_chefchat_help(update)
+        if sub == "clear":
+            await session.clear_history()
+            await update.message.reply_text("🧹 Context cleared.")
             return
 
-        action = context.args[0].strip().lower()
-        await self._dispatch_chefchat_action(update, context, action)
-
-    async def _show_chefchat_help(self, update: Update) -> None:
-        """Show help for /chefchat command."""
+        # Status
+        try:
+            history_len = len(session.agent.message_manager.messages)
+        except Exception:
+            history_len = 0
         await update.message.reply_text(
-            "Usage:\n"
-            "/chefchat status\n"
-            "/chefchat start\n"
-            "/chefchat stop\n"
-            "/chefchat restart\n"
-            "/chefchat projects\n"
-            "/chefchat switch <project>\n"
-            "/chefchat miniapp <start|stop|restart|status> [project]\n"
-            "/chefchat tunnel <start|stop|restart|status> [project]"
+            f"🧠 Context status:\nMessages: {history_len}\n"
+            "Use `/context clear` to reset.",
+            parse_mode=constants.ParseMode.MARKDOWN,
         )
 
-    async def _dispatch_chefchat_action(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE, action: str
-    ) -> None:
-        """Dispatch to the appropriate action handler."""
-        if action in {"miniapp", "tunnel"}:
-            await self._handle_service_action(update, context, action)
-        elif action == "projects":
-            await self._handle_projects_action(update)
-        elif action == "switch":
-            await self._handle_switch_action(update, context)
-        elif action in {"start", "stop", "restart", "status"}:
-            await self._handle_systemd_action(update, action)
-        else:
-            await update.message.reply_text("Unknown action.")
-
-    async def _handle_service_action(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE, action: str
-    ) -> None:
-        """Handle miniapp/tunnel service actions."""
-        if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
-            await update.message.reply_text(
-                f"Usage: /chefchat {action} <start|stop|restart|status> [project]"
-            )
-            return
-
-        sub_action = context.args[1].strip().lower()
-        if sub_action not in {"start", "stop", "restart", "status"}:
-            await update.message.reply_text("Unknown action.")
-            return
-
-        project = (
-            context.args[2].strip()
-            if len(context.args) >= MIN_COMMAND_ARGS_SWITCH
-            else "chefchat"
-        )
-        if self._allowed_projects and project not in self._allowed_projects:
-            await update.message.reply_text("Unknown project.")
-            return
-
-        unit_base = "chefchat-miniapp" if action == "miniapp" else "chefchat-tunnel"
-        unit = f"{unit_base}@{project}.service"
-        ok, out = await self._systemctl_user([sub_action, unit])
-        await update.message.reply_text(out if ok else f"Failed: {out}")
-
-    async def _handle_projects_action(self, update: Update) -> None:
-        """Handle projects listing action."""
-        projects = (
-            ", ".join(self._allowed_projects)
-            if self._allowed_projects
-            else "(none configured)"
-        )
-        await update.message.reply_text(f"Projects: {projects}")
-
-    async def _handle_switch_action(
+    async def chefchat_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Handle project switch action."""
-        if len(context.args) < MIN_COMMAND_ARGS_MINIAPP:
-            await update.message.reply_text("Usage: /chefchat switch <project>")
-            return
-
-        project = context.args[1].strip()
-        if self._allowed_projects and project not in self._allowed_projects:
-            await update.message.reply_text("Unknown project.")
-            return
-
-        unit = f"{self._systemd_unit_base}@{project}.service"
-        ok, out = await self._systemctl_user(["restart", unit])
-        await update.message.reply_text(out if ok else f"Failed: {out}")
-
-    async def _handle_systemd_action(self, update: Update, action: str) -> None:
-        """Handle basic systemd actions (start/stop/restart/status)."""
-        unit = f"{self._systemd_unit_base}.service"
-        ok, out = await self._systemctl_user([action, unit])
-        await update.message.reply_text(out if ok else f"Failed: {out}")
+        await self.admin.chefchat_command(update, context)
 
     async def git_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Handle /git commands safely."""
-        user = update.effective_user
-        if not user:
-            return
-
-        user_id_str = str(user.id)
-        if user_id_str not in self.bot_manager.get_allowed_users("telegram"):
-            await update.message.reply_text("Access denied.")
-            return
-
-        # Get the full command arguments
-        if not context.args:
-            await update.message.reply_text(
-                "Usage: /git <command> (e.g., status, log, diff)"
-            )
-            return
-
-        raw_args = " ".join(context.args)
-
-        # Validate using GitChef's validator
-        validated_args = GitCommandValidator.parse_and_validate(raw_args)
-        if validated_args is None:
-            await update.message.reply_text("❌ Invalid or unsafe git command.")
-            return
-
-        # Execute
-        await update.message.reply_text(f"🔧 Running git {validated_args[1]}...")
-
-        try:
-            # Reconstruct safe command string for executor
-            safe_command = " ".join(shlex.quote(arg) for arg in validated_args)
-
-            # Pass GITHUB_TOKEN if available
-            env = {}
-            if token := os.environ.get("GITHUB_TOKEN"):
-                env["GITHUB_TOKEN"] = token
-
-            stdout, stderr, returncode = await self.executor.execute(
-                safe_command, timeout=30, env=env
-            )
-
-            output = (stdout if stdout else stderr).strip()
-            if not output:
-                output = "(No output)"
-
-            icon = "✅" if returncode == 0 else "❌"
-            header = f"{icon} Git {validated_args[1]} finished (code {returncode})"
-
-            # Truncate if too long for Telegram
-            if len(output) > GIT_OUTPUT_MAX_LEN:
-                output = output[:GIT_OUTPUT_MAX_LEN] + "\n...(truncated)"
-
-            await update.message.reply_text(
-                f"**{header}**\n```\n{output}\n```",
-                parse_mode=constants.ParseMode.MARKDOWN,
-            )
-
-        except Exception as e:
-            await update.message.reply_text(f"❌ Error executing git: {e}")
+        await self.admin.git_command(update, context)
 
     async def _systemctl_user(self, args: list[str]) -> tuple[bool, str]:
         """Run `systemctl --user ...` and return (ok, output)."""
@@ -643,9 +663,14 @@ class TelegramBotService:
     async def status_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Show bot status and uptime."""
+        await self.core.status_command(update, context)
+
+    async def api_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show provider API key status for Telegram users."""
         user = update.effective_user
-        if not user:
+        if not user or not update.message:
             return
 
         user_id_str = str(user.id)
@@ -654,30 +679,24 @@ class TelegramBotService:
             await update.message.reply_text("Access denied.")
             return
 
-        import subprocess
+        providers = self.model_service.list_provider_info()
+        if not providers:
+            await update.message.reply_text("No providers configured.")
+            return
 
-        uptime = "Unknown"
-        try:
-            result = subprocess.run(
-                ["uptime", "-p"], capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                uptime = result.stdout.strip()
-        except Exception:
-            pass
+        lines = ["🔑 API keys:"]
+        for p in providers:
+            key_state = "✅" if p.has_api_key else "❌"
+            env_hint = f" `{p.api_key_env_var}`" if p.api_key_env_var else ""
+            model_count = f"{p.model_count} models" if p.model_count else "no models"
+            base = f" · {p.api_base}" if p.api_base else ""
+            lines.append(f"{key_state} {p.name}{env_hint} — {model_count}{base}")
 
-        cwd = str(TELEGRAM_WORKDIR)
-        session_count = len(self.sessions)
-
-        status_text = (
-            f"🤖 **ChefChat Bot Status**\n\n"
-            f"⏱️ System uptime: {uptime}\n"
-            f"📁 Working dir: `{cwd}`\n"
-            f"👥 Active sessions: {session_count}\n"
-            f"🔧 Commands: /help for list"
+        lines.append(
+            "\nSet keys in `~/.chefchat/.env` (or env vars) then run `/reload`."
         )
         await update.message.reply_text(
-            status_text, parse_mode=constants.ParseMode.MARKDOWN
+            "\n".join(lines), parse_mode=constants.ParseMode.MARKDOWN
         )
 
     async def stop_command(
@@ -693,9 +712,7 @@ class TelegramBotService:
         session = self.sessions.get(chat_id)
         if session:
             # Clear the session
-            del self.sessions[chat_id]
-            self._last_activity.pop(chat_id, None)
-            self._chat_locks.pop(chat_id, None)
+            self._forget_session(chat_id)
             await update.message.reply_text("🛑 Session stopped and cleared.")
         else:
             await update.message.reply_text("No active session to stop.")
@@ -757,362 +774,22 @@ class TelegramBotService:
     async def help_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Show available commands."""
-        help_text = (
-            "🤖 **ChefChat Bot Commands**\n\n"
-            "💡 *Tip: Commands work with or without `/`*\n"
-            "_(Type `help` or `/help`)_\n\n"
-            "**Basic:**\n"
-            "• start - Start the bot\n"
-            "• stop - Stop current session\n"
-            "• clear - Clear conversation history\n"
-            "• help - Show this help\n\n"
-            "**Info:**\n"
-            "• status - Bot status & uptime\n"
-            "• stats - Session statistics\n"
-            "• files - List project files\n"
-            "• pwd - Working directory\n\n"
-            "**Models:**\n"
-            "• model - Show current model\n"
-            "• modellist - List all models\n"
-            "• modelselect - Switch model\n\n"
-            "**Modes:** 🎯\n"
-            "• mode - Show/switch modes\n"
-            "• plan - 📋 PLAN mode\n"
-            "• normal - ✋ NORMAL mode\n"
-            "• auto - ⚡ AUTO mode\n"
-            "• yolo - 🚀 YOLO mode\n"
-            "• architect - 🏛️ ARCHITECT mode\n\n"
-            "**Fun:** 🎉\n"
-            "• chef - Kitchen status report\n"
-            "• wisdom - Culinary wisdom\n"
-            "• roast - Gordon Ramsay roast\n"
-            "• fortune - Developer fortune\n\n"
-            "**Terminal:** 💻\n"
-            "• termbash - Start bash shell\n"
-            "• termpython3 - Python REPL\n"
-            "• termvim - Vim editor\n"
-            "• termstatus - Session status\n"
-            "• termclose - Close session\n\n"
-            "**Tools:** 🛠️\n"
-            "• git - Run git commands (status, log, etc)\n\n"
-            "**Advanced:**\n"
-            "• reload - Reload configuration\n"
-            "• chefchat - Systemd controls\n\n"
-            "💬 *Just send a message to chat with the AI!*"
-        )
-        await update.message.reply_text(
-            help_text, parse_mode=constants.ParseMode.MARKDOWN
-        )
-
-    async def _perform_model_list(self, update: Update) -> None:
-        """Helper to list available models."""
-        lines = ["Available models:"]
-        active = (self.config.active_model or "").lower()
-        for m in sorted(self.config.models, key=lambda x: x.alias):
-            is_active = m.alias.lower() == active or m.name.lower() == active
-            marker = "✅" if is_active else "•"
-            lines.append(f"{marker} {m.alias} ({m.provider})")
-        await update.message.reply_text("\n".join(lines))
-
-    async def _perform_model_select(self, update: Update, args: list[str]) -> None:
-        """Helper to select a model."""
-        if len(args) < MIN_COMMAND_ARGS_MODEL_SELECT:
-            await update.message.reply_text("Usage: /model select <alias>")
-            return
-
-        target = args[1].lower()
-        model = next(
-            (
-                m
-                for m in self.config.models
-                if target in {m.alias.lower(), m.name.lower()}
-            ),
-            None,
-        )
-        if model is None:
-            await update.message.reply_text(
-                f"Model '{args[1]}' not found. Use /model list."
-            )
-            return
-
-        self.config.active_model = model.alias
-        VibeConfig.save_updates({"active_model": model.alias})
-        await update.message.reply_text(f"✅ Switched model to: {model.alias}")
-
-    async def _handle_model_callback(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """Handle model selection callbacks."""
-        query = update.callback_query
-        data = query.data
-
-        if data == "mmain":
-            await self._show_model_root_menu(update)
-            return
-
-        if data.startswith("mcat:"):
-            category = data.split(":", 1)[1]
-            await self._show_model_category(update, category)
-            return
-
-        if data.startswith("mod:"):
-            alias = data.split(":", 1)[1]
-            await self._select_model_and_confirm(update, alias)
-            return
-
-    async def _show_model_root_menu(self, update: Update) -> None:
-        """Show the root model selection menu."""
-        active_model = self.config.get_active_model()
-
-        # Categories
-        categories = [
-            ("👨‍💻 Coding", "coding"),
-            ("🧠 Reasoning", "reasoning"),
-            ("⚡ Speed", "speed"),
-            ("👁️ Vision", "vision"),
-            ("💰 Free/Cheap", "cost_effective"),
-            ("📦 All Models", "all"),
-        ]
-
-        buttons = []
-        row = []
-        for label, tag in categories:
-            row.append(InlineKeyboardButton(label, callback_data=f"mcat:{tag}"))
-            if len(row) == MODEL_MENU_BUTTONS_PER_ROW:
-                buttons.append(row)
-                row = []
-        if row:
-            buttons.append(row)
-
-        text = (
-            f"🧠 **Model Control Strategy**\n\n"
-            f"Current Active Model:\n"
-            f"🌟 **{active_model.alias}**\n"
-            f"Testing: {active_model.name}\n"
-            f"Provider: {active_model.provider}\n\n"
-            f"👇 **Select a specialized fleet:**"
-        )
-
-        reply_markup = InlineKeyboardMarkup(buttons)
-        try:
-            await update.callback_query.edit_message_text(
-                text=text,
-                reply_markup=reply_markup,
-                parse_mode=constants.ParseMode.MARKDOWN,
-            )
-        except Exception:
-            # Fallback if message is same
-            pass
-
-    async def _show_model_category(self, update: Update, category: str) -> None:
-        """Show models in a specific category."""
-        models = []
-        active = (self.config.active_model or "").lower()
-
-        # Filter models
-        for m in self.config.models:
-            if category == "all":
-                models.append(m)
-                continue
-
-            # Feature matching
-            has_feature = False
-            if m.features and category in m.features:
-                has_feature = True
-
-            # Special logic for "free/cheap" if not explicitly tagged but low price
-            if category == "cost_effective":
-                if (m.input_price or 0) < CHEAP_MODEL_PRICE_THRESHOLD:
-                    has_feature = True
-
-            if has_feature:
-                models.append(m)
-
-        # Sort: Active first, then by alias
-        models.sort(key=lambda x: (x.alias != active, x.alias))
-
-        buttons = []
-        for m in models:
-            marker = "✅" if m.alias == active else ""
-            label = f"{marker} {m.alias} [{m.provider}]"
-            buttons.append([
-                InlineKeyboardButton(label, callback_data=f"mod:{m.alias}")
-            ])
-
-        buttons.append([
-            InlineKeyboardButton("🔙 Back to Fleets", callback_data="mmain")
-        ])
-
-        reply_markup = InlineKeyboardMarkup(buttons)
-
-        cat_names = {
-            "coding": "👨‍💻 Coding Specialists",
-            "reasoning": "🧠 Reasoning Engines",
-            "speed": "⚡ High Speed Models",
-            "vision": "👁️ Multimodal/Vision",
-            "cost_effective": "💰 High Efficiency",
-            "all": "📦 All Available Models",
-        }
-        cat_title = cat_names.get(category, "Models")
-
-        text = f"**{cat_title}**\nSelect a model to deploy:"
-
-        await update.callback_query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-            parse_mode=constants.ParseMode.MARKDOWN,
-        )
-
-    async def _select_model_and_confirm(self, update: Update, alias: str) -> None:
-        """Switch model and show confirmation."""
-        # Find model
-        model = next((m for m in self.config.models if m.alias == alias), None)
-        if not model:
-            await update.callback_query.answer("Model not found!", show_alert=True)
-            return
-
-        # Switch
-        self.config.active_model = model.alias
-        VibeConfig.save_updates({"active_model": model.alias})
-
-        # Update sessions
-        for session in self.sessions.values():
-            session.config.active_model = model.alias
-            session.agent.config.active_model = model.alias
-
-        await update.callback_query.answer(f"Switched to {model.alias}")
-
-        # Return to root menu to show updated status
-        await self._show_model_root_menu(update)
+        await self.core.help_command(update, context)
 
     async def model_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Handle /model commands in Telegram."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
+        await self.models.model_command(update, context)
 
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        args = [a.strip() for a in (context.args or []) if a.strip()]
-        action = args[0].lower() if args else ""
-
-        if action in {"list", "select", "status"}:
-            # Legacy handling if user types specific args
-            await self._legacy_model_handler(update, context, action, args[1:])
-            return
-
-        # Default: Show Interactive Menu
-        active_model = self.config.get_active_model()
-
-        # Categories
-        categories = [
-            ("👨‍💻 Coding", "coding"),
-            ("🧠 Reasoning", "reasoning"),
-            ("⚡ Speed", "speed"),
-            ("👁️ Vision", "vision"),
-            ("💰 Free/Cheap", "cost_effective"),
-            ("📦 All Models", "all"),
-        ]
-
-        buttons = []
-        row = []
-        for label, tag in categories:
-            row.append(InlineKeyboardButton(label, callback_data=f"mcat:{tag}"))
-            if len(row) == MODEL_MENU_BUTTONS_PER_ROW:
-                buttons.append(row)
-                row = []
-        if row:
-            buttons.append(row)
-
-        text = (
-            f"🧠 **Model Control Strategy**\n\n"
-            f"Current Active Model:\n"
-            f"🌟 **{active_model.alias}**\n"
-            f"Testing: {active_model.name}\n"
-            f"Provider: {active_model.provider}\n\n"
-            f"👇 **Select a specialized fleet:**"
-        )
-
-        reply_markup = InlineKeyboardMarkup(buttons)
-        await update.message.reply_text(
-            text=text,
-            reply_markup=reply_markup,
-            parse_mode=constants.ParseMode.MARKDOWN,
-        )
-
-    async def _legacy_model_handler(
-        self,
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
-        action: str,
-        args: list[str],
-    ) -> None:
-        """Keep old logic for specific subcommands if needed."""
-        if action == "list":
-            await self._perform_model_list(update)
-        elif action == "select":
-            # Need to reconstruct args for helper
-            full_args = ["select"] + args
-            await self._perform_model_select(update, full_args)
-        elif action == "status":
-            # Just show status text, no menu
-            active_model = self.config.get_active_model()
-            provider = self.config.get_provider_for_model(active_model)
-            await update.message.reply_text(
-                "Current model:\n"
-                f"• Alias: {active_model.alias}\n"
-                f"• Provider: {provider.name}\n"
-                f"• Model ID: {active_model.name}"
-            )
-
-    async def _handle_model_list(
+    async def _handle_model_callback(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Handle 'modellist' keyword."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
+        await self.models._handle_model_callback(update, context)
 
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        lines = ["Available models:"]
-        active = (self.config.active_model or "").lower()
-        for m in sorted(self.config.models, key=lambda x: x.alias):
-            is_active = m.alias.lower() == active or m.name.lower() == active
-            marker = "✅" if is_active else "•"
-            lines.append(f"{marker} {m.alias} ({m.provider})")
-        await update.message.reply_text("\n".join(lines))
-
-    async def _handle_model_select_prompt(
+    async def model_refresh_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Handle 'modelselect' keyword - prompt user for model name."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        await update.message.reply_text(
-            "Please use: `/model select <alias>`\n\n"
-            "Or type `modellist` to see available models.",
-            parse_mode=constants.ParseMode.MARKDOWN,
-        )
+        await self.models.model_refresh_command(update, context)
 
     async def mode_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -1207,118 +884,120 @@ class TelegramBotService:
             logger.exception("Failed to switch mode")
             await update.message.reply_text(f"❌ Failed to switch mode: {e}")
 
+    # =========================
+    # Bot tool policy (dev/chat/combo)
+    # =========================
+
+    def _current_tool_policy(self, chat_id: int) -> str:
+        return self.policy.get_current(chat_id)
+
+    def _set_tool_policy(self, chat_id: int, policy: str) -> str:
+        return self.policy.set_policy(chat_id, policy)
+
+    async def botmode_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.policy.botmode_command(update, context)
+
+    async def _handle_botmode_shortcut(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, policy: str
+    ) -> None:
+        await self.policy.handle_shortcut(update, context, policy)
+
+    async def _handle_botmode_callback(self, update: Update, data: str) -> None:
+        await self.policy.handle_callback(update, data)
+
     async def term_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Start an interactive terminal session."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        chat_id = update.effective_chat.id
-
-        # Get command from message
-        if not context.args:
-            await update.message.reply_text(
-                "Usage: `/term <command>`\n\n"
-                "Examples:\n"
-                "• `/term bash` - Start bash shell\n"
-                "• `/term python3` - Start Python REPL\n"
-                "• `/term vim test.py` - Open vim\n\n"
-                "Type `/termclose` to exit terminal.",
-                parse_mode=constants.ParseMode.MARKDOWN,
-            )
-            return
-
-        command = " ".join(context.args)
-        success, message = self.terminal_manager.create_session(chat_id, command)
-
-        await update.message.reply_text(
-            message, parse_mode=constants.ParseMode.MARKDOWN
-        )
+        await self.term_handlers.term_command(update, context)
 
     async def termstatus_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Show terminal session status."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        chat_id = update.effective_chat.id
-        status = self.terminal_manager.get_session_status(chat_id)
-
-        await update.message.reply_text(status, parse_mode=constants.ParseMode.MARKDOWN)
+        await self.term_handlers.termstatus_command(update, context)
 
     async def termclose_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Close the active terminal session."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        chat_id = update.effective_chat.id
-        message = self.terminal_manager.close_session(chat_id)
-
-        await update.message.reply_text(message)
+        await self.term_handlers.termclose_command(update, context)
 
     async def _term_shortcut(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE, command: str
     ) -> None:
-        """Start a terminal with a predefined command."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        chat_id = update.effective_chat.id
-        success, message = self.terminal_manager.create_session(chat_id, command)
-
-        await update.message.reply_text(
-            message, parse_mode=constants.ParseMode.MARKDOWN
-        )
+        await self.term_handlers.term_shortcut(update, context, command)
 
     async def _notify_startup(self) -> None:
         """Send startup notification to allowed users."""
         allowed = self.bot_manager.get_allowed_users("telegram")
+        version = self._get_version()
+        prev_version = self._read_version_file()
+        show_changelog = version is not None and prev_version != version
+        changelog_text = self._get_changelog_snippet() if show_changelog else None
+
         for user_id in allowed:
             try:
                 if self.application:
                     await self.application.bot.send_message(
                         chat_id=int(user_id),
                         text=(
-                            "🚀 **ChefChat Bot Started!**\n\n"
+                            "🚀 **ChefChat Bot Started!**\n"
+                            f"🏷️ Version: `{version or 'unknown'}`\n\n"
                             f"📁 Working directory: `{TELEGRAM_WORKDIR}`\n"
                             f"🔧 Type /help for commands"
+                            + (
+                                f"\n\n🗒️ **Changelog:**\n{changelog_text}"
+                                if changelog_text
+                                else ""
+                            )
                         ),
                         parse_mode=constants.ParseMode.MARKDOWN,
                     )
             except Exception as e:
                 logger.warning(f"Could not notify user {user_id}: {e}")
+
+        if version:
+            self._write_version_file(version)
+
+    def _get_version(self) -> str | None:
+        try:
+            return importlib.metadata.version("chefchat")
+        except Exception:
+            pass
+
+        try:
+            root = Path(__file__).resolve().parents[2]
+            pyproject = root / "pyproject.toml"
+            if pyproject.is_file():
+                for line in pyproject.read_text().splitlines():
+                    if line.startswith("version"):
+                        parts = line.split("=", 1)
+                        if len(parts) == 2:
+                            return parts[1].strip().strip('"').strip("'")
+        except Exception:
+            pass
+        return None
+
+    def _read_version_file(self) -> str | None:
+        try:
+            return self._version_file.read_text().strip()
+        except Exception:
+            return None
+
+    def _write_version_file(self, version: str) -> None:
+        try:
+            self._version_file.parent.mkdir(parents=True, exist_ok=True)
+            self._version_file.write_text(version)
+        except Exception:
+            logger.debug("Failed to write version file", exc_info=True)
+
+    def _get_changelog_snippet(self) -> str:
+        """Return short changelog for startup notification."""
+        return (
+            "• Nieuwe default: `mistral-small`\n"
+            "• Providers: OpenCode Zen + NVIDIA toegevoegd\n"
+            "• `/model list` toont nu live provider catalogus"
+        )
 
     def _register_basic_handlers(self) -> None:
         """Register basic command handlers."""
@@ -1330,9 +1009,14 @@ class TelegramBotService:
             ("files", self.files_command),
             ("pwd", self.pwd_command),
             ("help", self.help_command),
+            ("api", self.api_command),
             ("model", self.model_command),
             ("mode", self.mode_command),
-            ("chefchat", self.chefchat_command),
+            ("task", self.task_command),
+            ("tasks", self.task_command),
+            ("botmode", self.botmode_command),
+            ("chefchat", self.admin.chefchat_command),
+            ("context", self.context_command),
         ]
         for cmd, handler in handlers:
             self.application.add_handler(CommandHandler(cmd, handler))
@@ -1356,14 +1040,20 @@ class TelegramBotService:
     def _register_model_handlers(self) -> None:
         """Register model-related command handlers."""
         self.application.add_handler(
-            CommandHandler("modellist", lambda u, c: self._handle_model_list(u, c))
+            CommandHandler(
+                "modellist", lambda u, c: self.models._handle_model_list(u, c)
+            )
         )
         self.application.add_handler(
             CommandHandler(
-                "modelselect", lambda u, c: self._handle_model_select_prompt(u, c)
+                "modelselect",
+                lambda u, c: self.models._handle_model_select_prompt(u, c),
             )
         )
         self.application.add_handler(CommandHandler("modelstatus", self.model_command))
+        self.application.add_handler(
+            CommandHandler("modelrefresh", self.model_refresh_command)
+        )
 
     def _register_mode_handlers(self) -> None:
         """Register mode switch command handlers."""
@@ -1390,6 +1080,12 @@ class TelegramBotService:
         self.application.add_handler(
             CommandHandler("termclose", self.termclose_command)
         )
+        self.application.add_handler(
+            CommandHandler("termswitch", self.term_handlers.term_switch_command)
+        )
+        self.application.add_handler(
+            CommandHandler("termupload", self.term_handlers.term_upload_command)
+        )
 
         # Terminal shortcut commands
         shortcuts = [
@@ -1403,6 +1099,108 @@ class TelegramBotService:
             self.application.add_handler(
                 CommandHandler(
                     cmd, lambda u, c, s=shell_cmd: self._term_shortcut(u, c, s)
+                )
+            )
+
+    # =========================================================================
+    # CLI Provider Commands (Gemini, Codex, OpenCode)
+    # =========================================================================
+
+    async def cli_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_command(update, context)
+
+    async def cli_close_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_close_command(update, context)
+
+    async def cli_status_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_status_command(update, context)
+
+    async def cli_providers_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_providers_command(update, context)
+
+    async def cli_run_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_run_command(update, context)
+
+    async def cli_cancel_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_cancel_command(update, context)
+
+    async def cli_history_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_history_command(update, context)
+
+    async def cli_diag_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_diag_command(update, context)
+
+    async def cli_setup_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_setup_command(update, context)
+
+    async def cli_retry_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.cli_handlers.cli_retry_command(update, context)
+
+    # =========================================================================
+    # Task commands
+    # =========================================================================
+
+    async def task_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        await self.task_handlers.task_command(update, context)
+
+    async def _cli_shortcut(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, provider_name: str
+    ) -> None:
+        await self.cli_handlers.cli_shortcut(update, context, provider_name)
+
+    def _register_cli_handlers(self) -> None:
+        """Register CLI provider command handlers."""
+        self.application.add_handler(CommandHandler("cli", self.cli_command))
+        self.application.add_handler(CommandHandler("cliclose", self.cli_close_command))
+        self.application.add_handler(
+            CommandHandler("clistatus", self.cli_status_command)
+        )
+        self.application.add_handler(
+            CommandHandler("cliproviders", self.cli_providers_command)
+        )
+        self.application.add_handler(CommandHandler("clirun", self.cli_run_command))
+        self.application.add_handler(
+            CommandHandler("clihistory", self.cli_history_command)
+        )
+        self.application.add_handler(CommandHandler("clidiag", self.cli_diag_command))
+        self.application.add_handler(CommandHandler("clisetup", self.cli_setup_command))
+        self.application.add_handler(CommandHandler("cliretry", self.cli_retry_command))
+        self.application.add_handler(
+            CommandHandler("clicancel", self.cli_cancel_command)
+        )
+
+        # CLI provider shortcut commands
+        cli_shortcuts = [
+            ("cligemini", "gemini"),
+            ("clicodex", "codex"),
+            ("cliopencode", "opencode"),
+        ]
+        for cmd, provider in cli_shortcuts:
+            self.application.add_handler(
+                CommandHandler(
+                    cmd, lambda u, c, p=provider: self._cli_shortcut(u, c, p)
                 )
             )
 
@@ -1425,6 +1223,7 @@ class TelegramBotService:
         self._register_model_handlers()
         self._register_mode_handlers()
         self._register_terminal_handlers()
+        self._register_cli_handlers()
         self._register_message_handlers()
 
     async def _shutdown_gracefully(self, started: bool, polling: bool) -> None:
@@ -1505,7 +1304,46 @@ class TelegramBotService:
             ]
             for short_id in expired_short_ids:
                 self._approval_created_at.pop(short_id, None)
-                self.approval_map.pop(short_id, None)
+                _ = self.approval_map.pop(short_id, None)
+                chat = self._approval_chat_map.pop(short_id, None)
+                tool = self._approval_tool_map.pop(short_id, None)
+                if chat and self.application:
+                    try:
+                        await self.application.bot.send_message(
+                            chat_id=chat,
+                            text=f"⌛ Approval expired for {tool or 'tool'} (id {short_id}).",
+                        )
+                    except Exception:
+                        pass
+
+            # Idle session warnings/cleanup
+            for chat_id, ts in list(self._last_activity.items()):
+                since = now - ts
+                if since > self._session_ttl_s:
+                    self._forget_session(chat_id)
+                    if self.application:
+                        try:
+                            await self.application.bot.send_message(
+                                chat_id=chat_id,
+                                text="⏻ Session closed after inactivity.",
+                            )
+                        except Exception:
+                            pass
+                    continue
+
+                if (
+                    since > SESSION_IDLE_WARNING_S
+                    and chat_id not in self._warned_idle
+                    and self.application
+                ):
+                    self._warned_idle.add(chat_id)
+                    try:
+                        await self.application.bot.send_message(
+                            chat_id=chat_id,
+                            text="⚠️ Session idle. Will close soon if no activity.",
+                        )
+                    except Exception:
+                        pass
 
 
 async def run_telegram_bot(config: VibeConfig) -> None:

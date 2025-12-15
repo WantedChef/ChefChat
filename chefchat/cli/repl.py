@@ -80,6 +80,7 @@ from chefchat.core.utils import (
     CancellationReason,
     get_user_cancellation_message,
 )
+from chefchat.interface.services import ModelService
 
 if TYPE_CHECKING:
     pass
@@ -102,6 +103,7 @@ class ChefChatREPL:
     ) -> None:
         """Initialize the REPL with premium dark UI."""
         self.config = config
+        self.model_service = ModelService(self.config)
         self.mode_manager = ModeManager(initial_mode=initial_mode)
 
         # Configure Console for better Windows compatibility
@@ -411,43 +413,36 @@ Use `/model status` to see which model is currently active.
         self.console.print()
 
     async def _model_list(self) -> None:
-        """List all available models with details, checking API availability."""
+        """List configured models plus live provider catalog listings."""
         from rich.table import Table
-        
+
         self.console.print()
         self.console.print(f"[{COLORS['primary']}]## 🤖 Available Models[/{COLORS['primary']}]")
         self.console.print()
 
-        # Group models by provider
-        provider_groups = {}
+        # Group configured models by provider
+        provider_groups: dict[str, list[Any]] = {}
         for model in self.config.models:
             provider = model.provider
-            if provider not in provider_groups:
-                provider_groups[provider] = []
-            provider_groups[provider].append(model)
+            provider_groups.setdefault(provider, []).append(model)
+
+        # Try to fetch live provider catalogs
+        try:
+            live_catalog = await self.model_service.fetch_provider_models()
+        except Exception:
+            live_catalog = {}
 
         for provider in sorted(provider_groups.keys()):
             self.console.print(f"[{COLORS['fire']}]### {provider.upper()}[/{COLORS['fire']}]")
 
-            # Check if provider has API key configured
-            provider_config = None
-            for p in self.config.providers:
-                if p.name == provider:
-                    provider_config = p
-                    break
-            
-            has_api_key = (
-                bool(os.getenv(provider_config.api_key_env_var))
-                if provider_config and provider_config.api_key_env_var
-                else False
-            )
+            provider_config = next((p for p in self.config.providers if p.name == provider), None)
+            has_api_key = bool(provider_config and provider_config.api_key_env_var and os.getenv(provider_config.api_key_env_var))
 
             if has_api_key:
                 self.console.print(f"[{COLORS['sage']}]✅ API key configured[/{COLORS['sage']}]")
             else:
                 self.console.print(f"[{COLORS['ember']}]❌ No API key configured[/{COLORS['ember']}]")
 
-            # Create table for this provider's models
             table = Table(
                 box=box.ROUNDED,
                 border_style=COLORS["ash"],
@@ -457,20 +452,36 @@ Use `/model status` to see which model is currently active.
             table.add_column("Alias", style=f"bold {COLORS['primary']}")
             table.add_column("Status", style=COLORS["text"])
             table.add_column("Model ID", style=COLORS["muted"])
-            table.add_column("Temperature", justify="right", style=COLORS["muted"])
+            table.add_column("Temp", justify="right", style=COLORS["muted"])
 
             for model in sorted(provider_groups[provider], key=lambda m: m.alias):
                 is_active = model.alias == self.config.active_model
-                status = f"[{COLORS['success']}]🟢 Active[/{COLORS['success']}]" if is_active else f"[{COLORS['text']}]⚪ Available[/{COLORS['text']}]"
-                
+                status = f"[{COLORS['success']}]🟢 Active[/{COLORS['success']}]"
+                if not is_active:
+                    status = f"[{COLORS['text']}]⚪ Available[/{COLORS['text']}]"
+
                 table.add_row(
                     model.alias,
                     status,
                     model.name,
-                    str(model.temperature)
+                    str(model.temperature),
                 )
 
             self.console.print(table)
+
+            # Live catalog for this provider (if available)
+            if provider in live_catalog:
+                models = live_catalog.get(provider, [])
+                if models:
+                    joined = ", ".join(models)
+                    self.console.print(
+                        f"[{COLORS['muted']}]Live catalog ({len(models)}): {joined}[/{COLORS['muted']}]"
+                    )
+                else:
+                    self.console.print(
+                        f"[{COLORS['ember']}]Live catalog unavailable (auth missing or endpoint unsupported).[/{COLORS['ember']}]"
+                    )
+
             self.console.print()
 
     async def _model_select(self, model_alias: str) -> None:

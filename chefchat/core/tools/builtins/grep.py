@@ -27,6 +27,9 @@ class GrepBackend(StrEnum):
     GNU_GREP = auto()
 
 
+LEGACY_CODEIGNORE_FILE = ".vibeignore"
+
+
 class GrepToolConfig(BaseToolConfig):
     permission: ToolPermission = ToolPermission.ALWAYS
 
@@ -68,7 +71,7 @@ class GrepToolConfig(BaseToolConfig):
         description="List of glob patterns to exclude from search (dirs should end with /).",
     )
     codeignore_file: str = Field(
-        default=".vibeignore",
+        default=".chefchatignore",
         description="Name of the file to read for additional exclusion patterns.",
     )
 
@@ -145,9 +148,17 @@ class Grep(BaseTool[GrepArgs, GrepResult, GrepToolConfig, GrepState]):
     def _collect_exclude_patterns(self) -> list[str]:
         patterns = list(self.config.exclude_patterns)
 
-        codeignore_path = self.config.effective_workdir / self.config.codeignore_file
-        if codeignore_path.is_file():
-            patterns.extend(self._load_codeignore_patterns(codeignore_path))
+        codeignore_candidates = [
+            self.config.effective_workdir / self.config.codeignore_file
+        ]
+        if self.config.codeignore_file != LEGACY_CODEIGNORE_FILE:
+            codeignore_candidates.append(
+                self.config.effective_workdir / LEGACY_CODEIGNORE_FILE
+            )
+
+        for codeignore_path in codeignore_candidates:
+            if codeignore_path.is_file():
+                patterns.extend(self._load_codeignore_patterns(codeignore_path))
 
         return patterns
 

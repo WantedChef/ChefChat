@@ -69,12 +69,19 @@ async def restart_project(*, project: str) -> tuple[bool, str]:
 
 def set_bot_auto_approve(*, enable: bool) -> None:
     # This sets the env var for the *current process* only.
-    # Persisting per-project should be handled by editing the project's .vibe/.env.
+    # Persisting per-project should be handled by editing the project's .chefchat/.env
+    # (legacy support for .vibe/.env remains).
     os.environ["CHEFCHAT_BOT_AUTO_APPROVE"] = "1" if enable else "0"
 
 
 def set_bot_auto_approve_persist(*, project: str, enable: bool) -> tuple[bool, str]:
-    env_path = Path(f"/home/chef/{project}/ChefChat/.vibe/.env")
+    chefchat_env = Path(f"/home/chef/{project}/ChefChat/.chefchat/.env")
+    legacy_env = Path(f"/home/chef/{project}/ChefChat/.vibe/.env")
+
+    env_path = chefchat_env
+    if not chefchat_env.exists() and legacy_env.exists():
+        env_path = legacy_env
+
     env_path.parent.mkdir(parents=True, exist_ok=True)
     if not env_path.exists():
         env_path.touch()

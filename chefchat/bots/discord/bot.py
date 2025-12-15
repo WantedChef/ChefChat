@@ -3,20 +3,27 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
+from chefchat.bots.discord.handlers.admin import AdminHandlers
+from chefchat.bots.discord.handlers.model import ModelHandlers
+from chefchat.bots.discord.handlers.terminal import TerminalHandlers
 import discord
 from discord.ext import commands
 
 from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
+from chefchat.bots.terminal import TerminalManager
 from chefchat.core.config import VibeConfig
+from chefchat.core.tools.executor import SecureCommandExecutor
 from chefchat.core.utils import ApprovalResponse
 
 logger = logging.getLogger(__name__)
 
-# Discord has a 2000 character limit, but we truncate at 1900 to leave room for suffix
+# Constants
 DISCORD_MESSAGE_TRUNCATE_LIMIT = 1900
+DISCORD_WORKDIR = Path.home() / "chefchat_output_"
 
 
 class ApprovalView(discord.ui.View):
@@ -59,14 +66,32 @@ class DiscordBotService:
         intents.message_content = True
         self.bot = commands.Bot(command_prefix="/", intents=intents)
 
+        # Working Directory
+        self.DISCORD_WORKDIR = DISCORD_WORKDIR
+        self.DISCORD_WORKDIR.mkdir(parents=True, exist_ok=True)
+
+        self.executor = SecureCommandExecutor(self.DISCORD_WORKDIR)
+        self.terminal_manager = TerminalManager()
+
+        # Initialize Handlers
+        self.admin = AdminHandlers(self)
+        self.model = ModelHandlers(self)
+        self.terminal = TerminalHandlers(self)
+
     def _get_session(self, channel_id: int, user_id_str: str) -> BotSession | None:
         if channel_id not in self.sessions:
             allowed = self.bot_manager.get_allowed_users("discord")
             if user_id_str not in allowed:
                 return None
 
+            # Create config with correct workdir
+            from copy import deepcopy
+
+            discord_config = deepcopy(self.config)
+            discord_config.workdir = self.DISCORD_WORKDIR
+
             self.sessions[channel_id] = BotSession(
-                self.config,
+                discord_config,
                 send_message=lambda text: self._send_message(channel_id, text),
                 update_message=self._update_message,
                 request_approval=lambda t, a, i: self._request_approval(
@@ -108,15 +133,6 @@ class DiscordBotService:
     async def _handle_approval_callback(
         self, tool_call_id: str, response: str, message: str | None
     ) -> None:
-        # We need to find the session that owns this tool_call_id
-        # Ideally we iterate or store a reverse map.
-        # Since we have the channel_id context in the callback usually...
-        # But here the callback is from the View, which we created in _request_approval.
-        # So we can just find the session for the channel where the view was sent.
-        # But wait, we don't know the channel in the callback easily unless we pass it.
-        # However, BotSession.resolve_approval handles the resolution.
-        # We can just broadcast to all sessions or improve mapping.
-        # For now, let's iterate.
         for session in self.sessions.values():
             session.resolve_approval(tool_call_id, response, message)
 
@@ -141,19 +157,23 @@ class DiscordBotService:
             # Simple allowlist check
             allowed = self.bot_manager.get_allowed_users("discord")
             if user_id not in allowed:
-                await message.reply(
-                    f"🔒 Access Denied. Your User ID is: `{user_id}`\n"
-                    f"Run `/discord allow {user_id}` in your terminal to enable."
-                )
+                # Only reply if it looks like a command to avoid spam
+                if message.content.startswith("/"):
+                    await message.reply(
+                        f"🔒 Access Denied. Your User ID is: `{user_id}`\n"
+                        f"Run `/discord allow {user_id}` in your terminal to enable."
+                    )
                 return
 
-            if message.content.startswith("/clear"):
-                session = self.sessions.get(channel_id)
-                if session:
-                    await session.clear_history()
-                    await message.reply("🧹 History cleared.")
+            # Dispatch to handlers
+            if await self.admin.handle_message(message):
+                return
+            if await self.model.handle_message(message):
+                return
+            if await self.terminal.handle_message(message):
                 return
 
+            # Default to Agent Session
             session = self._get_session(channel_id, user_id)
             if session:
                 asyncio.create_task(session.handle_user_message(message.content))

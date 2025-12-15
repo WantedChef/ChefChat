@@ -6,9 +6,12 @@ ModelCommandsMixin to enable testing and reuse without UI dependencies.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 import os
 from typing import TYPE_CHECKING, Any
+
+import httpx
 
 if TYPE_CHECKING:
     from chefchat.core.config import ModelConfig, VibeConfig
@@ -22,15 +25,20 @@ class ModelInfo:
     alias: str
     name: str
     provider: str
+    model_id: str
     is_active: bool
     api_key_status: str  # "set" | "missing"
     temperature: float
     input_price: float
     output_price: float
     features: list[str]
-    context_size: int | None = None
+    context_window: int | None = None
+    max_output_tokens: int | None = None
+    supports_vision: bool = False
+    supports_function_calling: bool = False
     multimodal: bool = False
     max_file_size: int | None = None
+    rate_limits: dict[str, int] | None = None
 
 
 @dataclass
@@ -41,6 +49,7 @@ class ProviderInfo:
     api_base: str
     has_api_key: bool
     model_count: int
+    api_key_env_var: str | None = None
 
 
 class ModelService:
@@ -65,6 +74,15 @@ class ModelService:
             return self._config_service.ensure_config()
         return self._config_service
 
+    @property
+    def _models(self) -> Iterable[ModelConfig]:
+        """Return configured models as a simple iterable."""
+        # VibeConfig stores models as a list; keep compatibility if a dict sneaks in.
+        models = getattr(self._config, "models", [])
+        if isinstance(models, dict):
+            return models.values()
+        return list(models)
+
     def get_active_model_alias(self) -> str:
         """Get the alias of the currently active model."""
         return self._config.active_model
@@ -77,8 +95,15 @@ class ModelService:
         except Exception:
             return None
 
+    def get_model_info(self, alias: str | None = None) -> ModelInfo | None:
+        """Get a model by alias (case-insensitive). Defaults to active model."""
+        target = (alias or self._config.active_model or "").strip()
+        if not target:
+            return None
+        return self.find_model_by_alias(target)
+
     def find_model_by_alias(self, alias: str) -> ModelInfo | None:
-        """Find a model by alias (case-insensitive).
+        """Find a model by alias or model name (case-insensitive).
 
         Args:
             alias: Model alias to search for.
@@ -87,87 +112,53 @@ class ModelService:
             ModelInfo if found, None otherwise.
         """
         target = alias.lower()
-        for model in self._config.models.values():
+        for model in self._models:
             if target in {model.alias.lower(), model.name.lower()}:
                 return self._model_to_info(model)
         return None
 
     def list_all_models(self) -> list[ModelInfo]:
         """Get all configured models as ModelInfo objects."""
-        return [self._model_to_info(model) for model in self._config.models.values()]
+        return [self._model_to_info(model) for model in self._models]
 
     def get_models_by_provider(self) -> dict[str, list[ModelInfo]]:
         """Group models by provider."""
         groups: dict[str, list[ModelInfo]] = {}
-        for model in self._config.models.values():
+        for model in self._models:
             provider = model.provider
             if provider not in groups:
                 groups[provider] = []
             groups[provider].append(self._model_to_info(model))
         return groups
 
-    def get_speed_models(self) -> list[tuple[str, str, str]]:
-        """Get fastest models (hardcoded for now).
+    def get_speed_models(self) -> list[ModelInfo]:
+        """Return models tagged for speed/latency."""
+        return self._filter_models(
+            lambda m: "speed" in m.features or "fast" in m.features
+        )
 
-        Returns:
-            List of (alias, speed, pricing) tuples.
-        """
-        return [
-            ("gpt-oss-20b", "1000 TPS", "$0.075/$0.30"),
-            ("llama-scout", "750 TPS", "$0.11/$0.34"),
-            ("groq-8b", "560 TPS", "$0.05/$0.08"),
-            ("qwen-32b", "400 TPS", "$0.29/$0.59"),
-            ("groq-70b", "280 TPS", "$0.59/$0.79"),
-        ]
+    def get_reasoning_models(self) -> list[ModelInfo]:
+        """Return models tagged for reasoning."""
+        return self._filter_models(lambda m: "reasoning" in m.features)
 
-    def get_reasoning_models(self) -> list[tuple[str, str, str, str]]:
-        """Get reasoning-capable models.
+    def get_multimodal_models(self) -> list[ModelInfo]:
+        """Return models that support multimodal/vision."""
+        return self._filter_models(lambda m: m.multimodal or "vision" in m.features)
 
-        Returns:
-            List of (alias, capability, pricing, context) tuples.
-        """
-        return [
-            ("kimi-k2", "Deep Reasoning", "$1.00/$3.00", "262K context"),
-            ("gpt-oss-120b", "Browser + Code", "$0.15/$0.60", "131K context"),
-            ("gpt-oss-20b", "Fast Reasoning", "$0.075/$0.30", "131K context"),
-        ]
-
-    def get_multimodal_models(self) -> list[tuple[str, str, str, str]]:
-        """Get multimodal (vision) models.
-
-        Returns:
-            List of (alias, capability, pricing, file_size) tuples.
-        """
-        return [
-            ("llama-scout", "Vision + Tools", "$0.11/$0.34", "20MB files"),
-            ("llama-maverick", "Advanced Vision", "$0.20/$0.60", "20MB files"),
-        ]
-
-    def compare_models(
-        self, aliases: list[str], max_features: int = 3
-    ) -> list[dict[str, Any]]:
-        """Compare multiple models.
-
-        Args:
-            aliases: List of model aliases to compare.
-            max_features: Maximum number of features to include.
-
-        Returns:
-            List of comparison dicts with model info.
-        """
-        results = []
-        for alias in aliases[:3]:  # Limit to 3 models
+    def compare_models(self, aliases: list[str]) -> list[ModelInfo]:
+        """Compare up to three models by alias."""
+        seen: set[str] = set()
+        results: list[ModelInfo] = []
+        for alias in aliases:
+            if len(results) >= 3:
+                break
+            normalized = alias.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
             model_info = self.find_model_by_alias(alias)
             if model_info:
-                features = model_info.features[:max_features]
-                if len(model_info.features) > max_features:
-                    features.append("...")
-                results.append({
-                    "alias": model_info.alias,
-                    "provider": model_info.provider,
-                    "price": f"${model_info.input_price}/${model_info.output_price}",
-                    "features": ", ".join(features),
-                })
+                results.append(model_info)
         return results
 
     def switch_model(self, alias: str) -> tuple[bool, str]:
@@ -212,6 +203,77 @@ class ModelService:
         except Exception:
             return False
 
+    def list_provider_info(self) -> list[ProviderInfo]:
+        """Return provider key status with model counts."""
+        providers = getattr(self._config, "providers", [])
+        counts: dict[str, int] = {}
+        for model in self._models:
+            counts[model.provider] = counts.get(model.provider, 0) + 1
+
+        result: list[ProviderInfo] = []
+        for provider in providers:
+            has_key = bool(
+                provider.api_key_env_var and os.getenv(provider.api_key_env_var)
+            )
+            result.append(
+                ProviderInfo(
+                    name=provider.name,
+                    api_base=provider.api_base,
+                    has_api_key=has_key,
+                    model_count=counts.get(provider.name, 0),
+                    api_key_env_var=provider.api_key_env_var or None,
+                )
+            )
+        return result
+
+    async def fetch_provider_models(self, timeout: float = 8.0) -> dict[str, list[str]]:
+        """Fetch live model listings from each configured provider's /models endpoint."""
+        results: dict[str, list[str]] = {}
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            for provider in getattr(self._config, "providers", []):
+                if not provider.api_base:
+                    continue
+
+                url = provider.api_base.rstrip("/") + "/models"
+                headers = {"Content-Type": "application/json"}
+                if provider.api_key_env_var:
+                    key = os.getenv(provider.api_key_env_var, "")
+                    if key:
+                        headers["Authorization"] = f"Bearer {key}"  # OpenAI-style header
+
+                try:
+                    resp = await client.get(url, headers=headers)
+                    resp.raise_for_status()
+                    data = resp.json()
+
+                    names: list[str] = []
+                    if isinstance(data, dict) and "data" in data:
+                        for item in data["data"]:
+                            if isinstance(item, dict):
+                                ident = item.get("id") or item.get("name")
+                                if ident:
+                                    names.append(str(ident))
+                    elif isinstance(data, list):
+                        for item in data:
+                            if isinstance(item, dict):
+                                ident = item.get("id") or item.get("name")
+                                if ident:
+                                    names.append(str(ident))
+                            elif isinstance(item, str):
+                                names.append(item)
+
+                    results[provider.name] = sorted(set(names))
+                except Exception:
+                    # Track provider with empty list when fetch fails (auth missing or unsupported)
+                    results.setdefault(provider.name, [])
+
+        return results
+
+    def _filter_models(self, predicate: Any) -> list[ModelInfo]:
+        """Filter models using a predicate against ModelConfig."""
+        return [self._model_to_info(m) for m in self._models if predicate(m)]
+
     def _model_to_info(self, model: ModelConfig) -> ModelInfo:
         """Convert a ModelConfig to a ModelInfo DTO."""
         try:
@@ -222,16 +284,27 @@ class ModelService:
         except Exception:
             has_key = False
 
+        features = list(model.features) if model.features else []
+        supports_vision = model.multimodal or "vision" in features
+        supports_function_calling = "tool_use" in features
+        context_window = model.max_tokens if model.max_tokens else None
+
         return ModelInfo(
             alias=model.alias,
             name=model.name,
             provider=model.provider,
+            model_id=model.name,
             is_active=model.alias == self._config.active_model,
             api_key_status="set" if has_key else "missing",
             temperature=model.temperature,
             input_price=model.input_price,
             output_price=model.output_price,
-            features=list(model.features) if model.features else [],
+            features=features,
+            context_window=context_window,
+            max_output_tokens=model.max_tokens,
+            supports_vision=supports_vision,
+            supports_function_calling=supports_function_calling,
             multimodal=model.multimodal,
             max_file_size=model.max_file_size,
+            rate_limits=model.rate_limits or {},
         )

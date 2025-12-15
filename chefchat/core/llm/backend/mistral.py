@@ -188,7 +188,7 @@ class MistralBackend:
             if tools:
                 for tool in tools:
                     if not tool.function.name:
-                        raise ValueError(f"Invalid tool: missing name")
+                        raise ValueError("Invalid tool: missing name")
                     # Allow empty parameters dict but not None/missing
                     if tool.function.parameters is None:
                         tool.function.parameters = {}
@@ -230,29 +230,29 @@ class MistralBackend:
                 finish_reason=response.choices[0].finish_reason,
             )
 
-        except mistralai.SDKError as e:
+        except mistralai.SDKError as exc:
             raise BackendErrorBuilder.build_http_error(
                 provider=self._provider.name,
                 endpoint=self._server_url,
-                response=e.raw_response,
-                headers=dict(e.raw_response.headers.items()),
+                response=exc.raw_response,
+                headers=dict(exc.raw_response.headers.items()),
                 model=model.name,
                 messages=messages,
                 temperature=temperature,
                 has_tools=bool(tools),
                 tool_choice=tool_choice,
-            ) from e
-        except httpx.RequestError as e:
+            ) from exc
+        except httpx.RequestError as exc:
             raise BackendErrorBuilder.build_request_error(
                 provider=self._provider.name,
                 endpoint=self._server_url,
-                error=e,
+                error=exc,
                 model=model.name,
                 messages=messages,
                 temperature=temperature,
                 has_tools=bool(tools),
                 tool_choice=tool_choice,
-            ) from e
+            ) from exc
 
     async def complete_streaming(
         self,
@@ -356,7 +356,7 @@ class MistralBackend:
             client = self._get_client()
             response = await client.models.list_async()
             return [model.id for model in response.data]
-        except mistralai.SDKError as e:
+        except mistralai.SDKError:
             # If listing models fails, return empty list
             return []
         except Exception:

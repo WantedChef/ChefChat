@@ -14,7 +14,7 @@ Each presentation is mode-aware and themed with professional kitchen energy!
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -25,7 +25,7 @@ from rich.table import Table
 from rich.text import Text
 
 # For Python < 3.11 compatibility
-UTC = timezone.utc
+UTC = UTC
 
 if TYPE_CHECKING:
     from chefchat.cli.mode_manager import ModeManager

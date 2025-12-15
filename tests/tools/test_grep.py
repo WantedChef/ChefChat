@@ -162,8 +162,8 @@ async def test_respects_default_ignore_patterns(grep, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_respects_vibeignore_file(grep, tmp_path):
-    (tmp_path / ".vibeignore").write_text("custom_dir/\n*.tmp\n")
+async def test_respects_chefchatignore_file(grep, tmp_path):
+    (tmp_path / ".chefchatignore").write_text("custom_dir/\n*.tmp\n")
     custom_dir = tmp_path / "custom_dir"
     custom_dir.mkdir()
     (custom_dir / "excluded.py").write_text("match\n")
@@ -178,8 +178,24 @@ async def test_respects_vibeignore_file(grep, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_ignores_comments_in_vibeignore(grep, tmp_path):
-    (tmp_path / ".vibeignore").write_text("# comment\npattern/\n# another comment\n")
+async def test_respects_legacy_vibeignore_file(grep, tmp_path):
+    (tmp_path / ".vibeignore").write_text("legacy_dir/\n")
+    legacy_dir = tmp_path / "legacy_dir"
+    legacy_dir.mkdir()
+    (legacy_dir / "excluded.py").write_text("match\n")
+    (tmp_path / "included.py").write_text("match\n")
+
+    result = await grep.run(GrepArgs(pattern="match"))
+
+    assert "included.py" in result.matches
+    assert "excluded.py" not in result.matches
+
+
+@pytest.mark.asyncio
+async def test_ignores_comments_in_codeignore_file(grep, tmp_path):
+    (tmp_path / ".chefchatignore").write_text(
+        "# comment\npattern/\n# another comment\n"
+    )
     (tmp_path / "file.py").write_text("match\n")
 
     result = await grep.run(GrepArgs(pattern="match"))
@@ -283,8 +299,8 @@ class TestGnuGrepBackend:
         assert "other.py" not in result.matches
 
     @pytest.mark.asyncio
-    async def test_respects_vibeignore_file(self, grep_gnu_only, tmp_path):
-        (tmp_path / ".vibeignore").write_text("custom_dir/\n*.tmp\n")
+    async def test_respects_chefchatignore_file(self, grep_gnu_only, tmp_path):
+        (tmp_path / ".chefchatignore").write_text("custom_dir/\n*.tmp\n")
         custom_dir = tmp_path / "custom_dir"
         custom_dir.mkdir()
         (custom_dir / "excluded.py").write_text("match\n")

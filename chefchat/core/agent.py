@@ -241,7 +241,7 @@ class Agent:
         self.messages.append(LLMMessage(role=Role.user, content=user_msg))
         self.stats.steps += 1
 
-        try:
+        try:  # noqa: PLR1702 - nested flow ensures middleware + streaming sequencing
             should_break_loop = False
             while not should_break_loop:
                 result = await self.middleware_pipeline.run_before_turn(

@@ -242,6 +242,17 @@ class TicketRail(VerticalScroll):
         """
         return self.add_ticket(content, MessageType.SYSTEM)
 
+    def add_rich_content(
+        self, renderable: object, ticket_type: MessageType = MessageType.SYSTEM
+    ) -> Static:
+        """Add a rich renderable (e.g., Rich Table) to the rail."""
+        self._update_empty_state()
+        wrapper = Static(renderable, classes=f"ticket {ticket_type.value}")
+        wrapper.can_focus = True
+        self.mount(wrapper)
+        self.scroll_end(animate=True)
+        return wrapper
+
     async def clear_tickets(self) -> None:
         """Clear all tickets from the rail.
 

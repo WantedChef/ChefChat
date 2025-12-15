@@ -50,16 +50,15 @@ async def handle_model_command(app: ChefAppProtocol, arg: str) -> None:
     handler = handlers.get(subcommand)
     if handler:
         await handler()
+    # If argument matches a model alias, treat as select
+    elif app.model_service.find_model_by_alias(subcommand):
+        await _select_model(app, subcommand)
     else:
-        # If argument matches a model alias, treat as select
-        if app.model_service.find_model_by_alias(subcommand):
-            await _select_model(app, subcommand)
-        else:
-            ticket_rail = cast(TicketRail, app.query_one("#ticket-rail"))
-            ticket_rail.add_system_message(
-                f"❓ Unknown model subcommand: `{subcommand}`\n\n"
-                "Type `/model help` for usage."
-            )
+        ticket_rail = cast(TicketRail, app.query_one("#ticket-rail"))
+        ticket_rail.add_system_message(
+            f"❓ Unknown model subcommand: `{subcommand}`\n\n"
+            "Type `/model help` for usage."
+        )
 
 
 async def _show_help(app: ChefAppProtocol) -> None:
@@ -127,18 +126,23 @@ def _display_model_table(
         is_active = model.alias == active_alias
 
         # Mark active model
-        alias_display = f"star {model.alias}" if is_active else model.alias
-        if is_active:
-            alias_display = f"[bold yellow]★ {model.alias}[/]"
+        alias_display = f"[bold yellow]★ {model.alias}[/]" if is_active else model.alias
 
         # Format pricing
-        price = f"{model.input_price:.2f}/{model.output_price:.2f}"
+        if model.input_price or model.output_price:
+            price = f"{model.input_price:.2f}/{model.output_price:.2f}"
+        else:
+            price = "free"
+
+        context = (
+            f"{model.context_window // 1000}k" if model.context_window else "n/a"
+        )
 
         table.add_row(
             alias_display,
             model.provider,
             model.name,
-            f"{model.context_window // 1000}k",
+            context,
             price,
         )
 
@@ -185,8 +189,27 @@ async def _show_info(app: ChefAppProtocol, alias: str) -> None:
     ticket_rail = cast(TicketRail, app.query_one("#ticket-rail"))
 
     if not info:
-        ticket_rail.add_system_message(f"❌ Model `{alias}` not found.")
+        if alias:
+            ticket_rail.add_system_message(f"❌ Model `{alias}` not found.")
+        else:
+            ticket_rail.add_system_message("❌ No active model found.")
         return
+
+    context = f"{info.context_window:,}" if info.context_window else "n/a"
+    max_out = f"{info.max_output_tokens:,}" if info.max_output_tokens else "n/a"
+    pricing = (
+        f"${info.input_price:.2f} / ${info.output_price:.2f}"
+        if info.input_price or info.output_price
+        else "FREE"
+    )
+    capabilities = [
+        f"Vision: {'✅' if info.supports_vision else '❌'}",
+        f"Function Calling: {'✅' if info.supports_function_calling else '❌'}",
+    ]
+    if info.max_file_size:
+        capabilities.append(f"File Size: {info.max_file_size}MB")
+
+    feature_line = ", ".join(sorted(info.features)) if info.features else "n/a"
 
     # Use Markdown for details
     details = f"""
@@ -194,12 +217,11 @@ async def _show_info(app: ChefAppProtocol, alias: str) -> None:
 
 - **Name**: `{info.name}`
 - **Provider**: {info.provider}
-- **Context Window**: {info.context_window:,} tokens
-- **Max Output**: {info.max_tokens:,} tokens
-- **Pricing**: ${info.input_price:.2f} / ${info.output_price:.2f} (per 1M tokens)
-- **Capabilities**:
-  - Vision: {"✅" if info.supports_vision else "❌"}
-  - Function Calling: {"✅" if info.supports_function_calling else "❌"}
+- **Context Window**: {context} tokens
+- **Max Output**: {max_out} tokens
+- **Pricing**: {pricing} (per 1M tokens)
+- **Capabilities**: {'; '.join(capabilities)}
+- **Features**: {feature_line}
 """
     ticket_rail.add_system_message(details)
 
@@ -213,7 +235,10 @@ async def _show_status(app: ChefAppProtocol) -> None:
         ticket_rail.add_system_message("⚠️ No active model configured.")
         return
 
-    msg = f"🟢 **Active Model**: `{info.alias}` ({info.provider})"
+    msg = (
+        f"🟢 **Active Model**: `{info.alias}` ({info.provider})\n"
+        f"ID: {info.name}"
+    )
     ticket_rail.add_system_message(msg)
 
 
@@ -242,9 +267,17 @@ async def _compare_models(app: ChefAppProtocol, arg: str) -> None:
         table.add_column(model.alias, justify="center")
 
     # Rows
-    table.add_row("Context", *[f"{m.context_window // 1000}k" for m in comparison])
     table.add_row(
-        "Cost (In/Out)", *[f"${m.input_price}/${m.output_price}" for m in comparison]
+        "Context", *[f"{(m.context_window or 0) // 1000}k" for m in comparison]
+    )
+    table.add_row(
+        "Cost (In/Out)",
+        *[
+            "free"
+            if not (m.input_price or m.output_price)
+            else f"${m.input_price:.2f}/${m.output_price:.2f}"
+            for m in comparison
+        ],
     )
     table.add_row(
         "Vision", *[("✅" if m.supports_vision else "❌") for m in comparison]

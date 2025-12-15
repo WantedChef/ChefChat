@@ -14,12 +14,11 @@ if TYPE_CHECKING:
     from chefchat.core.agent import Agent
     from chefchat.core.config import VibeConfig
     from chefchat.interface.constants import TUILayout
+    from chefchat.interface.services import ConfigService, ModelService
     from chefchat.interface.widgets.the_plate import ThePlate
     from chefchat.kitchen.brigade import Brigade
     from chefchat.kitchen.bus import KitchenBus
     from chefchat.modes import ModeManager
-    from chefchat.interface.services import ModelService, ConfigService
-    from chefchat.interface.command_registry import TUICommandRegistry
 
 
 @runtime_checkable

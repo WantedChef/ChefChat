@@ -154,7 +154,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[logging.FileHandler(LOG_FILE, "a", "utf-8")],
 )
-logger = logging.getLogger("vibe")
+logger = logging.getLogger("chefchat")
 logger.info("Using config: %s", CONFIG_FILE)
 if CONFIG_FILE != GLOBAL_CONFIG_FILE and GLOBAL_CONFIG_FILE.is_file():
     logger.warning(
@@ -165,7 +165,7 @@ if CONFIG_FILE != GLOBAL_CONFIG_FILE and GLOBAL_CONFIG_FILE.is_file():
 
 
 def get_user_agent() -> str:
-    return f"Mistral-Vibe/{__version__}"
+    return f"ChefChat/{__version__}"
 
 
 def _is_retryable_http_error(e: Exception) -> bool:

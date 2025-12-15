@@ -285,9 +285,12 @@ ChefChat brings the **precision and passion of a professional kitchen** to softw
 
 ChefChat uses a hierarchical configuration system:
 
-1. **Project-level**: `./.vibe/config.toml`
-2. **User-level**: `~/.vibe/config.toml`
+1. **Project-level**: `./.chefchat/config.toml` (legacy `./.vibe/config.toml`)
+2. **User-level**: `~/.chefchat/config.toml` (legacy `~/.vibe/config.toml`)
 3. **Environment variables**: `.env` files
+
+Set `CHEFCHAT_HOME` (or legacy `VIBE_HOME`) to override where ChefChat stores its global
+configuration.
 
 ### Example Configuration
 ```toml
@@ -319,7 +322,7 @@ To use OpenAI models with ChefChat:
    export OPENAI_API_KEY="sk-..."
    ```
 
-2. **Update your config** (`~/.vibe/config.toml`):
+2. **Update your config** (`~/.chefchat/config.toml`):
    ```toml
    # Use GPT-4o (recommended)
    active_model = "gpt4o"
@@ -346,7 +349,7 @@ To use OpenAI models with ChefChat:
 
 #### Azure OpenAI and OpenAI-Compatible APIs
 
-ChefChat also supports Azure OpenAI and other OpenAI-compatible providers. Add this to your `~/.vibe/config.toml`:
+ChefChat also supports Azure OpenAI and other OpenAI-compatible providers. Add this to your `~/.chefchat/config.toml`:
 
 ```toml
 [[providers]]

@@ -115,7 +115,9 @@ ConfigT = TypeVar("ConfigT", bound=BaseToolConfig)
 StateT = TypeVar("StateT", bound=BaseToolState)
 
 
-class BaseTool(ABC, Generic[ArgsT, ResultT, ConfigT, StateT]):
+class BaseTool(
+    ABC, Generic[ArgsT, ResultT, ConfigT, StateT]
+):
     """The main base class for defining async tools.
     Subclasses must specify four type parameters:
 

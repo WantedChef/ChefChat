@@ -27,6 +27,7 @@ from textual.widgets import Input
 from chefchat.cli.commands import CommandRegistry
 from chefchat.core.agent import Agent
 from chefchat.core.config import VibeConfig
+from chefchat.interface.command_registry import get_tui_command_registry
 from chefchat.interface.constants import (
     MARKDOWN_SANITIZE_CHARS,
     BusAction,
@@ -46,6 +47,7 @@ from chefchat.interface.screens.confirm_restart import (
     get_saved_layout,
     save_tui_preference,
 )
+from chefchat.interface.services import ConfigService, ModelService
 from chefchat.interface.widgets.command_input import CommandInput
 from chefchat.interface.widgets.kitchen_ui import (
     KitchenFooter,
@@ -58,8 +60,6 @@ from chefchat.interface.widgets.ticket_rail import TicketRail
 from chefchat.kitchen.brigade import Brigade
 from chefchat.kitchen.bus import ChefMessage, KitchenBus, MessagePriority
 from chefchat.modes import MODE_CONFIGS, ModeManager, VibeMode
-from chefchat.interface.services import ModelService, ConfigService
-from chefchat.interface.command_registry import get_tui_command_registry
 
 if TYPE_CHECKING:
     pass

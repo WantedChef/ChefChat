@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 import toml
+
+from chefchat.core.config import get_vibe_home
 
 
 class MultimodalConfig(BaseModel):
@@ -31,7 +32,7 @@ class MultimodalManager:
 
     def __init__(self, config: Any) -> None:
         self.config = config
-        self.config_path = Path.home() / ".vibe" / "multimodal.toml"
+        self.config_path = get_vibe_home() / "multimodal.toml"
 
     def is_model_multimodal(self, model_alias: str) -> bool:
         """Check if a model supports multimodal input."""

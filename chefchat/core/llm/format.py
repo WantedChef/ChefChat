@@ -17,6 +17,9 @@ from chefchat.core.types import (
     StrToolChoice,
 )
 
+MAX_REGEX_PATTERN_LENGTH = 1_000
+MAX_TOOL_ARGUMENT_BYTES = 1_048_576
+
 if TYPE_CHECKING:
     from chefchat.core.config import VibeConfig
     from chefchat.core.tools.manager import ToolManager
@@ -36,7 +39,7 @@ def _is_regex_hint(pattern: str) -> bool:
 @lru_cache(maxsize=256)
 def _compile_icase(expr: str) -> re.Pattern | None:
     # Validation: Prevent ReDoS and memory exhaustion
-    if len(expr) > 1000:  # Arbitrary limit for pattern complexity
+    if len(expr) > MAX_REGEX_PATTERN_LENGTH:
         return None
 
     try:
@@ -169,7 +172,7 @@ class ParsedToolCall(BaseModel):
             # 1. Size validation (max 1MB)
             try:
                 serialized = json.dumps(args)
-                if len(serialized) > 1_048_576:
+                if len(serialized) > MAX_TOOL_ARGUMENT_BYTES:
                     raise ValueError("Tool arguments too large (max 1MB)")
             except (TypeError, ValueError) as e:
                 # 2. Type validation / Sanitization

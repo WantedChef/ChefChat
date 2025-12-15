@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import keyring
 import os
 from typing import ClassVar
 
 from dotenv import set_key, unset_key
+import keyring
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Center, Horizontal, Vertical

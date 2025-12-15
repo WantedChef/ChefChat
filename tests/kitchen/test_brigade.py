@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -161,7 +161,7 @@ async def test_brigade_wait_for_completion(started_brigade):
 @pytest.mark.asyncio
 async def test_create_default_brigade():
     """Test creation of default brigade configuration."""
-    with patch("chefchat.kitchen.brigade.KitchenManager") as mock_manager:
+    with patch("chefchat.kitchen.brigade.KitchenManager"):
         with patch("chefchat.kitchen.brigade.SousChef") as mock_sous:
             with patch("chefchat.kitchen.brigade.LineCook") as mock_line:
                 with patch("chefchat.kitchen.brigade.Sommelier") as mock_somm:

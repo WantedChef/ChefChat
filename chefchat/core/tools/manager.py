@@ -10,7 +10,7 @@ import sys
 from typing import TYPE_CHECKING, Any
 
 from chefchat import CHEFCHAT_ROOT
-from chefchat.core.config import get_vibe_home
+from chefchat.core.config import APP_CONFIG_DIR_NAMES, get_global_config_dirs
 from chefchat.core.tools.base import BaseTool, BaseToolConfig
 from chefchat.core.tools.mcp import (
     RemoteTool,
@@ -21,7 +21,7 @@ from chefchat.core.tools.mcp import (
 )
 from chefchat.core.utils import run_sync
 
-logger = getLogger("vibe")
+logger = getLogger("chefchat.tools")
 
 if TYPE_CHECKING:
     from chefchat.core.config import MCPHttp, MCPStdio, MCPStreamableHttp, VibeConfig
@@ -62,14 +62,20 @@ class ToolManager:
 
         cwd = config.effective_workdir
         for directory in (cwd, *cwd.parents):
-            tools_dir = directory / ".vibe" / "tools"
-            if tools_dir.is_dir():
-                paths.append(tools_dir)
+            found = False
+            for dirname in APP_CONFIG_DIR_NAMES:
+                tools_dir = directory / dirname / "tools"
+                if tools_dir.is_dir():
+                    paths.append(tools_dir)
+                    found = True
+                    break
+            if found:
                 break
 
-        global_tools = get_vibe_home() / "tools"
-        if global_tools.is_dir():
-            paths.append(global_tools)
+        for home_dir in get_global_config_dirs():
+            global_tools = home_dir / "tools"
+            if global_tools.is_dir():
+                paths.append(global_tools)
 
         unique: list[Path] = []
         seen: set[Path] = set()
@@ -91,7 +97,7 @@ class ToolManager:
             Loaded module or None if loading failed.
         """
         stem = re.sub(r"[^0-9A-Za-z_]", "_", path.stem) or "mod"
-        module_name = f"vibe_tools_discovered_{stem}"
+        module_name = f"chefchat_tools_discovered_{stem}"
 
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
