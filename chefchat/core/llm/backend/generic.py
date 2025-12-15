@@ -452,6 +452,74 @@ class GenericBackend:
 
         return total
 
+    async def list_models(self, *, extra_headers: dict[str, str] | None = None) -> list[str]:
+        """Fetch available models from the provider's API."""
+        api_key = (
+            os.getenv(self._provider.api_key_env_var)
+            if self._provider.api_key_env_var
+            else None
+        )
+
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        # Groq-specific headers
+        if self._provider.name == "groq":
+            headers["User-Agent"] = "ChefChat/1.0"
+            headers["X-Request-Source"] = "chefchat"
+
+        if extra_headers:
+            headers.update(extra_headers)
+
+        url = f"{self._provider.api_base}/models"
+
+        try:
+            client = self._get_client()
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+
+            # Extract model IDs from response
+            models = []
+            if "data" in data:
+                # OpenAI-style response
+                for model in data["data"]:
+                    if "id" in model:
+                        models.append(model["id"])
+            elif isinstance(data, list):
+                # Some APIs return list directly
+                models = data
+
+            return models
+
+        except httpx.HTTPStatusError as e:
+            # If models endpoint not supported, return empty list
+            if e.response.status_code == 404:
+                return []
+            raise BackendErrorBuilder.build_http_error(
+                provider=self._provider.name,
+                endpoint=url,
+                response=e.response,
+                headers=dict(e.response.headers.items()),
+                model="N/A",
+                messages=[],
+                temperature=0.0,
+                has_tools=False,
+                tool_choice=None,
+            ) from e
+        except httpx.RequestError as e:
+            raise BackendErrorBuilder.build_request_error(
+                provider=self._provider.name,
+                endpoint=url,
+                error=e,
+                model="N/A",
+                messages=[],
+                temperature=0.0,
+                has_tools=False,
+                tool_choice=None,
+            ) from e
+
     def _adjust_for_groq_model(
         self, payload: dict[str, Any], model_name: str
     ) -> dict[str, Any]:

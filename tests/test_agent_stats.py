@@ -42,14 +42,14 @@ def make_config(
 ) -> VibeConfig:
     models = [
         ModelConfig(
-            name="codestral-25-08",
+            name="codestral-2501",
             provider="mistral",
             alias="devstral-latest",
             input_price=input_price,
             output_price=output_price,
         ),
         ModelConfig(
-            name="codestral-25-08",
+            name="codestral-2501",
             provider="mistral",
             alias="mistral-vibe-cli",
             input_price=0.4,

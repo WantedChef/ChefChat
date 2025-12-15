@@ -118,3 +118,14 @@ class BackendLike(Protocol):
             The number of prompt tokens
         """
         ...
+
+    async def list_models(self, *, extra_headers: dict[str, str] | None) -> list[str]:
+        """List available models from the provider's API.
+
+        Args:
+            extra_headers: Additional HTTP headers to include
+
+        Returns:
+            List of model names/IDs available from the provider
+        """
+        ...

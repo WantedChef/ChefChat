@@ -35,6 +35,8 @@ from chefchat.core.types import (
 )
 from chefchat.interface.constants import (
     MARKDOWN_SANITIZE_CHARS,
+    MAX_FEATURES_DISPLAY,
+    MIN_MODELS_TO_COMPARE,
     BusAction,
     PayloadKey,
     StationStatus,
@@ -69,10 +71,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Constants for model comparison and display
-MIN_MODELS_TO_COMPARE = 2
-MAX_FEATURES_DISPLAY = 3
-SUMMARY_PREVIEW_LENGTH = 100
+# Import model constants from constants module
+# MIN_MODELS_TO_COMPARE, MAX_FEATURES_DISPLAY now imported from interface.constants
 
 
 def sanitize_markdown_input(text: str) -> str:
@@ -716,8 +716,9 @@ class ChefChatApp(App):
             "/layout": lambda: self._handle_layout_command(arg),
             "/fortune": lambda: self._show_fortune(),
             "/api": lambda: self._handle_api_command(),
-            "/model": lambda: self._handle_model_command(),
+            "/model": lambda: self._handle_model_command(arg),
             "/mcp": lambda: self._handle_mcp_command(),
+            "/openrouter": lambda: self._handle_openrouter_command(arg),
         }
 
         handler = tui_commands.get(name)
@@ -827,9 +828,100 @@ class ChefChatApp(App):
             "🟢 Running" if self._bot_manager.is_running(bot_type) else "🔴 Stopped"
         )
         allowed = ", ".join(self._bot_manager.get_allowed_users(bot_type)) or "None"
-        self.query_one("#ticket-rail", TicketRail).add_system_message(
-            f"**{bot_type.title()}:** {running}\n**Users:** {allowed}"
+        last_error = self._bot_manager.get_last_error(bot_type)
+        error_line = (
+            f"\n**Last error:** {last_error}"
+            if (not self._bot_manager.is_running(bot_type) and last_error)
+            else ""
         )
+        self.query_one("#ticket-rail", TicketRail).add_system_message(
+            f"**{bot_type.title()}:** {running}\n**Users:** {allowed}{error_line}"
+        )
+
+    async def _handle_openrouter_command(self, arg: str = "") -> None:
+        """Handle OpenRouter-specific commands."""
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        action = arg.lower().strip() if arg else "help"
+
+        if action == "help":
+            help_text = """## 🌐 OpenRouter Commands
+
+OpenRouter gives you access to 100+ AI models with a single API key!
+
+### Commands
+• `/openrouter` — Show this help
+• `/openrouter setup` — Configure your OpenRouter API key
+• `/openrouter status` — Check API key status and credit
+• `/openrouter models` — List all available OpenRouter models
+• `/openrouter <model>` — Quick switch to OpenRouter model
+
+### Available Models (preconfigured)
+• `or-claude-sonnet` — Claude 3.5 Sonnet (best reasoning)
+• `or-claude-haiku` — Claude 3.5 Haiku (fast & cheap)
+• `or-gpt4o` — GPT-4o via OpenRouter
+• `or-gpt4o-mini` — GPT-4o Mini (fast)
+• `or-gemini-flash` — Gemini 2.0 Flash (FREE!)
+• `or-deepseek` — DeepSeek Chat (cheap + good)
+• `or-deepseek-coder` — DeepSeek Coder
+• `or-qwen-coder` — Qwen 2.5 Coder 32B
+• `or-llama-70b` — Llama 3.3 70B
+• `or-mistral-large` — Mistral Large 2411
+
+### Quick Start
+1. Get API key: https://openrouter.ai/keys
+2. Run `/openrouter setup`
+3. Run `/model select or-claude-sonnet`
+"""
+            ticket_rail.add_system_message(help_text)
+
+        elif action == "setup":
+            # Use the existing onboarding screen but pre-select openrouter
+            await self._handle_api_command()
+
+        elif action == "status":
+            api_key = os.getenv("OPENROUTER_API_KEY", "")
+            if api_key:
+                key_preview = (
+                    f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "***"
+                )
+                ticket_rail.add_system_message(
+                    f"## 🌐 OpenRouter Status\n\n"
+                    f"**API Key**: ✅ Configured ({key_preview})\n"
+                    f"**Endpoint**: https://openrouter.ai/api/v1\n\n"
+                    f"Use `/model select or-<model>` to switch to an OpenRouter model."
+                )
+            else:
+                ticket_rail.add_system_message(
+                    "## 🌐 OpenRouter Status\n\n"
+                    "**API Key**: ❌ Not configured\n\n"
+                    "Run `/openrouter setup` or `/api` to configure your key.\n"
+                    "Get your key at: https://openrouter.ai/keys"
+                )
+
+        elif action == "models":
+            if not self._config:
+                self._config = VibeConfig.model_construct()
+
+            lines = ["## 🌐 OpenRouter Models\n"]
+            for m in self._config.models:
+                if m.provider == "openrouter":
+                    is_active = m.alias == self._config.active_model
+                    status = "🟢 Active" if is_active else ""
+                    price = (
+                        f"${m.input_price:.2f}/${m.output_price:.2f}"
+                        if m.input_price
+                        else "FREE"
+                    )
+                    features = ", ".join(sorted(m.features)[:3]) if m.features else ""
+                    lines.append(
+                        f"**{m.alias}** {status}\n  `{m.name}` | {price}/M | {features}"
+                    )
+            ticket_rail.add_system_message("\n".join(lines))
+
+        else:
+            # Try to interpret as model switch
+            target = f"or-{action}" if not action.startswith("or-") else action
+            await self._model_select(target)
 
     async def _handle_model_command(self, arg: str = "") -> None:
         """Handle model management commands with subcommands."""
@@ -838,8 +930,7 @@ class ChefChatApp(App):
                 self._config = VibeConfig.load()
             except MissingAPIKeyError:
                 self.notify(
-                    "API key missing. Run /api to configure keys.",
-                    severity="warning",
+                    "API key missing. Run /api to configure keys.", severity="warning"
                 )
                 return
             except Exception as e:
@@ -873,6 +964,11 @@ class ChefChatApp(App):
             # Fallback for backward compatibility - treat as direct model selection
             await self._model_select(arg)
 
+    def _get_llm_client(self):
+        if not self._agent:
+            raise RuntimeError("Agent not initialized")
+        return self._agent.llm_client
+
     async def _model_show_help(self) -> None:
         """Show help for model commands."""
         help_text = """## 🤖 Model Management Commands
@@ -903,8 +999,14 @@ Use `/model status` to see which model is currently active.
         self.query_one("#ticket-rail", TicketRail).add_system_message(help_text)
 
     async def _model_list(self) -> None:
-        """List all available models with details."""
+        """List all available models with details, checking API availability."""
         lines = ["## 🤖 Available Models", ""]
+
+        llm_client = None
+        try:
+            llm_client = self._get_llm_client()
+        except Exception:
+            llm_client = None
 
         # Group models by provider
         provider_groups = {}
@@ -917,9 +1019,45 @@ Use `/model status` to see which model is currently active.
         for provider in sorted(provider_groups.keys()):
             lines.append(f"### {provider.upper()}")
 
+            # Check if provider has API key configured
+            provider_config = self._config.get_provider_for_model(
+                provider_groups[provider][0]
+            )
+            has_api_key = (
+                bool(os.getenv(provider_config.api_key_env_var))
+                if provider_config.api_key_env_var
+                else False
+            )
+
+            if has_api_key:
+                # Try to fetch available models from API
+                try:
+                    if llm_client is None:
+                        raise RuntimeError("LLM client not available")
+                    available_models = await llm_client.list_models()
+                    available_set = set(available_models)
+                    lines.append(
+                        f"✅ API key configured - {len(available_models)} models available"
+                    )
+                except Exception:
+                    available_set = set()
+                    lines.append("⚠️ API key configured but unable to fetch models")
+            else:
+                available_set = set()
+                lines.append(
+                    "❌ No API key configured - showing configured models only"
+                )
+
             for model in sorted(provider_groups[provider], key=lambda m: m.alias):
                 is_active = model.alias == self._config.active_model
-                status = "🟢 Active" if is_active else "⚪ Available"
+                status = "🟢 Active" if is_active else "⚪ Configured"
+
+                # Check if model is available via API
+                if has_api_key and available_set:
+                    if model.name in available_set:
+                        status += " ✅ Available"
+                    else:
+                        status += " ❌ Not available"
 
                 lines.append(f"**{model.alias}** {status}")
                 lines.append(f"• Name: `{model.name}`")
@@ -998,7 +1136,11 @@ Use `/model status` to see which model is currently active.
 
         is_active = model.alias == self._config.active_model
         provider = self._config.get_provider_for_model(model)
-        api_key_note = "✅ Set" if (provider.api_key_env_var and os.getenv(provider.api_key_env_var)) else "⚠️ Missing"
+        api_key_note = (
+            "✅ Set"
+            if (provider.api_key_env_var and os.getenv(provider.api_key_env_var))
+            else "⚠️ Missing"
+        )
 
         info = f"""## 🤖 Model Details: {model.alias}
 

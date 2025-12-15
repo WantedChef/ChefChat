@@ -193,6 +193,9 @@ class MistralBackend:
                     if tool.function.parameters is None:
                         tool.function.parameters = {}
 
+            prepared_messages = [self._mapper.prepare_message(msg) for msg in messages]
+            prepared_tools = [self._mapper.prepare_tool(tool) for tool in tools] if tools else None
+
             response = await self._get_client().chat.complete_async(
                 model=model.name,
                 messages=prepared_messages,
@@ -346,3 +349,16 @@ class MistralBackend:
                 total += count_tokens(json.dumps(tool.model_dump()), model.name)
 
         return total
+
+    async def list_models(self, *, extra_headers: dict[str, str] | None = None) -> list[str]:
+        """Fetch available models from the Mistral API."""
+        try:
+            client = self._get_client()
+            response = await client.models.list_async()
+            return [model.id for model in response.data]
+        except mistralai.SDKError as e:
+            # If listing models fails, return empty list
+            return []
+        except Exception:
+            # For any other errors, return empty list
+            return []

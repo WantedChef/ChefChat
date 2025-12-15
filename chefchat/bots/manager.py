@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,8 @@ from typing import Any
 from dotenv import set_key
 
 from chefchat.core.config import VibeConfig
+
+logger = logging.getLogger(__name__)
 
 
 class BotManager:
@@ -17,15 +20,35 @@ class BotManager:
         self.config = config
         self.running_tasks: dict[str, asyncio.Task] = {}
         self.bots: dict[str, Any] = {}  # Store bot instances
+        self.last_errors: dict[str, str] = {}
 
     def is_running(self, bot_type: str) -> bool:
         """Check if a bot is currently running."""
         return bot_type in self.running_tasks and not self.running_tasks[bot_type].done()
 
+    def get_last_error(self, bot_type: str) -> str | None:
+        return self.last_errors.get(bot_type)
+
     async def start_bot(self, bot_type: str) -> None:
         """Start a bot (telegram or discord)."""
         if self.is_running(bot_type):
             raise RuntimeError(f"{bot_type} bot is already running.")
+
+        self.last_errors.pop(bot_type, None)
+
+        def _log_task_result(task: asyncio.Task) -> None:
+            try:
+                exc = task.exception()
+            except asyncio.CancelledError:
+                return
+            except Exception as e:
+                logger.exception("%s bot task failed while retrieving exception: %s", bot_type, e)
+                self.last_errors[bot_type] = f"{type(e).__name__}: {e}"
+                return
+
+            if exc is not None:
+                logger.exception("%s bot task crashed", bot_type, exc_info=exc)
+                self.last_errors[bot_type] = f"{type(exc).__name__}: {exc}"
 
         if bot_type == "telegram":
             from chefchat.bots.telegram import run_telegram_bot
@@ -36,6 +59,7 @@ class BotManager:
             # We create a task that runs the bot
             # The bot runner should handle its own loop or be compatible with the current loop
             task = asyncio.create_task(run_telegram_bot(self.config))
+            task.add_done_callback(_log_task_result)
             self.running_tasks["telegram"] = task
 
         elif bot_type == "discord":
@@ -45,6 +69,7 @@ class BotManager:
                 raise ValueError("DISCORD_BOT_TOKEN not found in environment.")
 
             task = asyncio.create_task(run_discord_bot(self.config))
+            task.add_done_callback(_log_task_result)
             self.running_tasks["discord"] = task
         else:
             raise ValueError(f"Unknown bot type: {bot_type}")

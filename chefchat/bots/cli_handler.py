@@ -128,9 +128,12 @@ async def _handle_status(
     running = manager.is_running(bot_type)
     status = "[green]RUNNING[/]" if running else "[red]STOPPED[/]"
     allowed = manager.get_allowed_users(bot_type)
+    last_error = manager.get_last_error(bot_type)
 
     console.print(f"Status: {status}")
     console.print(f"Allowed Users: {', '.join(allowed) if allowed else 'None'}")
+    if not running and last_error:
+        console.print(f"Last error: {last_error}")
 
 
 # Command registry mapping action names to handlers

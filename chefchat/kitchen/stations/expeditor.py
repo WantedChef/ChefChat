@@ -19,6 +19,8 @@ from pathlib import Path
 import time
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
+
 from chefchat.kitchen.bus import BaseStation, ChefMessage, KitchenBus, MessagePriority
 
 if TYPE_CHECKING:
@@ -77,10 +79,14 @@ class Expeditor(BaseStation):
         self._healing_attempts: dict[str, int] = {}  # ticket_id -> attempt count
         self._current_test: str | None = None
 
-        # Load config from palate.toml
-        from chefchat.config import load_palate_config
+        class _HealingConfig(BaseModel):
+            max_attempts: int = Expeditor.DEFAULT_MAX_HEALING_ATTEMPTS
+            timeout_seconds: int = Expeditor.DEFAULT_TIMEOUT
 
-        self._config = load_palate_config(self.project_root)
+        class _PalateConfig(BaseModel):
+            healing: _HealingConfig = _HealingConfig()
+
+        self._config = _PalateConfig()
         self.max_healing_attempts = self._config.healing.max_attempts
         self.timeout = self._config.healing.timeout_seconds
 
@@ -227,18 +233,15 @@ class Expeditor(BaseStation):
         """
         start_time = time.time()
 
-        # Build command based on test type and config
-        from chefchat.config import get_lint_command, get_test_command
-
         if test_type == TasteTestType.PYTEST:
-            cmd = get_test_command(self._config, target_path)
+            cmd = ["uv", "run", "pytest", "-q", target_path]
         elif test_type == TasteTestType.RUFF:
-            cmd = get_lint_command(self._config, target_path)
+            cmd = ["uv", "run", "ruff", "check", target_path]
         elif test_type == TasteTestType.PYRIGHT:
             cmd = ["uv", "run", "pyright", target_path]
         else:
             # ALL: run configured test command
-            cmd = get_test_command(self._config, target_path)
+            cmd = ["uv", "run", "pytest", "-q", target_path]
 
         # Run in subprocess
         try:

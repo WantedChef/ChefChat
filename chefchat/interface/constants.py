@@ -146,3 +146,8 @@ MARKDOWN_SANITIZE_CHARS: Final[dict[str, str]] = {
     "\x0b": "",  # Vertical tab
     "\x0c": "",  # Form feed
 }
+
+# Model management constants
+MIN_MODELS_TO_COMPARE: Final[int] = 2
+MAX_FEATURES_DISPLAY: Final[int] = 3
+SUMMARY_PREVIEW_LENGTH: Final[int] = 100

@@ -61,6 +61,12 @@ class CommandInput(Input):
             ("/stats", "Show statistics"),
             ("/exit", "Exit application"),
             ("/quit", "Exit application"),
+            ("/openrouter", "OpenRouter API commands"),
+            ("/api", "Configure API keys"),
+            ("/telegram", "Telegram bot commands"),
+            ("/discord", "Discord bot commands"),
+            ("/git-setup", "Configure GitHub token"),
+            ("/layout", "Switch TUI layout"),
         ]
         self._command_completer = CommandCompleter(commands)
         self._suggestion_menu: SuggestionMenu | None = None

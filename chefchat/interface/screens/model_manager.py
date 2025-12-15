@@ -10,12 +10,12 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Static, TabbedContent, TabPane
 
 from chefchat.core.config import VibeConfig
+from chefchat.interface.constants import MAX_FEATURES_DISPLAY
 
 if TYPE_CHECKING:
     pass
 
-# Constants
-MAX_FEATURES_DISPLAY = 3  # Maximum number of features to show in lists
+# MAX_FEATURES_DISPLAY imported from interface.constants
 
 
 class ModelManagerScreen(ModalScreen[str | None]):

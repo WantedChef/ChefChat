@@ -254,13 +254,20 @@ Press `Shift+Tab` to cycle modes or type `/modes` for options.
                 ) from e
 
             # Non-backend streaming issues: fall back to non-streaming completion.
-            logger.warning(
-                "Streaming failed (%s). Falling back to non-streaming completion.",
-                provider.name,
-            )
-            final = await self.chat(messages, max_tokens=max_tokens)
-            yield final
-            return
+            raise RuntimeError(
+                f"API error from {provider.name} (model: {active_model.name}): {e}"
+            ) from e
+
+    async def list_models(self) -> list[str]:
+        """List available models from the current backend's provider."""
+        try:
+            async with self.backend as backend:
+                return await backend.list_models(
+                    extra_headers=self._extra_headers_for_provider()
+                )
+        except Exception:
+            # If listing fails, return empty list
+            return []
 
     async def _chat_streaming(
         self, messages: list[LLMMessage], max_tokens: int | None = None

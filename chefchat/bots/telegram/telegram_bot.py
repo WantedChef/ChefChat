@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+import fcntl
 import logging
 import os
 from pathlib import Path
@@ -26,6 +27,7 @@ from telegram.ext import (
 
 from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
+from chefchat.bots.telegram import fun_commands
 from chefchat.core.config import VibeConfig
 from chefchat.core.utils import ApprovalResponse
 
@@ -35,6 +37,8 @@ logger = logging.getLogger(__name__)
 TELEGRAM_MESSAGE_TRUNCATE_LIMIT = 4000
 MIN_COMMAND_ARGS_MINIAPP = 2
 MIN_COMMAND_ARGS_SWITCH = 3
+MAX_TELEGRAM_API_RETRIES = 3
+TELEGRAM_API_RETRY_DELAY_S = 1.0
 
 
 class TelegramBotService:
@@ -79,6 +83,39 @@ class TelegramBotService:
         self._lock_path = TELEGRAM_WORKDIR / "telegram_bot.lock"
         self._lock_handle: int | None = None
 
+        # Initialize terminal manager for interactive sessions
+        from chefchat.bots.telegram.terminal_manager import TerminalManager
+
+        self.terminal_manager = TerminalManager()
+
+    def _acquire_lock(self) -> None:
+        if self._lock_handle is not None:
+            return
+
+        fd = os.open(str(self._lock_path), os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(fd)
+            raise RuntimeError(
+                f"Telegram bot already running (lock busy): {self._lock_path}"
+            )
+
+        os.ftruncate(fd, 0)
+        os.write(fd, f"{os.getpid()}\n".encode())
+        os.fsync(fd)
+        self._lock_handle = fd
+
+    def _release_lock(self) -> None:
+        if self._lock_handle is None:
+            return
+
+        try:
+            fcntl.flock(self._lock_handle, fcntl.LOCK_UN)
+        finally:
+            os.close(self._lock_handle)
+            self._lock_handle = None
+
     def _get_session(self, chat_id: int, user_id_str: str) -> BotSession | None:
         if chat_id not in self.sessions:
             # Check allowlist
@@ -122,20 +159,41 @@ class TelegramBotService:
         return True
 
     async def _send_message(self, chat_id: int, text: str) -> Any:
-        # We need the application context or bot instance.
-        # Since this is a callback, we'll store the application reference later
-        # or pass it via closure.
-        # But wait, send_message is called from BotSession which is async.
-        # We can use self.application.bot.send_message
-        # Telegram markdown can be brittle; try markdown first (better UX),
-        # then fall back to plain text if Telegram rejects it.
+        """Send a message with retry logic for transient failures."""
         assert self.application is not None, "Application not initialized"
-        try:
-            return await self.application.bot.send_message(
-                chat_id=chat_id, text=text, parse_mode=constants.ParseMode.MARKDOWN
-            )
-        except Exception:
-            return await self.application.bot.send_message(chat_id=chat_id, text=text)
+
+        for attempt in range(MAX_TELEGRAM_API_RETRIES):
+            try:
+                return await self.application.bot.send_message(
+                    chat_id=chat_id, text=text, parse_mode=constants.ParseMode.MARKDOWN
+                )
+            except Exception as e:
+                # If markdown fails, try plain text
+                if "can't parse" in str(e).lower() or "parse" in str(e).lower():
+                    try:
+                        return await self.application.bot.send_message(
+                            chat_id=chat_id, text=text
+                        )
+                    except Exception:
+                        pass
+
+                # Retry on transient errors
+                if attempt < MAX_TELEGRAM_API_RETRIES - 1:
+                    logger.warning(
+                        f"Telegram API error (attempt {attempt + 1}/{MAX_TELEGRAM_API_RETRIES}): {e}"
+                    )
+                    await asyncio.sleep(TELEGRAM_API_RETRY_DELAY_S)
+                else:
+                    logger.error(
+                        f"Failed to send message after {MAX_TELEGRAM_API_RETRIES} attempts: {e}"
+                    )
+                    # Last resort: try plain text without retry
+                    try:
+                        return await self.application.bot.send_message(
+                            chat_id=chat_id, text=text
+                        )
+                    except Exception:
+                        raise
 
     async def _update_message(self, msg_handle: Any, text: str) -> None:
         # msg_handle is the Message object returned by send_message
@@ -226,6 +284,62 @@ class TelegramBotService:
 
         self._touch_activity(chat_id)
 
+        # Check if message is a command keyword (without /)
+        message_text = update.message.text.strip().lower()
+
+        # Command keyword mapping
+        keyword_handlers = {
+            "start": self.start,
+            "stop": self.stop_command,
+            "clear": self.clear_command,
+            "help": self.help_command,
+            "status": self.status_command,
+            "stats": lambda u, c: fun_commands.stats_command(self, u, c),
+            "files": self.files_command,
+            "pwd": self.pwd_command,
+            "model": self.model_command,
+            "modelstatus": self.model_command,
+            "modellist": lambda u, c: self._handle_model_list(u, c),
+            "modelselect": lambda u, c: self._handle_model_select_prompt(u, c),
+            "chef": lambda u, c: fun_commands.chef_command(self, u, c),
+            "wisdom": lambda u, c: fun_commands.wisdom_command(self, u, c),
+            "roast": lambda u, c: fun_commands.roast_command(self, u, c),
+            "fortune": lambda u, c: fun_commands.fortune_command(self, u, c),
+            "reload": lambda u, c: fun_commands.reload_command(self, u, c),
+            "chefchat": self.chefchat_command,
+        }
+
+        # Add mode keyword
+        if message_text == "mode":
+            await self.mode_command(update, context)
+            return
+
+        # Add mode switch keywords (plan, normal, auto, yolo, architect)
+        mode_keywords = {
+            "plan": "PLAN",
+            "normal": "NORMAL",
+            "auto": "AUTO",
+            "yolo": "YOLO",
+            "architect": "ARCHITECT",
+        }
+
+        if message_text in mode_keywords:
+            await self._handle_mode_switch(update, context, mode_keywords[message_text])
+            return
+
+        # Check if it's a single-word command
+        if message_text in keyword_handlers:
+            handler = keyword_handlers[message_text]
+            await handler(update, context)
+            return
+
+        # Check if user has active terminal session
+        if self.terminal_manager.has_active_session(chat_id):
+            # Send message as terminal input
+            output = self.terminal_manager.send_to_session(chat_id, update.message.text)
+            await self._send_message(chat_id, output)
+            return
+
         # Run sequentially per chat to avoid overlapping agent loops.
         async def _run_locked() -> None:
             async with self._chat_lock(chat_id):
@@ -233,6 +347,11 @@ class TelegramBotService:
                 await session.handle_user_message(update.message.text)
 
         asyncio.create_task(_run_locked())
+
+    async def error_handler(
+        self, update: object, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        logger.exception("Telegram update handler error", exc_info=context.error)
 
     async def handle_callback(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -545,18 +664,352 @@ class TelegramBotService:
         """Show available commands."""
         help_text = (
             "🤖 **ChefChat Bot Commands**\n\n"
-            "/start - Start the bot\n"
-            "/stop - Stop current session\n"
-            "/clear - Clear conversation history\n"
-            "/status - Show bot status\n"
-            "/files - List project files\n"
-            "/pwd - Show working directory\n"
-            "/help - Show this help\n"
-            "/chefchat - Advanced systemd controls\n\n"
-            "💬 Just send a message to chat with the AI!"
+            "💡 *Tip: Commands work with or without `/`*\n"
+            "_(Type `help` or `/help`)_\n\n"
+            "**Basic:**\n"
+            "• start - Start the bot\n"
+            "• stop - Stop current session\n"
+            "• clear - Clear conversation history\n"
+            "• help - Show this help\n\n"
+            "**Info:**\n"
+            "• status - Bot status & uptime\n"
+            "• stats - Session statistics\n"
+            "• files - List project files\n"
+            "• pwd - Working directory\n\n"
+            "**Models:**\n"
+            "• model - Show current model\n"
+            "• modellist - List all models\n"
+            "• modelselect - Switch model\n\n"
+            "**Modes:** 🎯\n"
+            "• mode - Show/switch modes\n"
+            "• plan - 📋 PLAN mode\n"
+            "• normal - ✋ NORMAL mode\n"
+            "• auto - ⚡ AUTO mode\n"
+            "• yolo - 🚀 YOLO mode\n"
+            "• architect - 🏛️ ARCHITECT mode\n\n"
+            "**Fun:** 🎉\n"
+            "• chef - Kitchen status report\n"
+            "• wisdom - Culinary wisdom\n"
+            "• roast - Gordon Ramsay roast\n"
+            "• fortune - Developer fortune\n\n"
+            "**Terminal:** 💻\n"
+            "• termbash - Start bash shell\n"
+            "• termpython3 - Python REPL\n"
+            "• termvim - Vim editor\n"
+            "• termstatus - Session status\n"
+            "• termclose - Close session\n\n"
+            "**Advanced:**\n"
+            "• reload - Reload configuration\n"
+            "• chefchat - Systemd controls\n\n"
+            "💬 *Just send a message to chat with the AI!*"
         )
         await update.message.reply_text(
             help_text, parse_mode=constants.ParseMode.MARKDOWN
+        )
+
+    async def model_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle /model commands in Telegram.
+
+        Supported:
+        - /model
+        - /model status
+        - /model list
+        - /model select <alias>
+        """
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        args = [a.strip() for a in (context.args or []) if a.strip()]
+        action = args[0].lower() if args else "status"
+
+        if action in {"help", "h"}:
+            await update.message.reply_text(
+                "Usage:\n/model status\n/model list\n/model select <alias>"
+            )
+            return
+
+        if action == "list":
+            lines = ["Available models:"]
+            active = (self.config.active_model or "").lower()
+            for m in sorted(self.config.models, key=lambda x: x.alias):
+                is_active = m.alias.lower() == active or m.name.lower() == active
+                marker = "✅" if is_active else "•"
+                lines.append(f"{marker} {m.alias} ({m.provider})")
+            await update.message.reply_text("\n".join(lines))
+            return
+
+        if action == "select":
+            if len(args) < 2:
+                await update.message.reply_text("Usage: /model select <alias>")
+                return
+
+            target = args[1].lower()
+            model = next(
+                (
+                    m
+                    for m in self.config.models
+                    if target in {m.alias.lower(), m.name.lower()}
+                ),
+                None,
+            )
+            if model is None:
+                await update.message.reply_text(
+                    f"Model '{args[1]}' not found. Use /model list."
+                )
+                return
+
+            self.config.active_model = model.alias
+            VibeConfig.save_updates({"active_model": model.alias})
+            await update.message.reply_text(f"✅ Switched model to: {model.alias}")
+            return
+
+        # Default: status
+        active_model = self.config.get_active_model()
+        provider = self.config.get_provider_for_model(active_model)
+        await update.message.reply_text(
+            "Current model:\n"
+            f"• Alias: {active_model.alias}\n"
+            f"• Provider: {provider.name}\n"
+            f"• Model ID: {active_model.name}"
+        )
+
+    async def _handle_model_list(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle 'modellist' keyword."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        lines = ["Available models:"]
+        active = (self.config.active_model or "").lower()
+        for m in sorted(self.config.models, key=lambda x: x.alias):
+            is_active = m.alias.lower() == active or m.name.lower() == active
+            marker = "✅" if is_active else "•"
+            lines.append(f"{marker} {m.alias} ({m.provider})")
+        await update.message.reply_text("\n".join(lines))
+
+    async def _handle_model_select_prompt(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle 'modelselect' keyword - prompt user for model name."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        await update.message.reply_text(
+            "Please use: `/model select <alias>`\n\n"
+            "Or type `modellist` to see available models.",
+            parse_mode=constants.ParseMode.MARKDOWN,
+        )
+
+    async def mode_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show current mode and available modes."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = update.effective_chat.id
+        session = self.sessions.get(chat_id)
+
+        if not session:
+            await update.message.reply_text("No active session. Send a message first!")
+            return
+
+        # Get current mode from agent's mode manager
+        current_mode = (
+            session.agent.mode_manager.current_mode.name
+            if hasattr(session.agent, "mode_manager")
+            else "NORMAL"
+        )
+
+        mode_text = (
+            f"🎯 **Current Mode**: {current_mode}\n\n"
+            "**Available Modes:**\n"
+            "• plan - 📋 PLAN (read-only exploration)\n"
+            "• normal - ✋ NORMAL (safe development)\n"
+            "• auto - ⚡ AUTO (trusted automation)\n"
+            "• yolo - 🚀 YOLO (maximum speed)\n"
+            "• architect - 🏛️ ARCHITECT (high-level design)\n\n"
+            "Type a mode name to switch (e.g., `auto`)"
+        )
+
+        await update.message.reply_text(
+            mode_text, parse_mode=constants.ParseMode.MARKDOWN
+        )
+
+    async def _handle_mode_switch(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, mode_name: str
+    ) -> None:
+        """Switch to a different mode."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = update.effective_chat.id
+        session = self.sessions.get(chat_id)
+
+        if not session:
+            await update.message.reply_text("No active session. Send a message first!")
+            return
+
+        try:
+            # Switch mode via agent's mode manager
+            if hasattr(session.agent, "mode_manager"):
+                from chefchat.modes.types import VibeMode
+
+                mode_enum = VibeMode[mode_name]
+                session.agent.mode_manager.switch_mode(mode_enum)
+
+                mode_emojis = {
+                    "PLAN": "📋",
+                    "NORMAL": "✋",
+                    "AUTO": "⚡",
+                    "YOLO": "🚀",
+                    "ARCHITECT": "🏛️",
+                }
+
+                emoji = mode_emojis.get(mode_name, "🎯")
+                await update.message.reply_text(
+                    f"{emoji} **Switched to {mode_name} mode!**",
+                    parse_mode=constants.ParseMode.MARKDOWN,
+                )
+            else:
+                await update.message.reply_text(
+                    "Mode switching not available for this session."
+                )
+        except Exception as e:
+            logger.exception("Failed to switch mode")
+            await update.message.reply_text(f"❌ Failed to switch mode: {e}")
+
+    async def term_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Start an interactive terminal session."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = update.effective_chat.id
+
+        # Get command from message
+        if not context.args:
+            await update.message.reply_text(
+                "Usage: `/term <command>`\n\n"
+                "Examples:\n"
+                "• `/term bash` - Start bash shell\n"
+                "• `/term python3` - Start Python REPL\n"
+                "• `/term vim test.py` - Open vim\n\n"
+                "Type `/termclose` to exit terminal.",
+                parse_mode=constants.ParseMode.MARKDOWN,
+            )
+            return
+
+        command = " ".join(context.args)
+        success, message = self.terminal_manager.create_session(chat_id, command)
+
+        await update.message.reply_text(
+            message, parse_mode=constants.ParseMode.MARKDOWN
+        )
+
+    async def termstatus_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show terminal session status."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = update.effective_chat.id
+        status = self.terminal_manager.get_session_status(chat_id)
+
+        await update.message.reply_text(status, parse_mode=constants.ParseMode.MARKDOWN)
+
+    async def termclose_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Close the active terminal session."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = update.effective_chat.id
+        message = self.terminal_manager.close_session(chat_id)
+
+        await update.message.reply_text(message)
+
+    async def _term_shortcut(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, command: str
+    ) -> None:
+        """Start a terminal with a predefined command."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = update.effective_chat.id
+        success, message = self.terminal_manager.create_session(chat_id, command)
+
+        await update.message.reply_text(
+            message, parse_mode=constants.ParseMode.MARKDOWN
         )
 
     async def _notify_startup(self) -> None:
@@ -603,31 +1056,151 @@ class TelegramBotService:
         self.application.add_handler(CommandHandler("files", self.files_command))
         self.application.add_handler(CommandHandler("pwd", self.pwd_command))
         self.application.add_handler(CommandHandler("help", self.help_command))
+        self.application.add_handler(CommandHandler("model", self.model_command))
+        self.application.add_handler(CommandHandler("mode", self.mode_command))
         self.application.add_handler(CommandHandler("chefchat", self.chefchat_command))
+
+        # Fun commands
+        self.application.add_handler(
+            CommandHandler("chef", lambda u, c: fun_commands.chef_command(self, u, c))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "wisdom", lambda u, c: fun_commands.wisdom_command(self, u, c)
+            )
+        )
+        self.application.add_handler(
+            CommandHandler("roast", lambda u, c: fun_commands.roast_command(self, u, c))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "fortune", lambda u, c: fun_commands.fortune_command(self, u, c)
+            )
+        )
+        self.application.add_handler(
+            CommandHandler("stats", lambda u, c: fun_commands.stats_command(self, u, c))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "reload", lambda u, c: fun_commands.reload_command(self, u, c)
+            )
+        )
+
+        # Model command aliases
+        self.application.add_handler(
+            CommandHandler("modellist", lambda u, c: self._handle_model_list(u, c))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "modelselect", lambda u, c: self._handle_model_select_prompt(u, c)
+            )
+        )
+        self.application.add_handler(CommandHandler("modelstatus", self.model_command))
+
+        # Mode command aliases
+        self.application.add_handler(
+            CommandHandler("plan", lambda u, c: self._handle_mode_switch(u, c, "PLAN"))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "normal", lambda u, c: self._handle_mode_switch(u, c, "NORMAL")
+            )
+        )
+        self.application.add_handler(
+            CommandHandler("auto", lambda u, c: self._handle_mode_switch(u, c, "AUTO"))
+        )
+        self.application.add_handler(
+            CommandHandler("yolo", lambda u, c: self._handle_mode_switch(u, c, "YOLO"))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "architect", lambda u, c: self._handle_mode_switch(u, c, "ARCHITECT")
+            )
+        )
+
+        # Terminal commands
+        self.application.add_handler(CommandHandler("term", self.term_command))
+        self.application.add_handler(
+            CommandHandler("termstatus", self.termstatus_command)
+        )
+        self.application.add_handler(
+            CommandHandler("termclose", self.termclose_command)
+        )
+
+        # Terminal shortcut commands
+        self.application.add_handler(
+            CommandHandler("termbash", lambda u, c: self._term_shortcut(u, c, "bash"))
+        )
+        self.application.add_handler(
+            CommandHandler(
+                "termpython3", lambda u, c: self._term_shortcut(u, c, "python3")
+            )
+        )
+        self.application.add_handler(
+            CommandHandler("termvim", lambda u, c: self._term_shortcut(u, c, "vim"))
+        )
+        self.application.add_handler(
+            CommandHandler("termnode", lambda u, c: self._term_shortcut(u, c, "node"))
+        )
+        self.application.add_handler(
+            CommandHandler("termnpm", lambda u, c: self._term_shortcut(u, c, "npm"))
+        )
+        # Route unknown slash-commands (e.g. /model, /modes) into the normal chat pipeline.
+        self.application.add_handler(
+            MessageHandler(filters.COMMAND, self.handle_message)
+        )
         self.application.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
         )
         self.application.add_handler(CallbackQueryHandler(self.handle_callback))
+        self.application.add_error_handler(self.error_handler)
 
         logger.info("Starting Telegram Bot polling...")
 
         # Start a background cleanup loop
         asyncio.create_task(self._cleanup_loop())
 
-        await self.application.initialize()
-        await self.application.start()
-        await self.application.updater.start_polling(drop_pending_updates=True)
-
-        # Notify allowed users that bot has started
-        await self._notify_startup()
-
+        started = False
+        polling = False
         try:
+            await self.application.initialize()
+            await self.application.start()
+            started = True
+            await self.application.updater.start_polling(drop_pending_updates=True)
+            polling = True
+
+            # Notify allowed users that bot has started
+            await self._notify_startup()
+
             await asyncio.Event().wait()
         except asyncio.CancelledError:
-            await self.application.updater.stop()
-            await self.application.stop()
-            await self.application.shutdown()
+            # Normal shutdown path when the task is cancelled.
+            pass
         finally:
+            try:
+                if self.application is not None and polling:
+                    await self.application.updater.stop()
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning("Telegram updater stop failed: %s", e)
+
+            try:
+                if self.application is not None and started:
+                    await self.application.stop()
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning("Telegram application stop failed: %s", e)
+
+            try:
+                if self.application is not None:
+                    await self.application.shutdown()
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning("Telegram application shutdown failed: %s", e)
+
             self._release_lock()
 
     async def _cleanup_loop(self) -> None:
@@ -644,7 +1217,6 @@ class TelegramBotService:
                 self._approval_created_at.pop(short_id, None)
                 self.approval_map.pop(short_id, None)
 
-            expired_chats = [
 
 async def run_telegram_bot(config: VibeConfig) -> None:
     service = TelegramBotService(config)

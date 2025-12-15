@@ -113,21 +113,84 @@ vibe --resume session_123
 
 ---
 
+
 ## 📱 Telegram Bot
 
-1. Configure the bot token and allowlist:
+ChefChat includes a **fully-featured Telegram bot** with fun easter eggs and powerful commands!
+
+### Quick Start
+
+1. **Configure the bot**:
    ```bash
    echo "TELEGRAM_BOT_TOKEN=123:abc" >> .env
    vibe /telegram allow <your_user_id>
    ```
-2. Start the bot via the CLI:
+
+2. **Start the bot**:
    ```bash
+   # Via systemd (recommended)
+   systemctl --user start chefchat-telegram
+
+   # Or via CLI
    vibe --bot telegram
    ```
-   A lock file is written to `~/chefchat_output_/telegram_bot.lock` to guarantee that **only one polling instance** is active. If the previous run crashed, remove the stale lock file before restarting.
-3. Stop the bot cleanly with `Ctrl+C` (the lock is released automatically).
 
-> **Tip:** If you manage the bot with systemd or another supervisor, ensure only a single service is enabled at a time to avoid `getUpdates` conflicts from Telegram.
+3. **Test in Telegram**:
+   ```
+   /help       # See all commands
+   /chef       # Kitchen status report
+   /wisdom     # Get culinary wisdom
+   ```
+
+### Available Commands
+
+**Basic Commands:**
+- `/start` - Start the bot
+- `/stop` - Stop current session
+- `/clear` - Clear conversation history
+- `/help` - Show all commands
+
+**Info Commands:**
+- `/status` - Bot status and uptime
+- `/stats` - Session statistics
+- `/files` - List project files
+- `/pwd` - Show working directory
+
+**Model Commands:**
+- `/model` - Show/switch AI models
+- `/model list` - List available models
+- `/model select <alias>` - Switch model
+
+**Fun Commands** 🎉:
+- `/chef` - Kitchen status report with stats
+- `/wisdom` - Culinary-inspired programming wisdom
+- `/roast` - Gordon Ramsay style motivational burns
+- `/fortune` - Developer fortune cookies
+
+**Advanced Commands:**
+- `/reload` - Hot-reload configuration
+- `/chefchat` - Systemd controls (if enabled)
+
+### Features
+
+- ✅ **Full ChefChat agent** capabilities
+- ✅ **Tool approval system** with inline buttons
+- ✅ **Session management** per user
+- ✅ **Rate limiting** (6 messages/30s)
+- ✅ **Hot-reload** configuration
+- ✅ **Fun easter eggs** from REPL
+- ✅ **Mini App** web interface
+- ✅ **Retry logic** for API failures
+
+### Documentation
+
+See [TELEGRAM_BOT_GUIDE.md](TELEGRAM_BOT_GUIDE.md) for complete documentation including:
+- Mini App URL configuration
+- Cloudflare Tunnel setup
+- Troubleshooting guide
+- Performance tuning
+
+> **Tip:** A lock file at `~/chefchat_output_/telegram_bot.lock` ensures only one bot instance runs. Remove it if the bot crashed.
 
 ---
 

@@ -263,8 +263,39 @@ class ChefChatREPL:
             f"[{COLORS['sage']}]✓ GITHUB_TOKEN saved to .env[/{COLORS['sage']}]\n"
         )
 
-    async def _handle_model_command(self) -> None:
-        """Handle interactive model switching."""
+    async def _handle_model_command(self, arg: str = "") -> None:
+        """Handle model commands in the REPL with full subcommand support."""
+        if not arg.strip():
+            await self._model_select_interactive()
+            return
+    
+        parts = arg.split(maxsplit=1)
+        action = parts[0].lower() if parts else ""
+        sub_arg = parts[1].strip() if len(parts) > 1 else ""
+    
+        # Command dispatch table
+        command_handlers = {
+            "help": self._model_show_help,
+            "list": self._model_list,
+            "select": lambda: self._model_select(sub_arg),
+            "info": lambda: self._model_info(sub_arg),
+            "status": self._model_status,
+            "speed": self._model_speed,
+            "reasoning": self._model_reasoning,
+            "multimodal": self._model_multimodal,
+            "compare": lambda: self._model_compare(sub_arg),
+            "manage": self._model_manage_tui_only,
+        }
+    
+        handler = command_handlers.get(action)
+        if handler:
+            await handler()
+        else:
+            # Fallback for backward compatibility - treat as direct model selection
+            await self._model_select(arg)
+
+    async def _model_select_interactive(self) -> None:
+        """Interactive model selector used by `/model`."""
         from rich.prompt import Prompt
         from rich.table import Table
 
@@ -345,6 +376,357 @@ class ChefChatREPL:
 
         except KeyboardInterrupt:
             self.console.print(f"\n  [{COLORS['honey']}]Cancelled[/{COLORS['honey']}]")
+
+    # =========================================================================
+    # MODEL COMMAND METHODS - Complete Implementation
+    # =========================================================================
+
+    async def _model_show_help(self) -> None:
+        """Show help for model commands."""
+        help_text = f"""[{COLORS['primary']}]## 🤖 Model Management Commands[/{COLORS['primary']}]
+
+[{COLORS['silver']}]### Core Commands[/{COLORS['silver']}]
+• `/model` — Show interactive model selector
+• `/model list` — List all available models with details
+• `/model select <alias>` — Switch to a specific model
+• `/model info <alias>` — Show detailed model information
+• `/model status` — Show current model and API status
+
+[{COLORS['silver']}]### Feature-Based Commands[/{COLORS['silver']}]
+• `/model speed` — List fastest models (Groq 8b, GPT-OSS 20b)
+• `/model reasoning` — List reasoning models (Kimi K2, GPT-OSS 120b)
+• `/model multimodal` — List multimodal models (Llama Scout/Maverick)
+• `/model compare <alias1> <alias2>` — Compare models side-by-side
+
+[{COLORS['silver']}]### Examples[/{COLORS['silver']}]
+• `/model select groq-8b` — Switch to Groq 8B model
+• `/model info llama-scout` — Show Llama Scout details
+• `/model list` — See all available models
+
+[{COLORS['silver']}]### Current Active Model[/{COLORS['silver']}]
+Use `/model status` to see which model is currently active.
+"""
+        self.console.print()
+        self.console.print(help_text)
+        self.console.print()
+
+    async def _model_list(self) -> None:
+        """List all available models with details, checking API availability."""
+        from rich.table import Table
+        
+        self.console.print()
+        self.console.print(f"[{COLORS['primary']}]## 🤖 Available Models[/{COLORS['primary']}]")
+        self.console.print()
+
+        # Group models by provider
+        provider_groups = {}
+        for model in self.config.models:
+            provider = model.provider
+            if provider not in provider_groups:
+                provider_groups[provider] = []
+            provider_groups[provider].append(model)
+
+        for provider in sorted(provider_groups.keys()):
+            self.console.print(f"[{COLORS['fire']}]### {provider.upper()}[/{COLORS['fire']}]")
+
+            # Check if provider has API key configured
+            provider_config = None
+            for p in self.config.providers:
+                if p.name == provider:
+                    provider_config = p
+                    break
+            
+            has_api_key = (
+                bool(os.getenv(provider_config.api_key_env_var))
+                if provider_config and provider_config.api_key_env_var
+                else False
+            )
+
+            if has_api_key:
+                self.console.print(f"[{COLORS['sage']}]✅ API key configured[/{COLORS['sage']}]")
+            else:
+                self.console.print(f"[{COLORS['ember']}]❌ No API key configured[/{COLORS['ember']}]")
+
+            # Create table for this provider's models
+            table = Table(
+                box=box.ROUNDED,
+                border_style=COLORS["ash"],
+                show_header=True,
+                header_style=f"bold {COLORS['silver']}",
+            )
+            table.add_column("Alias", style=f"bold {COLORS['primary']}")
+            table.add_column("Status", style=COLORS["text"])
+            table.add_column("Model ID", style=COLORS["muted"])
+            table.add_column("Temperature", justify="right", style=COLORS["muted"])
+
+            for model in sorted(provider_groups[provider], key=lambda m: m.alias):
+                is_active = model.alias == self.config.active_model
+                status = f"[{COLORS['success']}]🟢 Active[/{COLORS['success']}]" if is_active else f"[{COLORS['text']}]⚪ Available[/{COLORS['text']}]"
+                
+                table.add_row(
+                    model.alias,
+                    status,
+                    model.name,
+                    str(model.temperature)
+                )
+
+            self.console.print(table)
+            self.console.print()
+
+    async def _model_select(self, model_alias: str) -> None:
+        """Select a model by alias."""
+        if not model_alias:
+            await self._model_show_help()
+            return
+
+        # Find model by alias (case-insensitive)
+        model = None
+        target = model_alias.lower()
+        for m in self.config.models:
+            if target in {m.alias.lower(), m.name.lower()}:
+                model = m
+                break
+
+        if not model:
+            self.console.print(
+                f"[{COLORS['ember']}]❌ Model `{model_alias}` not found. Use `/model list` to see available models.[/{COLORS['ember']}]"
+            )
+            return
+
+        try:
+            self.config.active_model = model.alias
+            await self._initialize_agent()
+
+            self.console.print(
+                f"[{COLORS['sage']}]✅ **Model switched to `{model.alias}`**[/{COLORS['sage']}]"
+            )
+        except Exception as e:
+            self.console.print(f"[{COLORS['ember']}]Failed to switch model: {e}[/{COLORS['ember']}]")
+
+    async def _model_info(self, model_alias: str) -> None:
+        """Show detailed information about a specific model."""
+        if not model_alias:
+            await self._model_show_help()
+            return
+
+        model = None
+        target = model_alias.lower()
+        for m in self.config.models:
+            if target in {m.alias.lower(), m.name.lower()}:
+                model = m
+                break
+
+        if not model:
+            self.console.print(f"[{COLORS['ember']}]❌ Model `{model_alias}` not found[/{COLORS['ember']}]")
+            return
+
+        is_active = model.alias == self.config.active_model
+        
+        # Get provider info
+        provider = None
+        for p in self.config.providers:
+            if p.name == model.provider:
+                provider = p
+                break
+
+        api_key_status = "✅ Set"
+        if provider and provider.api_key_env_var:
+            api_key_status = "✅ Set" if os.getenv(provider.api_key_env_var) else "⚠️ Missing"
+
+        info = f"""[{COLORS['primary']}]## 🤖 Model Details: {model.alias}[/{COLORS['primary']}]
+
+[{COLORS['silver']}]**Status**:[/{COLORS['silver']}] {"🟢 Active" if is_active else "⚪ Available"}
+[{COLORS['silver']}]**Name**:[/{COLORS['silver']}] `{model.name}`
+[{COLORS['silver']}]**Provider**:[/{COLORS['silver']}] {model.provider}
+
+[{COLORS['silver']}]### Configuration[/{COLORS['silver']}]
+• **Temperature**: {model.temperature}
+• **Max Tokens**: {model.max_tokens or "Default"}
+
+[{COLORS['silver']}]### Pricing[/{COLORS['silver']}]
+• **Input**: ${model.input_price}/M tokens
+• **Output**: ${model.output_price}/M tokens
+
+[{COLORS['silver']}]### API Key[/{COLORS['silver']}]
+• **Environment Variable**: `{provider.api_key_env_var or "None"}` if provider else "None"
+• **Status**: {api_key_status}
+"""
+
+        if model.features:
+            features_str = ", ".join(sorted(model.features))
+            info += f"\n[{COLORS['silver']}]### 🚀 Features[/{COLORS['silver']}]\n{features_str}"
+
+        if model.multimodal:
+            info += f"\n[{COLORS['silver']}]### 🖼️ Multimodal Capabilities[/{COLORS['silver']}]\n**Vision Support**: ✅\n**Max File Size**: {model.max_file_size} MB"
+
+        self.console.print()
+        self.console.print(info)
+        self.console.print()
+
+    async def _model_status(self) -> None:
+        """Show current model status and configuration."""
+        try:
+            active_model = self.config.get_active_model()
+            
+            # Get provider info
+            provider = None
+            for p in self.config.providers:
+                if p.name == active_model.provider:
+                    provider = p
+                    break
+
+            api_key_status = "✅ Set"
+            if provider and provider.api_key_env_var:
+                api_key_status = "✅ Set" if os.getenv(provider.api_key_env_var) else "❌ Missing"
+
+            status = f"""[{COLORS['primary']}]## 🤖 Current Model Status[/{COLORS['primary']}]
+
+[{COLORS['silver']}]**Active Model**:[/{COLORS['silver']}] `{active_model.alias}`
+[{COLORS['silver']}]**Provider**:[/{COLORS['silver']}] {active_model.provider}
+[{COLORS['silver']}]**API Key**:[/{COLORS['silver']}] {api_key_status} (`{provider.api_key_env_var if provider else "None"}`)
+
+[{COLORS['silver']}]### Quick Actions[/{COLORS['silver']}]
+• `/model list` — Show all models
+• `/model select <alias>` — Switch models
+• `/model info {active_model.alias}` — Model details
+"""
+        except Exception as e:
+            status = f"[{COLORS['ember']}]## 🤖 Model Status Error[/{COLORS['ember']}]\n\n❌ {e}"
+
+        self.console.print()
+        self.console.print(status)
+        self.console.print()
+
+    async def _model_speed(self) -> None:
+        """Show fastest models sorted by tokens/sec."""
+        self.console.print()
+        self.console.print(f"[{COLORS['primary']}]## ⚡ Fastest Models[/{COLORS['primary']}]")
+        self.console.print()
+
+        speed_models = [
+            ("gpt-oss-20b", "1000 TPS", "$0.075/$0.30"),
+            ("llama-scout", "750 TPS", "$0.11/$0.34"),
+            ("groq-8b", "560 TPS", "$0.05/$0.08"),
+            ("qwen-32b", "400 TPS", "$0.29/$0.59"),
+            ("groq-70b", "280 TPS", "$0.59/$0.79"),
+        ]
+
+        for alias, speed, pricing in speed_models:
+            self.console.print(f"• **{alias}** — {speed} — {pricing}")
+
+        self.console.print(f"\n[{COLORS['muted']}]*Use `/model select <alias>` to switch*[/{COLORS['muted']}]")
+        self.console.print()
+
+    async def _model_reasoning(self) -> None:
+        """Show models with reasoning capabilities."""
+        self.console.print()
+        self.console.print(f"[{COLORS['primary']}]## 🧠 Reasoning Models[/{COLORS['primary']}]")
+        self.console.print()
+
+        reasoning_models = [
+            ("kimi-k2", "Deep Reasoning", "$1.00/$3.00", "262K context"),
+            ("gpt-oss-120b", "Browser + Code", "$0.15/$0.60", "131K context"),
+            ("gpt-oss-20b", "Fast Reasoning", "$0.075/$0.30", "131K context"),
+        ]
+
+        for alias, capability, pricing, context in reasoning_models:
+            self.console.print(f"• **{alias}** — {capability} — {pricing} — {context}")
+
+        self.console.print(f"\n[{COLORS['muted']}]*Use `/model select <alias>` to switch*[/{COLORS['muted']}]")
+        self.console.print()
+
+    async def _model_multimodal(self) -> None:
+        """Show multimodal (vision) models."""
+        self.console.print()
+        self.console.print(f"[{COLORS['primary']}]## 🖼️ Multimodal Models[/{COLORS['primary']}]")
+        self.console.print()
+
+        multimodal_models = [
+            ("llama-scout", "Vision + Tools", "$0.11/$0.34", "20MB files"),
+            ("llama-maverick", "Advanced Vision", "$0.20/$0.60", "20MB files"),
+        ]
+
+        for alias, capability, pricing, file_size in multimodal_models:
+            self.console.print(f"• **{alias}** — {capability} — {pricing} — {file_size}")
+
+        self.console.print(f"\n[{COLORS['muted']}]*Upload images with `@path/to/image.jpg`*[/{COLORS['muted']}]")
+        self.console.print(f"[{COLORS['muted']}]*Use `/model select <alias>` to switch*[/{COLORS['muted']}]")
+        self.console.print()
+
+    async def _model_compare(self, models_arg: str) -> None:
+        """Compare multiple models side-by-side."""
+        if not models_arg:
+            await self._model_show_help()
+            return
+
+        model_aliases = models_arg.split()
+        if len(model_aliases) < 2:
+            self.console.print(
+                f"[{COLORS['ember']}]❌ Please provide at least 2 models to compare. Example: `/model compare groq-8b llama-scout`[/{COLORS['ember']}]"
+            )
+            return
+
+        self.console.print()
+        self.console.print(f"[{COLORS['primary']}]## 📊 Model Comparison[/{COLORS['primary']}]")
+        self.console.print()
+
+        # Find models
+        models_to_compare = []
+        for alias in model_aliases[:3]:  # Limit to 3 models
+            model = None
+            for m in self.config.models:
+                if alias.lower() in {m.alias.lower(), m.name.lower()}:
+                    model = m
+                    break
+            if model:
+                models_to_compare.append(model)
+            else:
+                self.console.print(f"[{COLORS['ember']}]❌ Model `{alias}` not found[/{COLORS['ember']}]")
+
+        if not models_to_compare:
+            return
+
+        # Create comparison table
+        from rich.table import Table
+        
+        table = Table(
+            title="Model Comparison",
+            box=box.ROUNDED,
+            border_style=COLORS["ash"],
+            show_header=True,
+            header_style=f"bold {COLORS['silver']}",
+        )
+        table.add_column("Model", style=f"bold {COLORS['primary']}")
+        table.add_column("Provider", style=COLORS["text"])
+        table.add_column("Price (In/Out)", style=COLORS["muted"])
+        table.add_column("Features", style=COLORS["text"])
+
+        for model in models_to_compare:
+            features = ", ".join(sorted(model.features)[:3])  # Limit to 3 features
+            if len(model.features) > 3:
+                features += "..."
+            
+            price_str = f"${model.input_price}/${model.output_price}"
+            table.add_row(
+                model.alias,
+                model.provider,
+                price_str,
+                features
+            )
+
+        self.console.print(table)
+        self.console.print()
+
+    async def _model_manage_tui_only(self) -> None:
+        """Show that model manage is TUI-only."""
+        self.console.print()
+        self.console.print(
+            f"[{COLORS['honey']}]`/model manage` is only available in the TUI.[/{COLORS['honey']}]"
+        )
+        self.console.print(
+            f"[{COLORS['smoke']}]Run without `--repl` and use `/model manage` there.[/{COLORS['smoke']}]"
+        )
+        self.console.print()
 
     def _show_stats(self) -> None:
         """Display session statistics - Today's Service."""
@@ -683,10 +1065,13 @@ class ChefChatREPL:
             await handle_bot_command(self, cmd)
             return
 
+        # Handle commands with sub-arguments (e.g. /model manage)
+        cmd_name, _, cmd_arg = cmd.partition(" ")
+
         # Look up command in registry
-        handler = self._get_command_handler(cmd)
+        handler = self._get_command_handler(cmd_name)
         if handler:
-            await handler()
+            await handler(cmd_arg.strip())
         else:
             self.console.print(
                 f"  [{COLORS['honey']}]Unknown command: {command}[/{COLORS['honey']}]"
