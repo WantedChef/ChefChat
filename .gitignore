@@ -206,6 +206,9 @@ result-*
 .
 
 .gemini/
+.agent
+.dev-agents
+.chef
 gha-creds-*.json
 
 # Specifieke documenten en notities

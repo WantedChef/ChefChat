@@ -11,14 +11,14 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias
 
 if TYPE_CHECKING:
     from chefchat.interface.protocols import ChefAppProtocol
 
 # Type aliases for handler functions
-type CommandHandler = Callable[["ChefAppProtocol", str], Awaitable[None]]
-type SimpleHandler = Callable[["ChefAppProtocol"], Awaitable[None]]
+CommandHandler: TypeAlias = Callable[["ChefAppProtocol", str], Awaitable[None]]
+SimpleHandler: TypeAlias = Callable[["ChefAppProtocol"], Awaitable[None]]
 
 
 @dataclass
@@ -228,6 +228,8 @@ def create_default_registry() -> TUICommandRegistry:
     # Note: These are placeholder handlers.
     # The actual implementation will call methods on ChefChatApp.
 
+    from chefchat.interface.handlers import model_handlers, system_handlers
+
     @registry.command(
         "/help",
         description="Show available commands",
@@ -235,7 +237,7 @@ def create_default_registry() -> TUICommandRegistry:
         category="general",
     )
     async def cmd_help(app: ChefAppProtocol) -> None:
-        await app._show_command_palette()
+        await system_handlers.show_help(app)
 
     @registry.command(
         "/status",
@@ -250,7 +252,7 @@ def create_default_registry() -> TUICommandRegistry:
         "/clear", description="Clear chat history", aliases=["/cls"], category="general"
     )
     async def cmd_clear(app: ChefAppProtocol) -> None:
-        await app._handle_clear()
+        await system_handlers.handle_clear(app)
 
     @registry.command(
         "/quit",
@@ -259,13 +261,13 @@ def create_default_registry() -> TUICommandRegistry:
         category="general",
     )
     async def cmd_quit(app: ChefAppProtocol) -> None:
-        await app._handle_quit()
+        await system_handlers.handle_quit(app)
 
     @registry.command(
         "/model", description="Model management", category="models", takes_argument=True
     )
     async def cmd_model(app: ChefAppProtocol, arg: str) -> None:
-        await app._handle_model_command(arg)
+        await model_handlers.handle_model_command(app, arg)
 
     @registry.command(
         "/layout",
@@ -274,15 +276,19 @@ def create_default_registry() -> TUICommandRegistry:
         takes_argument=True,
     )
     async def cmd_layout(app: ChefAppProtocol, arg: str) -> None:
-        await app._handle_layout_command(arg)
+        await system_handlers.handle_layout_command(app, arg)
 
     @registry.command("/config", description="Show configuration", category="system")
     async def cmd_config(app: ChefAppProtocol) -> None:
-        await app._show_config()
+        await system_handlers.show_config(app)
+
+    @registry.command("/reload", description="Reload configuration", category="system")
+    async def cmd_reload(app: ChefAppProtocol) -> None:
+        await system_handlers.reload_config(app)
 
     @registry.command("/mcp", description="Show MCP server status", category="system")
     async def cmd_mcp(app: ChefAppProtocol) -> None:
-        await app._handle_mcp_command()
+        await system_handlers.show_mcp_status(app)
 
     @registry.command("/wisdom", description="Get chef wisdom", category="fun")
     async def cmd_wisdom(app: ChefAppProtocol) -> None:
@@ -295,6 +301,45 @@ def create_default_registry() -> TUICommandRegistry:
     @registry.command("/roast", description="Get roasted by the chef", category="fun")
     async def cmd_roast(app: ChefAppProtocol) -> None:
         await app._show_roast()
+
+    @registry.command("/api", description="Manage API keys", category="system")
+    async def cmd_api(app: ChefAppProtocol) -> None:
+        await system_handlers.handle_api_command(app)
+
+    @registry.command(
+        "/git-setup",
+        description="Configure GitHub token",
+        category="system",
+    )
+    async def cmd_git_setup(app: ChefAppProtocol) -> None:
+        await system_handlers.handle_git_setup(app)
+
+    @registry.command(
+        "/openrouter",
+        description="OpenRouter management",
+        category="models",
+        takes_argument=True,
+    )
+    async def cmd_openrouter(app: ChefAppProtocol, arg: str) -> None:
+        await system_handlers.handle_openrouter_command(app, arg)
+
+    @registry.command(
+        "/telegram",
+        description="Telegram bot control",
+        category="bots",
+        takes_argument=True,
+    )
+    async def cmd_telegram(app: ChefAppProtocol, arg: str) -> None:
+        await app._handle_telegram_command(arg)
+
+    @registry.command(
+        "/discord",
+        description="Discord bot control",
+        category="bots",
+        takes_argument=True,
+    )
+    async def cmd_discord(app: ChefAppProtocol, arg: str) -> None:
+        await app._handle_discord_command(arg)
 
     return registry
 

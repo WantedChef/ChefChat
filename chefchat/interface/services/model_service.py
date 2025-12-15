@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from chefchat.core.config import ModelConfig, VibeConfig
+    from chefchat.interface.services.config_service import ConfigService
 
 
 @dataclass
@@ -49,13 +50,20 @@ class ModelService:
     direct UI interaction, making the logic testable and reusable.
     """
 
-    def __init__(self, config: VibeConfig) -> None:
-        """Initialize with a VibeConfig instance.
+    def __init__(self, config_service: ConfigService | VibeConfig) -> None:
+        """Initialize with a ConfigService instance.
 
         Args:
-            config: The application configuration containing models.
+            config_service: The ConfigService instance or VibeConfig for accessing configuration.
         """
-        self._config = config
+        self._config_service = config_service
+
+    @property
+    def _config(self) -> VibeConfig:
+        """Get the current config, ensuring it's up-to-date."""
+        if hasattr(self._config_service, "ensure_config"):
+            return self._config_service.ensure_config()
+        return self._config_service
 
     def get_active_model_alias(self) -> str:
         """Get the alias of the currently active model."""

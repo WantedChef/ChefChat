@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from chefchat.kitchen.brigade import Brigade
     from chefchat.kitchen.bus import KitchenBus
     from chefchat.modes import ModeManager
+    from chefchat.interface.services import ModelService, ConfigService
+    from chefchat.interface.command_registry import TUICommandRegistry
 
 
 @runtime_checkable
@@ -37,8 +39,17 @@ class ChefAppProtocol(Protocol):
     _mode_manager: ModeManager
     _layout: TUILayout
     _active_mode: bool
+    _active_mode: bool
     _session_start_time: float
     _tools_executed: int
+
+    # ==== Services & Registry ====
+    @property
+    def model_service(self) -> ModelService: ...
+    @property
+    def config_service(self) -> ConfigService: ...
+    @property
+    def bus(self) -> KitchenBus: ...
 
     # ==== Textual App Methods (inherited from App) ====
     def notify(

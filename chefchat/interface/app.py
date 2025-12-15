@@ -41,8 +41,6 @@ from chefchat.interface.mixins import (
     BusEventHandlerMixin,
     ChefCommandsMixin,
     CommandDispatcherMixin,
-    ModelCommandsMixin,
-    SystemCommandsMixin,
 )
 from chefchat.interface.screens.confirm_restart import (
     get_saved_layout,
@@ -60,6 +58,8 @@ from chefchat.interface.widgets.ticket_rail import TicketRail
 from chefchat.kitchen.brigade import Brigade
 from chefchat.kitchen.bus import ChefMessage, KitchenBus, MessagePriority
 from chefchat.modes import MODE_CONFIGS, ModeManager, VibeMode
+from chefchat.interface.services import ModelService, ConfigService
+from chefchat.interface.command_registry import get_tui_command_registry
 
 if TYPE_CHECKING:
     pass
@@ -118,10 +118,8 @@ class AppState:
 
 class ChefChatApp(
     CommandDispatcherMixin,
-    ModelCommandsMixin,
     BotCommandsMixin,
     ChefCommandsMixin,
-    SystemCommandsMixin,
     BusEventHandlerMixin,
     AgentLifecycleMixin,
     App,
@@ -130,12 +128,13 @@ class ChefChatApp(
 
     Composed from mixins:
     - CommandDispatcherMixin: Slash commands and bash execution
-    - ModelCommandsMixin: /model subcommands
     - BotCommandsMixin: /telegram, /discord
     - ChefCommandsMixin: /status, /wisdom, /roast, etc.
-    - SystemCommandsMixin: /config, /layout, /quit, etc.
     - BusEventHandlerMixin: Kitchen bus message handling
     - AgentLifecycleMixin: Agent init, loop, shutdown
+
+    System commands (/config, /layout, /quit, etc.) are now handled
+    via the TUICommandRegistry and system_handlers module.
     """
 
     CSS_PATH = Path(__file__).parent / "styles.tcss"
@@ -173,7 +172,14 @@ class ChefChatApp(
         self._brigade: Brigade | None = None
         self._state = AppState.idle()
         self._mode_manager = ModeManager(initial_mode=VibeMode.NORMAL)
+        # Legacy registry (to be removed)
         self._command_registry = CommandRegistry()
+        # New TUI registry
+        self._tui_registry = get_tui_command_registry()
+
+        # Initialize Services
+        self._config_service = ConfigService()
+        self._model_service = ModelService(self._config_service)
         self._layout = layout
 
         # Active Mode
@@ -190,6 +196,14 @@ class ChefChatApp(
         if self._bus is None:
             raise RuntimeError("Kitchen bus not initialized")
         return self._bus
+
+    @property
+    def model_service(self) -> ModelService:
+        return self._model_service
+
+    @property
+    def config_service(self) -> ConfigService:
+        return self._config_service
 
     def compose(self) -> ComposeResult:
         """Compose the layout based on current mode."""
@@ -284,6 +298,32 @@ class ChefChatApp(
         except Exception as e:
             logger.exception("Error handling input submission: %s", e)
             self.notify(f"Input error: {e}", severity="error")
+
+    async def _handle_command(self, command: str) -> None:
+        """Handle slash commands using the new TUI registry."""
+        # Using local import to avoid circular dependency
+        from chefchat.interface.widgets.ticket_rail import TicketRail
+
+        if not command.startswith("/"):
+            return
+
+        # Use new registry for dispatch
+        try:
+            handled = await self._tui_registry.dispatch(self, command)
+            if handled:
+                return
+        except Exception as e:
+            logger.exception("Command dispatch error: %s", e)
+            self.query_one("#ticket-rail", TicketRail).add_system_message(
+                f"❌ Error executing command: {e}"
+            )
+            return
+
+        # Unknown command fallthrough
+        cmd_name = command.split()[0]
+        self.query_one("#ticket-rail", TicketRail).add_system_message(
+            f"❓ Unknown command: `{cmd_name}`\n\nType `/help` to see available commands."
+        )
 
     # ==== Layout Helper ====
 
