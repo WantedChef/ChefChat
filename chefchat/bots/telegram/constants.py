@@ -9,6 +9,7 @@ TELEGRAM_WORKDIR = Path.home() / "chefchat_output_"
 TELEGRAM_MESSAGE_TRUNCATE_LIMIT = 4000
 MAX_TELEGRAM_API_RETRIES = 3
 TELEGRAM_API_RETRY_DELAY_S = 1.0
+ZEN_API_DEFAULT_BASE = "https://opencode.ai/zen/v1"
 
 # Command argument defaults
 MIN_COMMAND_ARGS_MINIAPP = 2

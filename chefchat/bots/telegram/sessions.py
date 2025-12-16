@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable, ItemsView, Iterable, KeysView, ValuesView
 import time
-from typing import Callable, Dict
 
 from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
@@ -24,9 +24,9 @@ class SessionStore:
         self.max_sessions_per_user = max_sessions_per_user
         self.session_limit_override = session_limit_override
 
-        self.sessions: Dict[int, BotSession] = {}
-        self._user_session_counts: Dict[str, int] = {}
-        self._last_activity: Dict[int, float] = {}
+        self.sessions: dict[int, BotSession] = {}
+        self._user_session_counts: dict[str, int] = {}
+        self._last_activity: dict[int, float] = {}
         self._warned_idle: set[int] = set()
 
     def get_or_create(
@@ -88,3 +88,21 @@ class SessionStore:
 
     def get(self, chat_id: int) -> BotSession | None:
         return self.sessions.get(chat_id)
+
+    def values(self) -> ValuesView[BotSession]:
+        return self.sessions.values()
+
+    def items(self) -> ItemsView[int, BotSession]:
+        return self.sessions.items()
+
+    def keys(self) -> KeysView[int]:
+        return self.sessions.keys()
+
+    def __len__(self) -> int:
+        return len(self.sessions)
+
+    def __iter__(self) -> Iterable[int]:
+        return iter(self.sessions)
+
+    def __contains__(self, chat_id: object) -> bool:
+        return chat_id in self.sessions

@@ -20,7 +20,10 @@ class CLIHandlers:
     async def cli_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
 
         if not context.args:
             available = self.svc.cli_manager.get_available_providers()
@@ -44,21 +47,30 @@ class CLIHandlers:
     async def cli_close_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         message = self.svc.cli_manager.close_session(chat_id)
         await self.svc._send_message(chat_id, message)
 
     async def cli_status_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         message = self.svc.cli_manager.get_session_status(chat_id)
         await self.svc._send_message(chat_id, message)
 
     async def cli_providers_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
 
         text = "**CLI Providers:**\n\n"
         for provider in CLI_PROVIDERS.values():
@@ -72,7 +84,10 @@ class CLIHandlers:
     async def cli_run_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         if not context.args:
             await self.svc._send_message(
                 chat_id,
@@ -101,14 +116,20 @@ class CLIHandlers:
     async def cli_cancel_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         message = self.svc.cli_manager.cancel(chat_id)
         await self.svc._send_message(chat_id, message)
 
     async def cli_history_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         if context.args and context.args[0].lower() == "clear":
             await self.svc._send_message(
                 chat_id, self.svc.cli_manager.clear_history(chat_id)
@@ -119,20 +140,29 @@ class CLIHandlers:
     async def cli_diag_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         diag = await self.svc.cli_manager.get_diagnostics()
         await self.svc._send_message(chat_id, diag)
 
     async def cli_setup_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         await self.svc._send_message(chat_id, self.svc.cli_manager.get_setup_help())
 
     async def cli_retry_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         last = self.svc.cli_manager.get_last_prompt(chat_id)
         if not last:
             await self.svc._send_message(chat_id, "ℹ️ No previous CLI prompt to retry.")
@@ -151,7 +181,10 @@ class CLIHandlers:
     async def cli_shortcut(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE, provider_name: str
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         success, message = self.svc.cli_manager.set_active_provider(
             chat_id, provider_name
         )

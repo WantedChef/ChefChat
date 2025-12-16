@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import time
-from typing import Dict, Tuple
 
 
 @dataclass
@@ -19,7 +18,7 @@ class ApprovalStore:
 
     def __init__(self, ttl_s: float) -> None:
         self._ttl_s = ttl_s
-        self._by_short_id: Dict[str, ApprovalInfo] = {}
+        self._by_short_id: dict[str, ApprovalInfo] = {}
 
     def register(self, short_id: str, tool_call_id: str, chat_id: int, tool_name: str | None) -> None:
         self._by_short_id[short_id] = ApprovalInfo(

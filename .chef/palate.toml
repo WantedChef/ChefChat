@@ -14,7 +14,7 @@ linter = "ruff"
 #   - michelin: Maximum quality, all checks enabled
 #   - bistro: Balanced, reasonable defaults
 #   - fast_food: Quick and dirty, minimal checks
-strictness = "michelin"
+strictness = "bistro"
 
 [healing]
 # Self-healing loop settings

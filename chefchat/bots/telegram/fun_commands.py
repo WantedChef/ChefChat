@@ -25,16 +25,18 @@ async def chef_command(
 ) -> None:
     """Show kitchen status report with session stats."""
     user = update.effective_user
-    if not user:
+    chat = update.effective_chat
+    message = update.message
+    if not user or not chat or not message:
         return
 
     user_id_str = str(user.id)
     allowed = bot_service.bot_manager.get_allowed_users("telegram")
     if user_id_str not in allowed:
-        await update.message.reply_text("Access denied.")
+        await message.reply_text("Access denied.")
         return
 
-    chat_id = update.effective_chat.id
+    chat_id = chat.id
     session = bot_service.sessions.get(chat_id)
 
     uptime = "Unknown"
@@ -68,7 +70,7 @@ async def chef_command(
             f"*Send a message to start cooking!* 🍳"
         )
 
-    await update.message.reply_text(
+    await message.reply_text(
         status_text, parse_mode=constants.ParseMode.MARKDOWN
     )
 
@@ -77,6 +79,8 @@ async def wisdom_command(
     bot_service: TelegramBotService, update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Share culinary-inspired programming wisdom."""
+    if not update.message:
+        return
     wisdoms = [
         "🔪 *Sharp tools make clean cuts.* Keep your dependencies updated.",
         "🍲 *Low and slow wins the race.* Take time for quality refactoring.",
@@ -98,6 +102,8 @@ async def roast_command(
     bot_service: TelegramBotService, update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Gordon Ramsay style motivational burns."""
+    if not update.message:
+        return
     roasts = [
         "🔥 *This code is so raw, it's still importing dependencies!*",
         "😤 *You call that a function? My grandmother writes better code, and she's been dead for 20 years!*",
@@ -119,6 +125,8 @@ async def fortune_command(
     bot_service: TelegramBotService, update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Developer fortune cookies."""
+    if not update.message:
+        return
     fortunes = [
         "🥠 *A bug fixed today is a feature tomorrow.*",
         "🥠 *Your next commit will bring great joy to code reviewers.*",
@@ -141,22 +149,22 @@ async def stats_command(
 ) -> None:
     """Show detailed session statistics."""
     user = update.effective_user
-    if not user:
+    chat = update.effective_chat
+    message = update.message
+    if not user or not chat or not message:
         return
 
     user_id_str = str(user.id)
     allowed = bot_service.bot_manager.get_allowed_users("telegram")
     if user_id_str not in allowed:
-        await update.message.reply_text("Access denied.")
+        await message.reply_text("Access denied.")
         return
 
-    chat_id = update.effective_chat.id
+    chat_id = chat.id
     session = bot_service.sessions.get(chat_id)
 
     if not session:
-        await update.message.reply_text(
-            "📊 No active session. Send a message to start!"
-        )
+        await message.reply_text("📊 No active session. Send a message to start!")
         return
 
     # Get detailed stats
@@ -176,7 +184,7 @@ async def stats_command(
         f"📁 Working dir: `{TELEGRAM_WORKDIR}`\\n"
     )
 
-    await update.message.reply_text(stats_text, parse_mode=constants.ParseMode.MARKDOWN)
+    await message.reply_text(stats_text, parse_mode=constants.ParseMode.MARKDOWN)
 
 
 async def reload_command(
@@ -184,13 +192,14 @@ async def reload_command(
 ) -> None:
     """Reload bot configuration (hot-reload)."""
     user = update.effective_user
-    if not user:
+    message = update.message
+    if not user or not message:
         return
 
     user_id_str = str(user.id)
     allowed = bot_service.bot_manager.get_allowed_users("telegram")
     if user_id_str not in allowed:
-        await update.message.reply_text("Access denied.")
+        await message.reply_text("Access denied.")
         return
 
     try:
@@ -209,7 +218,7 @@ async def reload_command(
             session.config = new_config
             session.agent.config = new_config
 
-        await update.message.reply_text(
+        await message.reply_text(
             "🔄 **Configuration reloaded!**\\n\\n"
             f"Active model: {new_config.active_model}\\n"
             f"Active sessions updated: {len(bot_service.sessions)}",
@@ -217,4 +226,4 @@ async def reload_command(
         )
     except Exception as e:
         logger.exception("Failed to reload config")
-        await update.message.reply_text(f"❌ Reload failed: {e}")
+        await message.reply_text(f"❌ Reload failed: {e}")

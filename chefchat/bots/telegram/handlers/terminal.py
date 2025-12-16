@@ -21,19 +21,21 @@ class TerminalHandlers:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
-        if not user or not update.message:
+        tg_message = update.message
+        chat = update.effective_chat
+        if not user or not tg_message or not chat:
             return
 
         user_id_str = str(user.id)
         allowed = self.svc.bot_manager.get_allowed_users("telegram")
         if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
+            await tg_message.reply_text("Access denied.")
             return
 
-        chat_id = update.effective_chat.id
+        chat_id = chat.id
 
         if not context.args:
-            await update.message.reply_text(
+            await tg_message.reply_text(
                 "Usage: `/term <command>`\n\n"
                 "Examples:\n"
                 "• `/term bash` - Start bash shell\n"
@@ -45,105 +47,114 @@ class TerminalHandlers:
             return
 
         command = " ".join(context.args)
-        success, message = self.svc.terminal_manager.create_session(chat_id, command)
-
-        await update.message.reply_text(
-            message, parse_mode=constants.ParseMode.MARKDOWN
-        )
+        success, msg = self.svc.terminal_manager.create_session(chat_id, command)
+        await tg_message.reply_text(msg, parse_mode=constants.ParseMode.MARKDOWN)
 
     async def termstatus_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
-        if not user or not update.message:
+        tg_message = update.message
+        chat = update.effective_chat
+        if not user or not tg_message or not chat:
             return
 
         user_id_str = str(user.id)
         allowed = self.svc.bot_manager.get_allowed_users("telegram")
         if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
+            await tg_message.reply_text("Access denied.")
             return
 
-        chat_id = update.effective_chat.id
+        chat_id = chat.id
         status = self.svc.terminal_manager.get_session_status(chat_id)
 
-        await update.message.reply_text(status, parse_mode=constants.ParseMode.MARKDOWN)
+        await tg_message.reply_text(status, parse_mode=constants.ParseMode.MARKDOWN)
 
     async def termclose_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
-        if not user or not update.message:
+        tg_message = update.message
+        chat = update.effective_chat
+        if not user or not tg_message or not chat:
             return
 
         user_id_str = str(user.id)
         allowed = self.svc.bot_manager.get_allowed_users("telegram")
         if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
+            await tg_message.reply_text("Access denied.")
             return
 
-        chat_id = update.effective_chat.id
-        message = self.svc.terminal_manager.close_session(chat_id)
+        chat_id = chat.id
+        msg = self.svc.terminal_manager.close_session(chat_id)
 
-        await update.message.reply_text(message)
+        await tg_message.reply_text(msg)
 
     async def term_shortcut(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE, command: str
     ) -> None:
         user = update.effective_user
-        if not user or not update.message:
+        tg_message = update.message
+        chat = update.effective_chat
+        if not user or not tg_message or not chat:
             return
 
         user_id_str = str(user.id)
         allowed = self.svc.bot_manager.get_allowed_users("telegram")
         if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
+            await tg_message.reply_text("Access denied.")
             return
 
-        chat_id = update.effective_chat.id
-        success, message = self.svc.terminal_manager.create_session(chat_id, command)
+        chat_id = chat.id
+        success, msg = self.svc.terminal_manager.create_session(chat_id, command)
 
-        await update.message.reply_text(
-            message, parse_mode=constants.ParseMode.MARKDOWN
-        )
+        await tg_message.reply_text(msg, parse_mode=constants.ParseMode.MARKDOWN)
 
     async def term_switch_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Switch terminal CWD by restarting shell in a new path."""
+        tg_message = update.message
+        chat = update.effective_chat
+        if not tg_message or not chat:
+            return
         if not context.args:
-            await update.message.reply_text("Usage: `/termswitch <path>`")
+            await tg_message.reply_text("Usage: `/termswitch <path>`")
             return
         target = Path(context.args[0]).expanduser().resolve()
         if not target.exists() or not target.is_dir():
-            await update.message.reply_text("❌ Pad bestaat niet of is geen map.")
+            await tg_message.reply_text("❌ Pad bestaat niet of is geen map.")
             return
-        chat_id = update.effective_chat.id
+        chat_id = chat.id
         session = self.svc.terminal_manager.sessions.get(chat_id)
         command = session.command if session else "bash"
         self.svc.terminal_manager.close_session(chat_id)
         _, msg = self.svc.terminal_manager.create_session(chat_id, command, cwd=target)
-        await update.message.reply_text(msg, parse_mode=constants.ParseMode.MARKDOWN)
+        await tg_message.reply_text(msg, parse_mode=constants.ParseMode.MARKDOWN)
 
     async def term_upload_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Send a small file from the terminal cwd back to the user."""
-        if not context.args:
-            await update.message.reply_text("Usage: `/termupload <filename>`")
+        tg_message = update.message
+        chat = update.effective_chat
+        if not tg_message or not chat:
             return
-        chat_id = update.effective_chat.id
+        if not context.args:
+            await tg_message.reply_text("Usage: `/termupload <filename>`")
+            return
+        chat_id = chat.id
         session = self.svc.terminal_manager.sessions.get(chat_id)
         if not session:
-            await update.message.reply_text("❌ Geen actieve terminal sessie.")
+            await tg_message.reply_text("❌ Geen actieve terminal sessie.")
             return
         path = (session.cwd / context.args[0]).expanduser().resolve()
         try:
             if not path.is_file():
-                await update.message.reply_text("❌ Bestand niet gevonden.")
+                await tg_message.reply_text("❌ Bestand niet gevonden.")
                 return
             if path.stat().st_size > self.max_upload_bytes:
-                await update.message.reply_text("❌ Bestand te groot (max 200KB).")
+                await tg_message.reply_text("❌ Bestand te groot (max 200KB).")
                 return
             if self.svc.application:
                 with path.open("rb") as f:
@@ -151,4 +162,4 @@ class TerminalHandlers:
                         chat_id=chat_id, document=f, filename=path.name
                     )
         except Exception as e:
-            await update.message.reply_text(f"❌ Upload mislukt: {e}")
+            await tg_message.reply_text(f"❌ Upload mislukt: {e}")

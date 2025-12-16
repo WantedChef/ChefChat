@@ -19,11 +19,15 @@ class TaskHandlers:
     def __init__(self, svc: TelegramBotService) -> None:
         self.svc = svc
 
-    async def task_command(
+    async def task_command(  # noqa: PLR0911
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
-        raw_text = (update.message.text or "").strip()
+        chat = update.effective_chat
+        message = update.message
+        if not chat or not message:
+            return
+        chat_id = chat.id
+        raw_text = (message.text or "").strip()
         tokens = raw_text.split(maxsplit=1)
         tail = tokens[1] if len(tokens) > 1 else ""
 

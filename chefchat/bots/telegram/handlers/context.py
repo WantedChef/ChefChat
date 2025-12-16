@@ -7,9 +7,13 @@ from telegram import Update, constants
 from telegram.ext import ContextTypes
 
 if TYPE_CHECKING:
+    from chefchat.bots.session import BotSession
     from chefchat.bots.telegram.telegram_bot import TelegramBotService
 
 logger = logging.getLogger(__name__)
+
+SEARCH_PREVIEW_LEN = 80
+STATUS_PREVIEW_LEN = 60
 
 
 class ContextHandlers:
@@ -18,11 +22,13 @@ class ContextHandlers:
     def __init__(self, svc: TelegramBotService) -> None:
         self.svc = svc
 
-    async def context_command(
+    async def context_command(  # noqa: PLR0911
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Manage conversation context."""
-        if not update.message:
+        message = update.message
+        chat = update.effective_chat
+        if not message or not chat:
             return
         args = [a.strip() for a in (context.args or []) if a.strip()]
         sub = args[0].lower() if args else "status"
@@ -30,7 +36,7 @@ class ContextHandlers:
         if not user:
             return
 
-        session = self.svc._get_session(update.effective_chat.id, str(user.id))
+        session = self.svc._get_session(chat.id, str(user.id))
         if not session:
             await self.svc.start(update, context)
             return
@@ -58,14 +64,20 @@ class ContextHandlers:
         # Default: Status
         await self._handle_status(update, session, show_history=False)
 
-    async def _handle_clear(self, update: Update, session) -> None:
+    async def _handle_clear(self, update: Update, session: BotSession) -> None:
+        message = update.message
+        if not message:
+            return
         await session.clear_history()
-        await update.message.reply_text(
+        await message.reply_text(
             "🧹 Context and memory cleared!\n"
             "Bot will no longer remember this conversation."
         )
 
-    async def _handle_facts(self, update: Update, session) -> None:
+    async def _handle_facts(self, update: Update, session: BotSession) -> None:
+        message = update.message
+        if not message:
+            return
         stats = session.get_memory_stats()
         user_info = stats.get("user_info", {})
         key_facts = stats.get("key_facts", [])
@@ -82,35 +94,46 @@ class ContextHandlers:
             lines.append("\n_No facts remembered yet._")
 
         lines.append("\nUse `/context forget` to clear my memory of you.")
-        await update.message.reply_text(
+        await message.reply_text(
             "\n".join(lines), parse_mode=constants.ParseMode.MARKDOWN
         )
 
-    async def _handle_forget(self, update: Update, session) -> None:
+    async def _handle_forget(self, update: Update, session: BotSession) -> None:
+        message = update.message
+        if not message:
+            return
         session.memory.key_facts = []
         session.memory.user_info = {}
         session.memory.save_to_disk()
-        await update.message.reply_text(
-            "🧹 Forgotten all personal information about you."
-        )
+        await message.reply_text("🧹 Forgotten all personal information about you.")
 
-    async def _handle_search(self, update: Update, session, query: str) -> None:
+    async def _handle_search(
+        self, update: Update, session: BotSession, query: str
+    ) -> None:
+        message = update.message
+        if not message:
+            return
         results = session.memory.search(query, limit=5)
 
         if results:
             lines = [f"🔍 **Search Results for:** `{query}`"]
             for i, entry in enumerate(results, 1):
-                preview = entry.content[:80].replace("\n", " ")
-                if len(entry.content) > 80:
+                preview = entry.content[:SEARCH_PREVIEW_LEN].replace("\n", " ")
+                if len(entry.content) > SEARCH_PREVIEW_LEN:
                     preview += "..."
                 lines.append(f"{i}. [{entry.role}] {preview}")
-            await update.message.reply_text(
+            await message.reply_text(
                 "\n".join(lines), parse_mode=constants.ParseMode.MARKDOWN
             )
         else:
-            await update.message.reply_text(f"No results found for: {query}")
+            await message.reply_text(f"No results found for: {query}")
 
-    async def _handle_status(self, update: Update, session, show_history: bool) -> None:
+    async def _handle_status(
+        self, update: Update, session: BotSession, show_history: bool
+    ) -> None:
+        message = update.message
+        if not message:
+            return
         try:
             messages = session.agent.message_manager.messages
             agent_msg_count = len(messages)
@@ -159,8 +182,8 @@ class ContextHandlers:
                         msg.role.value if hasattr(msg.role, "value") else str(msg.role)
                     )
                     content = msg.content or "(no content)"
-                    preview = content[:60].replace("\n", " ")
-                    if len(content) > 60:
+                    preview = content[:STATUS_PREVIEW_LEN].replace("\n", " ")
+                    if len(content) > STATUS_PREVIEW_LEN:
                         preview += "..."
                     lines.append(f"`{i}. {role}`: {preview}")
 
@@ -173,9 +196,9 @@ class ContextHandlers:
                 "`/context clear` - Clear all memory"
             )
 
-            await update.message.reply_text(
+            await message.reply_text(
                 "\n".join(lines), parse_mode=constants.ParseMode.MARKDOWN
             )
         except Exception as e:
             logger.exception("context_command failed")
-            await update.message.reply_text(f"❌ Error: {e}")
+            await message.reply_text(f"❌ Error: {e}")

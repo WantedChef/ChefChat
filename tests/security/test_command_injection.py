@@ -5,12 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from chefchat.acp.tools.builtins.bash import (
-    AcpBashState,
-    Bash,
-    BashArgs,
-    BashToolConfig,
-)
+from chefchat.core.tools.builtins.bash import BashArgs, BashToolConfig
+from chefchat.acp.tools.builtins.bash import AcpBashState, Bash
 from chefchat.core.tools.base import ToolPermission
 
 

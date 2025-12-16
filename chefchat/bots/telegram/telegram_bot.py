@@ -25,17 +25,14 @@ from telegram.ext import (
 
 from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
-from chefchat.bots.telegram import fun_commands
 from chefchat.bots.telegram.approvals import ApprovalStore
 from chefchat.bots.telegram.cli_providers import CLI_PROVIDERS, CLIProviderManager
+from chefchat.bots.telegram.command_handlers import CommandHandlers
 from chefchat.bots.telegram.constants import (
     APPROVAL_TTL_S,
     CHEAP_MODEL_PRICE_THRESHOLD,
-    GIT_OUTPUT_MAX_LEN,
     MAX_TELEGRAM_API_RETRIES,
-    MIN_COMMAND_ARGS_MINIAPP,
     MIN_COMMAND_ARGS_MODEL_SELECT,
-    MIN_COMMAND_ARGS_SWITCH,
     MODEL_MENU_BUTTONS_PER_ROW,
     SESSION_IDLE_TTL_S,
     SESSION_IDLE_WARNING_S,
@@ -43,10 +40,19 @@ from chefchat.bots.telegram.constants import (
     TELEGRAM_MESSAGE_TRUNCATE_LIMIT,
     TELEGRAM_WORKDIR,
 )
+
+MODE_KEYWORDS = {
+    "plan": "PLAN",
+    "normal": "NORMAL",
+    "auto": "AUTO",
+    "yolo": "YOLO",
+    "architect": "ARCHITECT",
+}
+
 from chefchat.bots.telegram.handlers.admin import AdminHandlers
 from chefchat.bots.telegram.handlers.cli import CLIHandlers
-from chefchat.bots.telegram.handlers.core import CoreHandlers
 from chefchat.bots.telegram.handlers.context import ContextHandlers
+from chefchat.bots.telegram.handlers.core import CoreHandlers
 from chefchat.bots.telegram.handlers.models import ModelHandlers
 from chefchat.bots.telegram.handlers.policy import PolicyHandlers
 from chefchat.bots.telegram.handlers.tasks import TaskHandlers
@@ -61,6 +67,7 @@ from chefchat.core.utils import ApprovalResponse
 from chefchat.interface.services import ModelService
 
 logger = logging.getLogger(__name__)
+
 
 class TelegramBotService:
     def __init__(self, config: VibeConfig) -> None:
@@ -135,6 +142,7 @@ class TelegramBotService:
         self.context_handlers = ContextHandlers(self)
         self.admin = AdminHandlers(self)
         self.term_handlers = TerminalHandlers(self)
+        self.commands = CommandHandlers(self)
 
     def _acquire_lock(self) -> None:
         self._file_lock.acquire()
@@ -165,11 +173,7 @@ class TelegramBotService:
                 tool_policy=self.tool_policies.get(chat_id, "dev"),
             )
 
-        session = self.sessions.get_or_create(
-            chat_id,
-            user_id_str,
-            factory=_factory,
-        )
+        session = self.sessions.get_or_create(chat_id, user_id_str, factory=_factory)
         if session:
             self.tool_policies.setdefault(chat_id, "dev")
             self._touch_activity(chat_id)
@@ -281,7 +285,7 @@ class TelegramBotService:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self.core.start(update, context)
 
-    async def _try_dispatch_text_command(
+    async def _try_dispatch_text_command(  # noqa: PLR0911
         self,
         update: Update,
         context: ContextTypes.DEFAULT_TYPE,
@@ -296,75 +300,67 @@ class TelegramBotService:
         # Command keyword mapping
         keyword_handlers = {
             "start": self.start,
-            "stop": self.stop_command,
-            "clear": self.clear_command,
-            "help": self.help_command,
-            "status": self.status_command,
-            "stats": lambda u, c: fun_commands.stats_command(self, u, c),
-            "files": self.core.files_command,
-            "pwd": self.core.pwd_command,
-            "model": self.models.model_command,
-            "modelstatus": self.models.model_command,
+            "stop": self.commands.stop_command,
+            "clear": self.commands.clear_command,
+            "help": self.commands.help_command,
+            "status": self.commands.status_command,
+            "stats": self.commands.stats_command,
+            "files": self.commands.files_command,
+            "pwd": self.commands.pwd_command,
+            "model": self.commands.model_command,
+            "modelstatus": self.commands.model_command,
             "modellist": lambda u, c: self.models._handle_model_list(u, c),
             "modelselect": lambda u, c: self.models._handle_model_select_prompt(u, c),
-            "chef": lambda u, c: fun_commands.chef_command(self, u, c),
-            "wisdom": lambda u, c: fun_commands.wisdom_command(self, u, c),
-            "roast": lambda u, c: fun_commands.roast_command(self, u, c),
-            "fortune": lambda u, c: fun_commands.fortune_command(self, u, c),
-            "reload": lambda u, c: fun_commands.reload_command(self, u, c),
-            "chefchat": self.admin.chefchat_command,
-            "git": self.admin.git_command,
+            "chef": self.commands.chef_command,
+            "wisdom": self.commands.wisdom_command,
+            "roast": self.commands.roast_command,
+            "fortune": self.commands.fortune_command,
+            "reload": self.commands.reload_command,
+            "chefchat": self.commands.chefchat_command,
+            "git": self.commands.git_command,
             # CLI providers (AI assistants)
-            "gemini": lambda u, c: self._cli_shortcut(u, c, "gemini"),
-            "codex": lambda u, c: self._cli_shortcut(u, c, "codex"),
-            "opencode": lambda u, c: self._cli_shortcut(u, c, "opencode"),
-            "cli": self.cli_command,
-            "clistatus": self.cli_status_command,
-            "cliclose": self.cli_close_command,
-            "cliproviders": self.cli_providers_command,
-            "clirun": self.cli_run_command,
-            "clihistory": self.cli_history_command,
-            "clidiag": self.cli_diag_command,
-            "clisetup": self.cli_setup_command,
-            "clicancel": self.cli_cancel_command,
-            "cliretry": self.cli_retry_command,
-            "task": self.task_command,
-            "tasks": self.task_command,
-            "botmode": self.botmode_command,
-            "devmode": lambda u, c: self._handle_botmode_shortcut(u, c, "dev"),
-            "chatmode": lambda u, c: self._handle_botmode_shortcut(u, c, "chat"),
-            "combimode": lambda u, c: self._handle_botmode_shortcut(u, c, "combo"),
-            "modelrefresh": self.models.model_refresh_command,
-            "term": self.term_handlers.term_command,
-            "termstatus": self.term_handlers.termstatus_command,
-            "termclose": self.term_handlers.termclose_command,
-            "termbash": lambda u, c: self.term_handlers.term_shortcut(u, c, "bash"),
-            "termpython3": lambda u, c: self.term_handlers.term_shortcut(
-                u, c, "python3"
-            ),
-            "termvim": lambda u, c: self.term_handlers.term_shortcut(u, c, "vim"),
-            "termnode": lambda u, c: self.term_handlers.term_shortcut(u, c, "node"),
-            "termnpm": lambda u, c: self.term_handlers.term_shortcut(u, c, "npm"),
-            "termswitch": self.term_handlers.term_switch_command,
-            "termupload": self.term_handlers.term_upload_command,
-            "context": self.context_handlers.context_command,
-        }
-
-        mode_keywords = {
-            "plan": "PLAN",
-            "normal": "NORMAL",
-            "auto": "AUTO",
-            "yolo": "YOLO",
-            "architect": "ARCHITECT",
+            "gemini": lambda u, c: self.commands.cli_shortcut(u, c, "gemini"),
+            "codex": lambda u, c: self.commands.cli_shortcut(u, c, "codex"),
+            "opencode": lambda u, c: self.commands.cli_shortcut(u, c, "opencode"),
+            "cli": self.commands.cli_command,
+            "clistatus": self.commands.cli_status_command,
+            "cliclose": self.commands.cli_close_command,
+            "cliproviders": self.commands.cli_providers_command,
+            "clirun": self.commands.cli_run_command,
+            "clihistory": self.commands.cli_history_command,
+            "clidiag": self.commands.cli_diag_command,
+            "clisetup": self.commands.cli_setup_command,
+            "clicancel": self.commands.cli_cancel_command,
+            "cliretry": self.commands.cli_retry_command,
+            "task": self.commands.task_command,
+            "tasks": self.commands.task_command,
+            "botmode": self.commands.botmode_command,
+            "devmode": lambda u, c: self.commands.handle_botmode_shortcut(u, c, "dev"),
+            "chatmode": lambda u, c: self.commands.handle_botmode_shortcut(u, c, "chat"),
+            "combimode": lambda u, c: self.commands.handle_botmode_shortcut(u, c, "combo"),
+            "modelrefresh": self.commands.model_refresh_command,
+            "term": self.commands.term_command,
+            "termstatus": self.commands.termstatus_command,
+            "termclose": self.commands.termclose_command,
+            "termbash": lambda u, c: self.commands.term_shortcut(u, c, "bash"),
+            "termpython3": lambda u, c: self.commands.term_shortcut(u, c, "python3"),
+            "termvim": lambda u, c: self.commands.term_shortcut(u, c, "vim"),
+            "termnode": lambda u, c: self.commands.term_shortcut(u, c, "node"),
+            "termnpm": lambda u, c: self.commands.term_shortcut(u, c, "npm"),
+            "termswitch": self.commands.term_switch_command,
+            "termupload": self.commands.term_upload_command,
+            "context": self.commands.context_command,
         }
 
         # Check mode keyword
         if message_text == "mode":
-            await self.mode_command(update, context)
+            await self.commands.mode_command(update, context)
             return True
 
-        if message_text in mode_keywords:
-            await self._handle_mode_switch(update, context, mode_keywords[message_text])
+        if message_text in MODE_KEYWORDS:
+            await self.commands.handle_mode_switch(
+                update, context, MODE_KEYWORDS[message_text]
+            )
             return True
 
         if message_text in keyword_handlers:
@@ -478,7 +474,7 @@ class TelegramBotService:
     ) -> None:
         logger.exception("Telegram update handler error", exc_info=context.error)
 
-    async def handle_callback(
+    async def handle_callback(  # noqa: PLR0911
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         query = update.callback_query
@@ -548,36 +544,6 @@ class TelegramBotService:
         # Unblock the waiting tool approval in the session
         session.resolve_approval(tool_call_id, response, msg)
 
-    async def clear_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        user = update.effective_user
-        if not user or not update.effective_chat or not update.message:
-            return
-
-        session = self._get_session(update.effective_chat.id, str(user.id))
-        if not session:
-            await self.start(update, context)
-            return
-
-        await session.clear_history()
-        await update.message.reply_text("🧹 History cleared.")
-
-    async def context_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.context_handlers.context_command(update, context)
-
-    async def chefchat_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.admin.chefchat_command(update, context)
-
-    async def git_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.admin.git_command(update, context)
-
     async def _systemctl_user(self, args: list[str]) -> tuple[bool, str]:
         """Run `systemctl --user ...` and return (ok, output)."""
         systemctl = os.getenv("SYSTEMCTL_BIN", "/usr/bin/systemctl")
@@ -595,96 +561,7 @@ class TelegramBotService:
         out = (out_b or b"").decode("utf-8", errors="replace").strip()
         return proc.returncode == 0, out or "OK"
 
-    async def status_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.core.status_command(update, context)
-
-    async def api_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """Show provider API key status for Telegram users."""
-        user = update.effective_user
-        if not user or not update.message:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        providers = self.model_service.list_provider_info()
-        if not providers:
-            await update.message.reply_text("No providers configured.")
-            return
-
-        lines = ["🔑 API keys:"]
-        for p in providers:
-            key_state = "✅" if p.has_api_key else "❌"
-            env_hint = f" `{p.api_key_env_var}`" if p.api_key_env_var else ""
-            model_count = f"{p.model_count} models" if p.model_count else "no models"
-            base = f" · {p.api_base}" if p.api_base else ""
-            lines.append(f"{key_state} {p.name}{env_hint} — {model_count}{base}")
-
-        lines.append(
-            "\nSet keys in `~/.chefchat/.env` (or env vars) then run `/reload`."
-        )
-        await update.message.reply_text(
-            "\n".join(lines), parse_mode=constants.ParseMode.MARKDOWN
-        )
-
-    async def stop_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """Stop the current agent session."""
-        user = update.effective_user
-        if not user or not update.effective_chat:
-            return
-        if not update.message:
-            return
-
-        chat_id = update.effective_chat.id
-
-        session = self.sessions.get(chat_id)
-        if session:
-            # Clear the session
-            self._forget_session(chat_id)
-            await update.message.reply_text("🛑 Session stopped and cleared.")
-        else:
-            await update.message.reply_text("No active session to stop.")
-
-    async def files_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.core.files_command(update, context)
-
-    async def pwd_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.core.pwd_command(update, context)
-
-    async def help_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.core.help_command(update, context)
-
-    async def model_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.models.model_command(update, context)
-
-    async def _handle_model_callback(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.models._handle_model_callback(update, context)
-
-    async def model_refresh_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.models.model_refresh_command(update, context)
-
-    async def mode_command(
+    async def _render_mode_status(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Show current mode and available modes."""
@@ -798,44 +675,10 @@ class TelegramBotService:
     # Bot tool policy (dev/chat/combo)
     # =========================
 
-    def _current_tool_policy(self, chat_id: int) -> str:
-        return self.policy.get_current(chat_id)
-
-    def _set_tool_policy(self, chat_id: int, policy: str) -> str:
-        return self.policy.set_policy(chat_id, policy)
-
-    async def botmode_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.policy.botmode_command(update, context)
-
     async def _handle_botmode_shortcut(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE, policy: str
     ) -> None:
         await self.policy.handle_shortcut(update, context, policy)
-
-    async def _handle_botmode_callback(self, update: Update, data: str) -> None:
-        await self.policy.handle_callback(update, data)
-
-    async def term_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.term_handlers.term_command(update, context)
-
-    async def termstatus_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.term_handlers.termstatus_command(update, context)
-
-    async def termclose_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.term_handlers.termclose_command(update, context)
-
-    async def _term_shortcut(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE, command: str
-    ) -> None:
-        await self.term_handlers.term_shortcut(update, context, command)
 
     async def _notify_startup(self) -> None:
         """Send startup notification to allowed users."""
@@ -883,20 +726,29 @@ class TelegramBotService:
         try:
             return importlib.metadata.version("chefchat")
         except Exception:
-            pass
+            logger.debug("Package version not found", exc_info=True)
+
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        if not pyproject.is_file():
+            return None
 
         try:
-            root = Path(__file__).resolve().parents[2]
-            pyproject = root / "pyproject.toml"
-            if pyproject.is_file():
-                for line in pyproject.read_text().splitlines():
-                    if line.startswith("version"):
-                        parts = line.split("=", 1)
-                        if len(parts) == 2:
-                            return parts[1].strip().strip('"').strip("'")
+            for line in pyproject.read_text().splitlines():
+                if line.startswith("version"):
+                    parsed = self._parse_version_line(line)
+                    if parsed:
+                        return parsed
         except Exception:
-            pass
+            logger.debug("Failed to parse version from pyproject", exc_info=True)
         return None
+
+    @staticmethod
+    def _parse_version_line(line: str) -> str | None:
+        parts = line.split("=", 1)
+        expected_parts = 2
+        if len(parts) != expected_parts:
+            return None
+        return parts[1].strip().strip('"').strip("'")
 
     def _compute_bot_signature(self) -> str:
         """Compute a hash of the telegram bot code to detect changes."""
@@ -945,20 +797,20 @@ class TelegramBotService:
             raise RuntimeError("Application not initialized")
         handlers = [
             ("start", self.start),
-            ("stop", self.stop_command),
-            ("clear", self.clear_command),
-            ("status", self.status_command),
-            ("files", self.files_command),
-            ("pwd", self.pwd_command),
-            ("help", self.help_command),
-            ("api", self.api_command),
-            ("model", self.model_command),
-            ("mode", self.mode_command),
-            ("task", self.task_command),
-            ("tasks", self.task_command),
-            ("botmode", self.botmode_command),
-            ("chefchat", self.admin.chefchat_command),
-            ("context", self.context_command),
+            ("stop", self.commands.stop_command),
+            ("clear", self.commands.clear_command),
+            ("status", self.commands.status_command),
+            ("files", self.commands.files_command),
+            ("pwd", self.commands.pwd_command),
+            ("help", self.commands.help_command),
+            ("api", self.commands.api_command),
+            ("model", self.commands.model_command),
+            ("mode", self.commands.mode_command),
+            ("task", self.commands.task_command),
+            ("tasks", self.commands.task_command),
+            ("botmode", self.commands.botmode_command),
+            ("chefchat", self.commands.chefchat_command),
+            ("context", self.commands.context_command),
         ]
         for cmd, handler in handlers:
             app.add_handler(CommandHandler(cmd, handler))
@@ -969,16 +821,15 @@ class TelegramBotService:
         if app is None:
             raise RuntimeError("Application not initialized")
         fun_handlers = [
-            ("chef", fun_commands.chef_command),
-            ("wisdom", fun_commands.wisdom_command),
-            ("roast", fun_commands.roast_command),
-            ("fortune", fun_commands.fortune_command),
-            ("stats", fun_commands.stats_command),
-            ("reload", fun_commands.reload_command),
+            ("chef", self.commands.chef_command),
+            ("wisdom", self.commands.wisdom_command),
+            ("roast", self.commands.roast_command),
+            ("fortune", self.commands.fortune_command),
+            ("stats", self.commands.stats_command),
+            ("reload", self.commands.reload_command),
         ]
         for cmd, func in fun_handlers:
-            # Capture func in closure properly
-            app.add_handler(CommandHandler(cmd, lambda u, c, f=func: f(self, u, c)))
+            app.add_handler(CommandHandler(cmd, func))
 
     def _register_model_handlers(self) -> None:
         """Register model-related command handlers."""
@@ -996,25 +847,18 @@ class TelegramBotService:
                 lambda u, c: self.models._handle_model_select_prompt(u, c),
             )
         )
-        app.add_handler(CommandHandler("modelstatus", self.model_command))
-        app.add_handler(CommandHandler("modelrefresh", self.model_refresh_command))
+        app.add_handler(CommandHandler("modelstatus", self.commands.model_command))
+        app.add_handler(CommandHandler("modelrefresh", self.commands.model_refresh_command))
 
     def _register_mode_handlers(self) -> None:
         """Register mode switch command handlers."""
         app = self.application
         if app is None:
             raise RuntimeError("Application not initialized")
-        mode_commands = [
-            ("plan", "PLAN"),
-            ("normal", "NORMAL"),
-            ("auto", "AUTO"),
-            ("yolo", "YOLO"),
-            ("architect", "ARCHITECT"),
-        ]
-        for cmd, mode in mode_commands:
+        for cmd, mode in MODE_KEYWORDS.items():
             app.add_handler(
                 CommandHandler(
-                    cmd, lambda u, c, m=mode: self._handle_mode_switch(u, c, m)
+                    cmd, lambda u, c, m=mode: self.commands.handle_mode_switch(u, c, m)
                 )
             )
 
@@ -1023,11 +867,15 @@ class TelegramBotService:
         app = self.application
         if app is None:
             raise RuntimeError("Application not initialized")
-        app.add_handler(CommandHandler("term", self.term_command))
-        app.add_handler(CommandHandler("termstatus", self.termstatus_command))
-        app.add_handler(CommandHandler("termclose", self.termclose_command))
-        app.add_handler(CommandHandler("termswitch", self.term_handlers.term_switch_command))
-        app.add_handler(CommandHandler("termupload", self.term_handlers.term_upload_command))
+        app.add_handler(CommandHandler("term", self.commands.term_command))
+        app.add_handler(CommandHandler("termstatus", self.commands.termstatus_command))
+        app.add_handler(CommandHandler("termclose", self.commands.termclose_command))
+        app.add_handler(
+            CommandHandler("termswitch", self.commands.term_switch_command)
+        )
+        app.add_handler(
+            CommandHandler("termupload", self.commands.term_upload_command)
+        )
 
         # Terminal shortcut commands
         shortcuts = [
@@ -1039,76 +887,10 @@ class TelegramBotService:
         ]
         for cmd, shell_cmd in shortcuts:
             app.add_handler(
-                CommandHandler(cmd, lambda u, c, s=shell_cmd: self._term_shortcut(u, c, s))
+                CommandHandler(
+                    cmd, lambda u, c, s=shell_cmd: self.commands.term_shortcut(u, c, s)
+                )
             )
-
-    # =========================================================================
-    # CLI Provider Commands (Gemini, Codex, OpenCode)
-    # =========================================================================
-
-    async def cli_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_command(update, context)
-
-    async def cli_close_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_close_command(update, context)
-
-    async def cli_status_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_status_command(update, context)
-
-    async def cli_providers_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_providers_command(update, context)
-
-    async def cli_run_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_run_command(update, context)
-
-    async def cli_cancel_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_cancel_command(update, context)
-
-    async def cli_history_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_history_command(update, context)
-
-    async def cli_diag_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_diag_command(update, context)
-
-    async def cli_setup_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_setup_command(update, context)
-
-    async def cli_retry_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.cli_handlers.cli_retry_command(update, context)
-
-    # =========================================================================
-    # Task commands
-    # =========================================================================
-
-    async def task_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        await self.task_handlers.task_command(update, context)
-
-    async def _cli_shortcut(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE, provider_name: str
-    ) -> None:
-        await self.cli_handlers.cli_shortcut(update, context, provider_name)
 
     def _register_cli_handlers(self) -> None:
         """Register CLI provider command handlers."""
@@ -1116,16 +898,16 @@ class TelegramBotService:
         if app is None:
             raise RuntimeError("Application not initialized")
 
-        app.add_handler(CommandHandler("cli", self.cli_command))
-        app.add_handler(CommandHandler("cliclose", self.cli_close_command))
-        app.add_handler(CommandHandler("clistatus", self.cli_status_command))
-        app.add_handler(CommandHandler("cliproviders", self.cli_providers_command))
-        app.add_handler(CommandHandler("clirun", self.cli_run_command))
-        app.add_handler(CommandHandler("clihistory", self.cli_history_command))
-        app.add_handler(CommandHandler("clidiag", self.cli_diag_command))
-        app.add_handler(CommandHandler("clisetup", self.cli_setup_command))
-        app.add_handler(CommandHandler("cliretry", self.cli_retry_command))
-        app.add_handler(CommandHandler("clicancel", self.cli_cancel_command))
+        app.add_handler(CommandHandler("cli", self.commands.cli_command))
+        app.add_handler(CommandHandler("cliclose", self.commands.cli_close_command))
+        app.add_handler(CommandHandler("clistatus", self.commands.cli_status_command))
+        app.add_handler(CommandHandler("cliproviders", self.commands.cli_providers_command))
+        app.add_handler(CommandHandler("clirun", self.commands.cli_run_command))
+        app.add_handler(CommandHandler("clihistory", self.commands.cli_history_command))
+        app.add_handler(CommandHandler("clidiag", self.commands.cli_diag_command))
+        app.add_handler(CommandHandler("clisetup", self.commands.cli_setup_command))
+        app.add_handler(CommandHandler("cliretry", self.commands.cli_retry_command))
+        app.add_handler(CommandHandler("clicancel", self.commands.cli_cancel_command))
 
         # CLI provider shortcut commands
         cli_shortcuts = [
@@ -1135,7 +917,9 @@ class TelegramBotService:
         ]
         for cmd, provider in cli_shortcuts:
             app.add_handler(
-                CommandHandler(cmd, lambda u, c, p=provider: self._cli_shortcut(u, c, p))
+                CommandHandler(
+                    cmd, lambda u, c, p=provider: self.commands.cli_shortcut(u, c, p)
+                )
             )
 
     def _register_message_handlers(self) -> None:
@@ -1145,7 +929,9 @@ class TelegramBotService:
             raise RuntimeError("Application not initialized")
         # Route unknown slash-commands into the normal chat pipeline
         app.add_handler(MessageHandler(filters.COMMAND, self.handle_message))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        app.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+        )
         app.add_handler(CallbackQueryHandler(self.handle_callback))
         app.add_error_handler(self.error_handler)
 
@@ -1162,16 +948,19 @@ class TelegramBotService:
     async def _shutdown_gracefully(self, started: bool, polling: bool) -> None:
         """Gracefully shutdown the application."""
         app = self.application
+        if app is None:
+            return
+        updater = app.updater
         try:
-            if app is not None and polling:
-                await app.updater.stop()
+            if polling and updater is not None:
+                await updater.stop()
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.warning("Telegram updater stop failed: %s", e)
 
         try:
-            if app is not None and started:
+            if started:
                 await app.stop()
         except asyncio.CancelledError:
             pass
@@ -1179,8 +968,7 @@ class TelegramBotService:
             logger.warning("Telegram application stop failed: %s", e)
 
         try:
-            if app is not None:
-                await app.shutdown()
+            await app.shutdown()
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -1216,10 +1004,13 @@ class TelegramBotService:
             app = self.application
             if app is None:
                 raise RuntimeError("Application not initialized")
+            updater = app.updater
+            if updater is None:
+                raise RuntimeError("Telegram updater not initialized")
             await app.initialize()
             await app.start()
             started = True
-            await app.updater.start_polling(drop_pending_updates=True)
+            await updater.start_polling(drop_pending_updates=True)
             polling = True
 
             await self._notify_startup()
@@ -1233,40 +1024,52 @@ class TelegramBotService:
         while True:
             await asyncio.sleep(30)
             now = time.monotonic()
+            await self._expire_approvals(now)
+            await self._cleanup_idle_sessions()
+            await self._warn_idle_sessions()
 
-            for info in self.approvals.expire(now):
-                if self.application:
-                    try:
-                        await self.application.bot.send_message(
-                            chat_id=info.chat_id,
-                            text=f"⌛ Approval expired for {info.tool_name or 'tool'} (id {info.short_id}).",
-                        )
-                    except Exception:
-                        pass
+    async def _expire_approvals(self, now: float) -> None:
+        if not self.application:
+            return
 
-            # Idle session warnings/cleanup
-            for chat_id in list(self.sessions.idle_sessions(SESSION_IDLE_TTL_S)):
-                self._forget_session(chat_id)
-                if self.application:
-                    try:
-                        await self.application.bot.send_message(
-                            chat_id=chat_id,
-                            text="⏻ Session closed after inactivity.",
-                        )
-                    except Exception:
-                        pass
+        for info in self.approvals.expire(now):
+            try:
+                await self.application.bot.send_message(
+                    chat_id=info.chat_id,
+                    text=f"⌛ Approval expired for {info.tool_name or 'tool'} (id {info.short_id}).",
+                )
+            except Exception:
+                pass
 
-            if self.application:
-                for chat_id in list(self.sessions.sessions.keys()):
-                    if self.sessions.warnable(chat_id, SESSION_IDLE_WARNING_S):
-                        self.sessions.mark_warned(chat_id)
-                        try:
-                            await self.application.bot.send_message(
-                                chat_id=chat_id,
-                                text="⚠️ Session idle. Will close soon if no activity.",
-                            )
-                        except Exception:
-                            pass
+    async def _cleanup_idle_sessions(self) -> None:
+        if not self.application:
+            return
+
+        for chat_id in list(self.sessions.idle_sessions(SESSION_IDLE_TTL_S)):
+            self._forget_session(chat_id)
+            try:
+                await self.application.bot.send_message(
+                    chat_id=chat_id, text="⏻ Session closed after inactivity."
+                )
+            except Exception:
+                pass
+
+    async def _warn_idle_sessions(self) -> None:
+        if not self.application:
+            return
+
+        for chat_id in list(self.sessions.sessions.keys()):
+            if not self.sessions.warnable(chat_id, SESSION_IDLE_WARNING_S):
+                continue
+
+            self.sessions.mark_warned(chat_id)
+            try:
+                await self.application.bot.send_message(
+                    chat_id=chat_id,
+                    text="⚠️ Session idle. Will close soon if no activity.",
+                )
+            except Exception:
+                pass
 
 
 async def run_telegram_bot(config: VibeConfig) -> None:

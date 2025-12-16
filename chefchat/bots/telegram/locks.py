@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import fcntl
 import os
 from pathlib import Path
-import fcntl
 
 
 class FileLock:

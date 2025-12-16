@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl
 
 # Nonce storage: hash -> timestamp
 _used_nonces: dict[str, float] = {}
+NONCE_CLEANUP_THRESHOLD = 500
 
 
 def _cleanup_old_nonces(max_age_seconds: int) -> None:
@@ -74,7 +75,7 @@ def verify_init_data(
         # Store nonce to prevent replay
         _used_nonces[recv_hash] = time.time()
         # Periodic cleanup (amortized cost) with lower threshold for better memory management
-        if len(_used_nonces) > 500:  # Lower threshold for more frequent cleanup
+        if len(_used_nonces) > NONCE_CLEANUP_THRESHOLD:
             _cleanup_old_nonces(max_age_seconds)
 
     return is_valid

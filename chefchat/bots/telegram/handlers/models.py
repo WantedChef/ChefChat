@@ -11,7 +11,8 @@ import httpx
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
 from telegram.ext import ContextTypes
 
-from chefchat.core.config import VibeConfig
+from chefchat.bots.telegram.constants import ZEN_API_DEFAULT_BASE
+from chefchat.core.config import ProviderConfig, VibeConfig
 from chefchat.interface.services import ModelService
 
 if TYPE_CHECKING:
@@ -149,6 +150,10 @@ class ModelHandlers:
         action: str,
         args: list[str],
     ) -> None:
+        message = update.message
+        chat = update.effective_chat
+        if not message or not chat:
+            return
         try:
             if action == "list":
                 await self._perform_model_list(update)
@@ -156,13 +161,14 @@ class ModelHandlers:
                 full_args = ["select"] + args
                 await self._perform_model_select(update, full_args)
             elif action == "status":
-                await self.send_model_status_card(update.effective_chat.id)
+                await self.send_model_status_card(chat.id)
         except Exception as exc:
             logger.exception("telegram.model.legacy failed: %s", exc)
-            if update.message:
-                await update.message.reply_text(f"❌ Model command failed: {exc}")
+            await message.reply_text(f"❌ Model command failed: {exc}")
 
     async def _perform_model_list(self, update: Update) -> None:
+        if not update.message:
+            return
         refresh_msg = self._refresh_models_from_disk()
         lines = ["🧠 Beschikbare modellen:"]
         active = (self.svc.config.active_model or "").lower()
@@ -180,6 +186,8 @@ class ModelHandlers:
         await update.message.reply_text("\n".join(lines))
 
     async def _perform_model_select(self, update: Update, args: list[str]) -> None:
+        if not update.message:
+            return
         if len(args) < self.min_command_args_model_select:
             await update.message.reply_text("Usage: /model select <alias>")
             return
@@ -291,42 +299,63 @@ class ModelHandlers:
         results: dict[str, list[str]] = {}
         async with httpx.AsyncClient(timeout=10) as client:
             for provider in self.svc.config.providers:
-                if not provider.api_base:
+                models = await self._fetch_provider_models_for_provider(
+                    client, provider
+                )
+                if models is None:
                     continue
-                url = provider.api_base.rstrip("/") + "/models"
-                headers = {"Content-Type": "application/json"}
-                if provider.api_key_env_var:
-                    key = os.getenv(provider.api_key_env_var, "")
-                    if key:
-                        headers["Authorization"] = f"Bearer {key}"
-                try:
-                    resp = await client.get(url, headers=headers)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    names: list[str] = []
-                    if isinstance(data, dict) and "data" in data:
-                        for item in data["data"]:
-                            if isinstance(item, dict):
-                                ident = item.get("id") or item.get("name")
-                                if ident:
-                                    names.append(str(ident))
-                    elif isinstance(data, list):
-                        for item in data:
-                            if isinstance(item, dict):
-                                ident = item.get("id") or item.get("name")
-                                if ident:
-                                    names.append(str(ident))
-                            elif isinstance(item, str):
-                                names.append(item)
-                    results[provider.name] = sorted(set(names))
-                except Exception as exc:
-                    results.setdefault(provider.name, [])
-                    logger.debug(
-                        "modelrefresh: provider list failed for %s: %s",
-                        provider.name,
-                        exc,
-                    )
+                results[provider.name] = models
         return results
+
+    async def _fetch_provider_models_for_provider(
+        self, client: httpx.AsyncClient, provider: ProviderConfig
+    ) -> list[str] | None:
+        api_base = provider.api_base or (
+            ZEN_API_DEFAULT_BASE if provider.name.lower() == "opencode" else ""
+        )
+        if not api_base:
+            return None
+
+        url = api_base.rstrip("/") + "/models"
+        headers = {"Content-Type": "application/json"}
+        api_key = ""
+        if provider.api_key_env_var:
+            api_key = os.getenv(provider.api_key_env_var, "")
+        if not api_key:
+            api_key = os.getenv("ZEN_API_KEY", "")
+        if provider.api_key_env_var and api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+            headers["X-API-Key"] = api_key
+
+        try:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+        except Exception as exc:
+            logger.debug(
+                "modelrefresh: provider list failed for %s: %s", provider.name, exc
+            )
+            return []
+
+        return self._parse_model_list(resp.json())
+
+    @staticmethod
+    def _parse_model_list(payload: object) -> list[str]:
+        names: list[str] = []
+        if isinstance(payload, dict) and "data" in payload:
+            for item in payload["data"]:
+                if isinstance(item, dict):
+                    ident = item.get("id") or item.get("name")
+                    if ident:
+                        names.append(str(ident))
+        elif isinstance(payload, list):
+            for item in payload:
+                if isinstance(item, dict):
+                    ident = item.get("id") or item.get("name")
+                    if ident:
+                        names.append(str(ident))
+                elif isinstance(item, str):
+                    names.append(item)
+        return sorted(set(names))
 
     async def _fetch_provider_models(
         self, force: bool = False
@@ -347,7 +376,10 @@ class ModelHandlers:
     async def model_refresh_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         refresh_msg = self._refresh_models_from_disk()
 
         provider_models, from_cache = await self._fetch_provider_models()
@@ -369,6 +401,8 @@ class ModelHandlers:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         query = update.callback_query
+        if not query or not query.data:
+            return
         data = query.data
 
         if data == "mmain":
@@ -386,6 +420,9 @@ class ModelHandlers:
             return
 
     async def _show_model_root_menu(self, update: Update) -> None:
+        query = update.callback_query
+        if not query:
+            return
         active_model = self.model_service.get_active_model_info()
 
         categories = [
@@ -425,7 +462,7 @@ class ModelHandlers:
 
         reply_markup = InlineKeyboardMarkup(buttons)
         try:
-            await update.callback_query.edit_message_text(
+            await query.edit_message_text(
                 text=text,
                 reply_markup=reply_markup,
                 parse_mode=constants.ParseMode.MARKDOWN,
@@ -434,6 +471,9 @@ class ModelHandlers:
             pass
 
     async def _show_model_category(self, update: Update, category: str) -> None:
+        query = update.callback_query
+        if not query:
+            return
         active = (self.svc.config.active_model or "").lower()
         models = []
         for m in self.model_service.list_all_models():
@@ -481,21 +521,25 @@ class ModelHandlers:
 
         text = f"**{cat_title}**\nSelect a model to deploy:"
 
-        await update.callback_query.edit_message_text(
+        await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
             parse_mode=constants.ParseMode.MARKDOWN,
         )
 
     async def _select_model_and_confirm(self, update: Update, alias: str) -> None:
+        query = update.callback_query
+        chat = update.effective_chat
+        if not query or not chat:
+            return
         model = self.model_service.find_model_by_alias(alias)
         if not model:
-            await update.callback_query.answer("Model not found!", show_alert=True)
+            await query.answer("Model not found!", show_alert=True)
             return
         logger.info(
             "telegram.model.switch",
             extra={
-                "chat_id": update.effective_chat.id,
+                "chat_id": chat.id,
                 "model": model.alias,
                 "provider": model.provider,
             },
@@ -503,10 +547,10 @@ class ModelHandlers:
 
         success, message = self.model_service.switch_model(model.alias)
         if not success:
-            await update.callback_query.answer(message, show_alert=True)
+            await query.answer(message, show_alert=True)
             return
 
         self._propagate_active_model(model.alias)
 
-        await update.callback_query.answer(f"Switched to {model.alias}")
+        await query.answer(f"Switched to {model.alias}")
         await self._show_model_root_menu(update)

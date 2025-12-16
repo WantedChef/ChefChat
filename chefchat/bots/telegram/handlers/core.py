@@ -17,19 +17,21 @@ class CoreHandlers:
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
-        if not user:
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
             return
 
         user_id = str(user.id)
         allowed = self.svc.bot_manager.get_allowed_users("telegram")
 
         if user_id in allowed:
-            await update.message.reply_text(
+            await message.reply_text(
                 f"Welcome back, Chef {user.first_name}! 👨‍🍳\nSend me a message to start cooking."
             )
-            await self.svc.models.send_model_status_card(update.effective_chat.id)
+            await self.svc.models.send_model_status_card(chat.id)
         else:
-            await update.message.reply_text(
+            await message.reply_text(
                 f"🔒 Access Denied.\nYour User ID is: `{user_id}`\n\n"
                 f"To enable access, run this in your terminal:\n"
                 f"`/telegram allow {user_id}`",
@@ -39,6 +41,8 @@ class CoreHandlers:
     async def help_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
+        if not update.message:
+            return
         help_text = (
             "🤖 **ChefChat Bot Commands**\n\n"
             "💡 *Tip: Commands work with or without `/`*\n"
@@ -116,13 +120,15 @@ class CoreHandlers:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
-        if not user:
+        chat = update.effective_chat
+        message = update.message
+        if not user or not chat or not message:
             return
 
         user_id_str = str(user.id)
         allowed = self.svc.bot_manager.get_allowed_users("telegram")
         if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
+            await message.reply_text("Access denied.")
             return
 
         import subprocess
@@ -139,8 +145,8 @@ class CoreHandlers:
 
         cwd = str(self.svc.TELEGRAM_WORKDIR)
         session_count = len(self.svc.sessions)
-        cli_status = self.svc.cli_manager.get_session_status(update.effective_chat.id)
-        bot_policy = self.svc.policy.get_current(update.effective_chat.id)
+        cli_status = self.svc.cli_manager.get_session_status(chat.id)
+        bot_policy = self.svc.policy.get_current(chat.id)
 
         status_text = (
             f"🤖 **ChefChat Bot Status**\n\n"
@@ -151,9 +157,59 @@ class CoreHandlers:
             f"🤖 CLI: {cli_status}\n"
             f"🔧 Commands: /help for list"
         )
-        await update.message.reply_text(
+        await message.reply_text(
             status_text, parse_mode=constants.ParseMode.MARKDOWN
         )
+
+    async def api_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show provider API key status for Telegram users."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.svc.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        providers = self.svc.model_service.list_provider_info()
+        if not providers:
+            await update.message.reply_text("No providers configured.")
+            return
+
+        lines = ["🔑 API keys:"]
+        for p in providers:
+            key_state = "✅" if p.has_api_key else "❌"
+            env_hint = f" `{p.api_key_env_var}`" if p.api_key_env_var else ""
+            model_count = f"{p.model_count} models" if p.model_count else "no models"
+            base = f" · {p.api_base}" if p.api_base else ""
+            lines.append(f"{key_state} {p.name}{env_hint} — {model_count}{base}")
+
+        lines.append(
+            "\nSet keys in `~/.chefchat/.env` (or env vars) then run `/reload`."
+        )
+        await update.message.reply_text(
+            "\n".join(lines), parse_mode=constants.ParseMode.MARKDOWN
+        )
+
+    async def stop_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Stop the current agent session."""
+        user = update.effective_user
+        if not user or not update.effective_chat or not update.message:
+            return
+
+        chat_id = update.effective_chat.id
+        session = self.svc.sessions.get(chat_id)
+        if session:
+            self.svc._forget_session(chat_id)
+            await update.message.reply_text("🛑 Session stopped and cleared.")
+        else:
+            await update.message.reply_text("No active session to stop.")
 
     async def files_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE

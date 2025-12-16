@@ -7,6 +7,11 @@ from typing import TYPE_CHECKING
 from telegram import Update, constants
 from telegram.ext import ContextTypes
 
+from chefchat.bots.telegram.constants import (
+    GIT_OUTPUT_MAX_LEN,
+    MIN_COMMAND_ARGS_MINIAPP,
+    MIN_COMMAND_ARGS_SWITCH,
+)
 from chefchat.kitchen.stations.git_chef import GitCommandValidator
 
 if TYPE_CHECKING:
@@ -110,7 +115,7 @@ class AdminHandlers:
             return
 
         args = context.args or []
-        if len(args) < self.svc.MIN_COMMAND_ARGS_MINIAPP:
+        if len(args) < MIN_COMMAND_ARGS_MINIAPP:
             await update.message.reply_text(
                 f"Usage: /chefchat {action} <start|stop|restart|status> [project]"
             )
@@ -122,9 +127,7 @@ class AdminHandlers:
             return
 
         project = (
-            args[2].strip()
-            if len(args) >= self.svc.MIN_COMMAND_ARGS_SWITCH
-            else "chefchat"
+            args[2].strip() if len(args) >= MIN_COMMAND_ARGS_SWITCH else "chefchat"
         )
         if self.svc._allowed_projects and project not in self.svc._allowed_projects:
             await update.message.reply_text("Unknown project.")
@@ -152,7 +155,7 @@ class AdminHandlers:
             return
 
         args = context.args or []
-        if len(args) < self.svc.MIN_COMMAND_ARGS_MINIAPP:
+        if len(args) < MIN_COMMAND_ARGS_SWITCH:
             await update.message.reply_text("Usage: /chefchat switch <project>")
             return
 
@@ -227,8 +230,8 @@ class AdminHandlers:
             icon = "✅" if returncode == 0 else "❌"
             header = f"{icon} Git {validated_args[1]} finished (code {returncode})"
 
-            if len(output) > self.svc.GIT_OUTPUT_MAX_LEN:
-                output = output[: self.svc.GIT_OUTPUT_MAX_LEN] + "\n...(truncated)"
+            if len(output) > GIT_OUTPUT_MAX_LEN:
+                output = output[:GIT_OUTPUT_MAX_LEN] + "\n...(truncated)"
 
             await update.message.reply_text(
                 f"**{header}**\n```\n{output}\n```",

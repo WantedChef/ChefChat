@@ -38,9 +38,13 @@ class PolicyHandlers:
     async def botmode_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        chat_id = update.effective_chat.id
-        if context and getattr(context, "args", None):
-            message = self.set_policy(chat_id, context.args[0])
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
+        args = list(context.args or []) if context else []
+        if args:
+            message = self.set_policy(chat_id, args[0])
             await self.svc._send_message(chat_id, message)
             return
 
@@ -73,15 +77,22 @@ class PolicyHandlers:
     async def handle_shortcut(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE, policy: str
     ) -> None:
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if not chat:
+            return
+        chat_id = chat.id
         msg = self.set_policy(chat_id, policy)
         await self.svc._send_message(chat_id, msg)
 
     async def handle_callback(self, update: Update, data: str) -> None:
-        chat_id = update.effective_chat.id
+        query = update.callback_query
+        chat = update.effective_chat
+        if not chat or not query:
+            return
+        chat_id = chat.id
         _, policy = data.split(":", 1)
         msg = self.set_policy(chat_id, policy)
         try:
-            await update.callback_query.edit_message_text(msg)
+            await query.edit_message_text(msg)
         except Exception:
             await self.svc._send_message(chat_id, msg)

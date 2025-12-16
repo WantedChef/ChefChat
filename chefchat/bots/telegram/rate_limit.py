@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import deque
 import time
-from typing import Deque, Dict
 
 
 class RateLimiter:
@@ -11,7 +10,7 @@ class RateLimiter:
     def __init__(self, window_s: float, max_events: int) -> None:
         self.window_s = window_s
         self.max_events = max_events
-        self._events: Dict[str, Deque[float]] = {}
+        self._events: dict[str, deque[float]] = {}
 
     def allow(self, user_id: str) -> bool:
         now = time.monotonic()
