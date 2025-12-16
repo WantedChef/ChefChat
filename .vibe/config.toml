@@ -48,7 +48,7 @@ backend = "generic"
 
 [[providers]]
 name = "opencode"
-api_base = "https://api.zeninference.ai/v1"
+api_base = "https://opencode.ai/zen/v1"
 api_key_env_var = "ZEN_API_KEY"
 api_style = "openai"
 backend = "generic"
@@ -379,7 +379,7 @@ features = [
 
 [[models]]
 alias = "zen-1"
-name = "opencode/zen-1"
+name = "gpt-5"
 provider = "opencode"
 temperature = 0.2
 input_price = 0.0
@@ -393,7 +393,7 @@ features = [
 
 [[models]]
 alias = "zen-mini"
-name = "opencode/zen-mini"
+name = "gpt-5-nano"
 provider = "opencode"
 temperature = 0.2
 input_price = 0.0
@@ -407,7 +407,7 @@ features = [
 
 [[models]]
 alias = "grok-fast"
-name = "grok-fast-code-1"
+name = "grok-code"
 provider = "opencode"
 temperature = 0.2
 input_price = 0.0
@@ -416,6 +416,32 @@ max_tokens = 16000
 features = [
     "coding",
     "speed",
+    "free",
+]
+
+[[models]]
+alias = "alpha-gd4"
+name = "alpha-gd4"
+provider = "opencode"
+temperature = 0.0
+input_price = 0.0
+output_price = 0.0
+max_tokens = 32768
+features = [
+    "experimental",
+    "free",
+]
+
+[[models]]
+alias = "big-pickle"
+name = "big-pickle"
+provider = "opencode"
+temperature = 0.2
+input_price = 0.0
+output_price = 0.0
+max_tokens = 32768
+features = [
+    "experimental",
     "free",
 ]
 
