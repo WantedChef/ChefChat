@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
+from chefchat.modes import ModeManager
 from chefchat.kitchen.stations.git_chef import GitCommandValidator
 
 if TYPE_CHECKING:
@@ -24,6 +25,10 @@ class AdminHandlers:
 
         if content.startswith("/chefchat"):
             await self._handle_chefchat_command(message)
+            return True
+
+        if content.startswith("/status"):
+            await self._handle_status(message)
             return True
 
         if content.startswith("/git"):
@@ -53,6 +58,37 @@ class AdminHandlers:
         else:
             await message.channel.send("Unknown action.")
 
+    async def _handle_status(self, message: discord.Message) -> None:
+        """Render a status embed including mode snapshot."""
+        session = self.svc._get_session(message.channel.id, str(message.author.id))
+        if not session:
+            await message.channel.send("No active session yet. Send a message first.")
+            return
+
+        embed = discord.Embed(
+            title="📊 ChefChat Status",
+            color=discord.Color.gold(),
+        )
+
+        # Mode snapshot
+        mode_manager: ModeManager | None = getattr(session.agent, "mode_manager", None)
+        if mode_manager:
+            mode_snapshot = mode_manager.get_state_snapshot(include_modes=False)
+            current = mode_snapshot.get("current_mode", {})
+            embed.add_field(
+                name="Mode",
+                value=(
+                    f"{current.get('emoji', '')} {current.get('name', 'N/A')}\n"
+                    f"Auto: {'ON' if current.get('auto_approve') else 'OFF'} • "
+                    f"Read-only: {'YES' if current.get('read_only') else 'NO'}"
+                ).strip(),
+                inline=False,
+            )
+        else:
+            embed.add_field(name="Mode", value="Unavailable", inline=False)
+
+        await message.channel.send(embed=embed)
+
     async def _handle_git_command(self, message: discord.Message) -> None:
         args = message.content.split()[1:]
         if not args:
@@ -62,6 +98,23 @@ class AdminHandlers:
             return
 
         raw_args = " ".join(args)
+        await self._execute_git_command(message, raw_args)
+
+    async def handle_git_direct(self, message: discord.Message) -> None:
+        """Handle direct git commands without slash (e.g., 'git status')."""
+        # Extract everything after "git "
+        raw_args = message.content.strip()[4:].strip()  # Remove "git " prefix
+        if not raw_args:
+            await message.channel.send(
+                "Usage: `git <command>` (e.g., git status, git log)"
+            )
+            return
+        await self._execute_git_command(message, raw_args)
+
+    async def _execute_git_command(
+        self, message: discord.Message, raw_args: str
+    ) -> None:
+        """Execute a git command with validation."""
         validated_args = GitCommandValidator.parse_and_validate(raw_args)
 
         if validated_args is None:

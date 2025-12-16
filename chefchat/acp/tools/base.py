@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any, Protocol, cast, runtime_checkable
 
 from acp import AgentSideConnection, SessionNotification
 from acp.helpers import SessionUpdate, ToolCallContentVariant
 from acp.schema import ToolCallProgress
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from chefchat.core.tools.base import BaseTool, BaseToolConfig, BaseToolState, ToolError
+from chefchat.core.tools.base import BaseToolState, ToolError
 from chefchat.core.tools.manager import ToolManager
 from chefchat.core.types import ToolCallEvent, ToolResultEvent
 from chefchat.core.utils import logger
@@ -40,27 +40,14 @@ class AcpToolState(BaseToolState):
     )
 
 
-from typing import Generic, TypeVar
-
-ArgsT = TypeVar("ArgsT", bound=BaseModel)
-ResultT = TypeVar("ResultT", bound=BaseModel)
-ConfigT = TypeVar("ConfigT", bound=BaseToolConfig)
-ToolState = TypeVar("ToolState", bound=AcpToolState)
-
-
-class BaseAcpTool(
-    BaseTool[ArgsT, ResultT, ConfigT, ToolState],
-    Generic[ArgsT, ResultT, ConfigT, ToolState],
-):
-    state: ToolState
+class BaseAcpTool(ABC):
+    state: AcpToolState
 
     @classmethod
     def get_tool_instance(
         cls, tool_name: str, tool_manager: ToolManager
-    ) -> BaseAcpTool[Any, Any, Any, AcpToolState]:
-        return cast(
-            BaseAcpTool[Any, Any, Any, AcpToolState], tool_manager.get(tool_name)
-        )
+    ) -> BaseAcpTool:
+        return cast(BaseAcpTool, tool_manager.get(tool_name))
 
     @classmethod
     def update_tool_state(
@@ -78,7 +65,7 @@ class BaseAcpTool(
 
     @classmethod
     @abstractmethod
-    def _get_tool_state_class(cls) -> type[ToolState]: ...
+    def _get_tool_state_class(cls) -> type[AcpToolState]: ...
 
     def _load_state(self) -> tuple[AgentSideConnection, str, str | None]:
         if self.state.connection is None:

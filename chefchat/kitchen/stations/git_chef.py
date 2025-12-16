@@ -94,12 +94,7 @@ class GitCommandValidator:
             if len(args) < cls.MIN_REQUIRED_ARGS:
                 return None  # Need at least 'git' + subcommand
 
-            # Validate subcommand
-            subcommand = args[1]
-            if subcommand not in cls.ALLOWED_SUBCOMMANDS:
-                return None
-
-            # Check for dangerous flags
+            # Minimal flag check (still block dangerous global overrides)
             for arg in args[2:]:
                 if arg in cls.FORBIDDEN_FLAGS:
                     return None

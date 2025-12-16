@@ -8,10 +8,12 @@ import logging
 import time
 from typing import Any
 
+from chefchat.bots.memory import ConversationMemory
 from chefchat.core.agent import Agent
 from chefchat.core.config import VibeConfig
 from chefchat.core.types import AssistantEvent, ToolCallEvent, ToolResultEvent
 from chefchat.core.utils import ApprovalResponse
+from chefchat.modes import ModeManager, VibeMode
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,7 @@ class BotSession:
     """Manages a ChefChat session for a specific user/chat on a bot platform.
 
     Bridges the Agent's event stream to the bot's messaging interface.
+    Now with persistent conversation memory.
     """
 
     def __init__(
@@ -29,6 +32,7 @@ class BotSession:
         update_message: Callable[[Any, str], Awaitable[None]],
         request_approval: Callable[[str, dict[str, Any], str], Awaitable[Any]],
         user_id: str,
+        chat_id: int | str | None = None,
         tool_policy: str = "dev",
     ) -> None:
         self.config = config
@@ -36,8 +40,20 @@ class BotSession:
         self.update_message = update_message
         self.request_approval = request_approval
         self.user_id = user_id
+        self.chat_id = str(chat_id) if chat_id else user_id
         self.tool_policy = tool_policy  # dev | chat | combo
         self.safe_auto_tools = {"read_file", "grep"}
+
+        # Initialize persistent memory
+        self.memory = ConversationMemory(chat_id=self.chat_id)
+
+        # Mode manager for this session (bots stay in NORMAL unless switched)
+        self.mode_manager = ModeManager(
+            initial_mode=VibeMode.NORMAL, snapshots_enabled=False
+        )
+
+        # Ensure we always have a valid active model configured for the Agent.
+        self._ensure_active_model()
 
         # Initialize agent
         # We might want to pass a modified config or mode_manager if needed
@@ -45,11 +61,47 @@ class BotSession:
             config,
             auto_approve=False,  # We want control
             enable_streaming=True,
+            mode_manager=self.mode_manager,
         )
         self.agent.set_approval_callback(self._approval_callback)
 
+        # Sync memory with agent if we have previous messages
+        self._restore_context_from_memory()
+
         # Approval management
         self._pending_approvals: dict[str, asyncio.Future[tuple[str, str | None]]] = {}
+
+    def _ensure_active_model(self) -> None:
+        """Fallback to the first configured model if the active one is missing."""
+        try:
+            self.config.get_active_model()
+        except ValueError:
+            if self.config.models:
+                fallback = self.config.models[0].alias
+                logger.warning(
+                    "BotSession: active_model '%s' missing; falling back to '%s'",
+                    self.config.active_model,
+                    fallback,
+                )
+                self.config.active_model = fallback
+            else:
+                logger.error("BotSession: no models configured; agent may fail to start")
+
+    def _restore_context_from_memory(self) -> None:
+        """Restore agent context from persistent memory."""
+        if not self.memory.entries:
+            return
+
+        # Get context injection for system prompt enhancement
+        context_injection = self.memory.get_context_injection()
+        if context_injection:
+            # Log context restoration
+            logger.info(
+                "session.restore: chat=%s entries=%d context=%s",
+                self.chat_id,
+                len(self.memory.entries),
+                context_injection[:100],
+            )
 
     async def _approval_callback(
         self, tool_name: str, args: dict[str, Any], tool_call_id: str
@@ -107,6 +159,19 @@ class BotSession:
         last_update_time = 0.0
         update_interval = 1.0  # seconds
 
+        # Sync user message to persistent memory
+        self.memory.add_message("user", text)
+
+        # Debug: log message count before processing
+        msg_count_before = len(self.agent.messages)
+        logger.debug(
+            "session.act: chat=%s before=%d memory=%d text=%r",
+            self.chat_id,
+            msg_count_before,
+            len(self.memory.entries),
+            text[:50] if text else "",
+        )
+
         try:
             async for event in self.agent.act(text):
                 if isinstance(event, AssistantEvent):
@@ -136,9 +201,35 @@ class BotSession:
             # Final update
             await self.update_message(current_msg_handle, response_buffer)
 
+            # Sync assistant response to persistent memory
+            if response_buffer:
+                self.memory.add_message("assistant", response_buffer)
+                self.memory.save_to_disk()
+
+            # Debug: log message count after successful processing
+            msg_count_after = len(self.agent.messages)
+            logger.debug(
+                "session.act: chat=%s after=%d memory=%d (added %d)",
+                self.chat_id,
+                msg_count_after,
+                len(self.memory.entries),
+                msg_count_after - msg_count_before,
+            )
+
         except Exception as e:
             logger.exception("Error in agent loop")
             await self.send_message(f"💥 Error: {e}")
 
     async def clear_history(self) -> None:
+        """Clear agent history and persistent memory."""
         await self.agent.clear_history()
+        self.memory.clear()
+        logger.info("session.clear: chat=%s", self.chat_id)
+
+    def get_memory_stats(self) -> dict:
+        """Get memory statistics for this session."""
+        return self.memory.get_stats()
+
+    def get_memory_context(self) -> str | None:
+        """Get context injection from memory."""
+        return self.memory.get_context_injection()

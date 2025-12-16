@@ -114,9 +114,81 @@ class SecureCommandExecutor:
         "rustc",
         "docker",
         "docker-compose",
-        # Editors (headless)
+        # Shell utilities
+        "bash",
+        "sh",
+        "zsh",
+        "fish",
+        # Text processing
+        "less",
+        "more",
+        "nano",
         "vim",
-        "nano",  # Usually blocked by non-interactive mode but added for completeness
+        "emacs",
+        "code",
+        # Archive utilities
+        "tar",
+        "zip",
+        "unzip",
+        "gzip",
+        "gunzip",
+        "bzip2",
+        "bunzip2",
+        # Process management
+        "nohup",
+        "sleep",
+        "cal",
+        "who",
+        "w",
+        # Development tools
+        "pytest",
+        "black",
+        "ruff",
+        "mypy",
+        "flake8",
+        "pre-commit",
+        "poetry",
+        "virtualenv",
+        "conda",
+        "yarn",
+        "pnpm",
+        "gradle",
+        "mvn",
+        "ant",
+        "cmake",
+        # Additional useful commands
+        "rsync",
+        "scp",
+        "ssh",
+        "jq",
+        "yq",
+        "httpie",
+        "http",  # Usually blocked by non-interactive mode but added for completeness
+    }
+
+    # Shell built-ins that require shell context
+    SHELL_BUILTINS: ClassVar[set[str]] = {
+        "cd",
+        "pushd",
+        "popd",
+        "dirs",
+        "source",
+        "exec",
+        "exit",
+        "export",
+        "unset",
+        "alias",
+        "unalias",
+        "history",
+        "jobs",
+        "fg",
+        "bg",
+        "wait",
+        "umask",
+        "ulimit",
+        "type",
+        "times",
+        "hash",
     }
 
     def __init__(self, workdir: Path) -> None:
@@ -126,6 +198,7 @@ class SecureCommandExecutor:
             workdir: Working directory for commands
         """
         self.workdir = workdir
+        self._current_workdir = workdir
 
     @staticmethod
     def get_safe_env() -> dict[str, str]:
@@ -216,13 +289,21 @@ class SecureCommandExecutor:
         executable = args[0]
         base_executable = os.path.basename(executable)
 
+        # Check if it's a shell built-in
+        is_shell_builtin = (
+            base_executable in self.SHELL_BUILTINS or executable in self.SHELL_BUILTINS
+        )
+
+        # Validate executable (allow shell built-ins)
         if (
-            base_executable not in self.ALLOWED_EXECUTABLES
+            not is_shell_builtin
+            and base_executable not in self.ALLOWED_EXECUTABLES
             and executable not in self.ALLOWED_EXECUTABLES
         ):
             raise ToolError(
                 f"Executable '{executable}' is not allowed. "
-                f"Permitted executables: {', '.join(sorted(self.ALLOWED_EXECUTABLES))}"
+                f"Permitted executables: {', '.join(sorted(self.ALLOWED_EXECUTABLES))} "
+                f"Shell built-ins: {', '.join(sorted(self.SHELL_BUILTINS))}"
             )
 
         # 3. Prepare Environment
@@ -233,22 +314,67 @@ class SecureCommandExecutor:
         # 4. Log
         # logger.debug(f"Executing: {command} in {self.workdir}")
 
-        # 5. Execute (NO SHELL)
+        # 5. Execute (shell for built-ins, direct for executables)
         try:
             # start_new_session is Unix-only
             kwargs: dict[Literal["start_new_session"], bool] = (
                 {} if is_windows() else {"start_new_session": True}
             )
 
-            proc = await asyncio.create_subprocess_exec(
-                *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                stdin=asyncio.subprocess.DEVNULL,
-                cwd=self.workdir,
-                env=safe_env,
-                **kwargs,
-            )
+            # Special handling for cd command
+            if base_executable == "cd" and len(args) > 1:
+                target_dir = args[1]
+                if target_dir == "~":
+                    target_path = Path.home()
+                elif target_dir.startswith("-"):
+                    # Handle cd - (previous directory) - for simplicity, go to home
+                    target_path = Path.home()
+                else:
+                    target_path = Path(target_dir)
+
+                # Resolve relative paths against current working directory
+                if not target_path.is_absolute():
+                    target_path = self._current_workdir / target_path
+
+                target_path = target_path.resolve()
+
+                if not target_path.exists():
+                    raise ToolError(f"Directory does not exist: {target_path}")
+
+                if not target_path.is_dir():
+                    raise ToolError(f"Path is not a directory: {target_path}")
+
+                # Update the working directory for subsequent commands
+                self._current_workdir = target_path
+
+                # Return success with no output
+                return "", f"Changed directory to: {target_path}", 0
+
+            # Use current working directory for execution
+            execution_dir = self._current_workdir
+
+            if is_shell_builtin:
+                # For shell built-ins, we need to use shell=True
+                proc = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    cwd=execution_dir,
+                    env=safe_env,
+                    **kwargs,
+                )
+            else:
+                # For regular executables, use direct execution
+                proc = await asyncio.create_subprocess_exec(
+                    *args,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    cwd=execution_dir,
+                    env=safe_env,
+                    **kwargs,
+                )
 
             subprocess_timeout = timeout
 
@@ -277,3 +403,11 @@ class SecureCommandExecutor:
             raise
         except Exception as e:
             raise ToolError(f"Command execution failed: {e}") from e
+
+    def get_current_workdir(self) -> Path:
+        """Get the current working directory for command execution."""
+        return self._current_workdir
+
+    def reset_workdir(self) -> None:
+        """Reset the working directory to the original workdir."""
+        self._current_workdir = self.workdir

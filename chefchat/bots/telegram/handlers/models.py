@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
+from telegram.ext import ContextTypes
 
 from chefchat.core.config import VibeConfig
 from chefchat.interface.services import ModelService
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from chefchat.bots.telegram.telegram_bot import TelegramBotService
 
 logger = logging.getLogger(__name__)
+
 
 class ModelHandlers:
     """Model selection and status flows."""
@@ -71,7 +73,9 @@ class ModelHandlers:
                 parse_mode=constants.ParseMode.MARKDOWN,
             )
 
-    async def model_command(self, update: Update, context: object) -> None:
+    async def model_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         try:
             user = update.effective_user
             if not user or not update.message:
@@ -141,7 +145,7 @@ class ModelHandlers:
     async def _legacy_model_handler(
         self,
         update: Update,
-        context: object,
+        context: ContextTypes.DEFAULT_TYPE,
         action: str,
         args: list[str],
     ) -> None:
@@ -159,6 +163,7 @@ class ModelHandlers:
                 await update.message.reply_text(f"❌ Model command failed: {exc}")
 
     async def _perform_model_list(self, update: Update) -> None:
+        refresh_msg = self._refresh_models_from_disk()
         lines = ["🧠 Beschikbare modellen:"]
         active = (self.svc.config.active_model or "").lower()
         models = sorted(self.model_service.list_all_models(), key=lambda x: x.alias)
@@ -170,6 +175,8 @@ class ModelHandlers:
                 price = f" | ${m.input_price:.2f}/{m.output_price:.2f} per MT"
             features = f" [{', '.join(sorted(m.features))}]" if m.features else ""
             lines.append(f"{marker} {m.alias} ({m.provider}{price}){features}")
+        if refresh_msg:
+            lines.append(f"\n{refresh_msg}")
         await update.message.reply_text("\n".join(lines))
 
     async def _perform_model_select(self, update: Update, args: list[str]) -> None:
@@ -184,9 +191,13 @@ class ModelHandlers:
             return
 
         self._propagate_active_model(self.svc.config.active_model)
-        await update.message.reply_text(f"✅ Switched model to: {self.svc.config.active_model}")
+        await update.message.reply_text(
+            f"✅ Switched model to: {self.svc.config.active_model}"
+        )
 
-    async def _handle_model_list(self, update: Update, context: object) -> None:
+    async def _handle_model_list(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         user = update.effective_user
         if not user or not update.message:
             return
@@ -198,9 +209,12 @@ class ModelHandlers:
             return
 
         try:
+            _ = self._refresh_models_from_disk()
             lines = ["Available models:"]
             active = (self.svc.config.active_model or "").lower()
-            for m in sorted(self.model_service.list_all_models(), key=lambda x: x.alias):
+            for m in sorted(
+                self.model_service.list_all_models(), key=lambda x: x.alias
+            ):
                 is_active = m.alias.lower() == active or m.model_id.lower() == active
                 marker = "✅" if is_active else "•"
                 lines.append(f"{marker} {m.alias} ({m.provider})")
@@ -210,7 +224,7 @@ class ModelHandlers:
             await update.message.reply_text(f"❌ Model list failed: {exc}")
 
     async def _handle_model_select_prompt(
-        self, update: Update, context: object
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
         if not user or not update.message:
@@ -246,6 +260,8 @@ class ModelHandlers:
         self.svc.config.models = latest.models
         self.svc.config.providers = latest.providers
         self.svc.config.active_model = latest.active_model
+        # Refresh model service with new config snapshot
+        self.model_service = ModelService(self.svc.config)
 
         for session in self.svc.sessions.values():
             session.config.models = latest.models
@@ -328,7 +344,9 @@ class ModelHandlers:
             return cached, True
         return {}, False
 
-    async def model_refresh_command(self, update: Update, context: object) -> None:
+    async def model_refresh_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         chat_id = update.effective_chat.id
         refresh_msg = self._refresh_models_from_disk()
 
@@ -348,7 +366,7 @@ class ModelHandlers:
         await self.send_model_status_card(chat_id)
 
     async def _handle_model_callback(
-        self, update: Update, context: object
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         query = update.callback_query
         data = query.data
@@ -441,13 +459,13 @@ class ModelHandlers:
         for m in models:
             marker = "✅" if m.alias == active else ""
             label = f"{marker} {m.alias} [{m.provider}]"
-            buttons.append(
-                [InlineKeyboardButton(label, callback_data=f"mod:{m.alias}")]
-            )
+            buttons.append([
+                InlineKeyboardButton(label, callback_data=f"mod:{m.alias}")
+            ])
 
-        buttons.append(
-            [InlineKeyboardButton("🔙 Back to Fleets", callback_data="mmain")]
-        )
+        buttons.append([
+            InlineKeyboardButton("🔙 Back to Fleets", callback_data="mmain")
+        ])
 
         reply_markup = InlineKeyboardMarkup(buttons)
 

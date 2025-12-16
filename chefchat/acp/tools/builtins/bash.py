@@ -4,7 +4,6 @@ import asyncio
 import os
 import re
 import shlex
-from typing import final
 
 from acp import CreateTerminalRequest, TerminalHandle
 from acp.schema import (
@@ -18,7 +17,11 @@ from acp.schema import (
 from chefchat import CHEFCHAT_ROOT
 from chefchat.acp.tools.base import AcpToolState, BaseAcpTool
 from chefchat.core.tools.base import ToolError, ToolPermission
-from chefchat.core.tools.builtins.bash import BashArgs, BashResult, BashToolConfig
+from chefchat.core.tools.builtins.bash import (
+    Bash as CoreBashTool,
+    BashArgs,
+    BashResult,
+)
 from chefchat.core.types import ToolCallEvent, ToolResultEvent
 from chefchat.core.utils import logger
 
@@ -27,9 +30,8 @@ class AcpBashState(AcpToolState):
     pass
 
 
-class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
+class Bash(BaseAcpTool, CoreBashTool):
     prompt_path = CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "bash.md"
-    state: AcpBashState
 
     @classmethod
     def _get_tool_state_class(cls) -> type[AcpBashState]:
@@ -128,7 +130,7 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
             except Exception as e:
                 logger.error(f"Failed to kill terminal: {e!r}")
 
-            raise self._build_timeout_error(command, timeout, partial_output)
+            raise self._build_timeout_error_with_output(command, timeout, partial_output)
 
     @classmethod
     def tool_call_session_update(cls, event: ToolCallEvent) -> ToolCallStart:
@@ -144,26 +146,11 @@ class Bash(BaseAcpTool[BashArgs, BashResult, BashToolConfig, AcpBashState]):
             rawInput=event.args.model_dump_json(),
         )
 
-    def _build_timeout_error(self, command: str, timeout: int, partial_output: str = "") -> ToolError:
+    def _build_timeout_error_with_output(self, command: str, timeout: int, partial_output: str = "") -> ToolError:
         msg = f"Command timed out after {timeout}s: {command!r}"
         if partial_output:
             msg += f"\nPartial output: {partial_output}"
         return ToolError(msg)
-
-    @final
-    def _build_result(
-        self, *, command: str, stdout: str, stderr: str, returncode: int
-    ) -> BashResult:
-        if returncode != 0:
-            error_msg = f"Command failed: {command!r}\n"
-            error_msg += f"Return code: {returncode}"
-            if stderr:
-                error_msg += f"\nStderr: {stderr}"
-            if stdout:
-                error_msg += f"\nStdout: {stdout}"
-            raise ToolError(error_msg.strip())
-
-        return BashResult(stdout=stdout, stderr=stderr, returncode=returncode)
 
     def _validate_command_safety(self, command: str) -> bool:
         """Validate command safety by checking for dangerous shell operators.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from acp import ReadTextFileRequest, WriteTextFileRequest
 from acp.helpers import SessionUpdate
@@ -17,7 +18,6 @@ from chefchat.core.tools.base import ToolError
 from chefchat.core.tools.builtins.search_replace import (
     SearchReplace as CoreSearchReplaceTool,
     SearchReplaceArgs,
-    SearchReplaceConfig,
     SearchReplaceResult,
     SearchReplaceState,
 )
@@ -28,8 +28,7 @@ class AcpSearchReplaceState(SearchReplaceState, AcpToolState):
     file_backup_content: str | None = None
 
 
-class SearchReplace(CoreSearchReplaceTool, BaseAcpTool[SearchReplaceArgs, SearchReplaceResult, SearchReplaceConfig, AcpSearchReplaceState]):
-    state: AcpSearchReplaceState
+class SearchReplace(BaseAcpTool, CoreSearchReplaceTool):
     prompt_path = (
         CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "search_replace.md"
     )
@@ -40,6 +39,7 @@ class SearchReplace(CoreSearchReplaceTool, BaseAcpTool[SearchReplaceArgs, Search
 
     async def _read_file(self, file_path: Path) -> str:
         connection, session_id, _ = self._load_state()
+        state = cast(AcpSearchReplaceState, self.state)
 
         read_request = ReadTextFileRequest(sessionId=session_id, path=str(file_path))
 
@@ -50,16 +50,18 @@ class SearchReplace(CoreSearchReplaceTool, BaseAcpTool[SearchReplaceArgs, Search
         except Exception as e:
             raise ToolError(f"Unexpected error reading {file_path}: {e}") from e
 
-        self.state.file_backup_content = response.content
+        state.file_backup_content = response.content
         return response.content
 
     async def _backup_file(self, file_path: Path) -> None:
-        if self.state.file_backup_content is None:
+        state = cast(AcpSearchReplaceState, self.state)
+
+        if state.file_backup_content is None:
             return
 
         await self._write_file(
             file_path.with_suffix(file_path.suffix + ".bak"),
-            self.state.file_backup_content,
+            state.file_backup_content,
         )
 
     async def _write_file(self, file_path: Path, content: str) -> None:

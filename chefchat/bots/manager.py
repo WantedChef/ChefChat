@@ -63,7 +63,7 @@ class BotManager:
             self.running_tasks["telegram"] = task
 
         elif bot_type == "discord":
-            from chefchat.bots.discord_bot import run_discord_bot
+            from chefchat.bots.discord import run_discord_bot
             token = os.getenv("DISCORD_BOT_TOKEN")
             if not token:
                 raise ValueError("DISCORD_BOT_TOKEN not found in environment.")

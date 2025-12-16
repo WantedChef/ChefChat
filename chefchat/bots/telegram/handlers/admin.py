@@ -5,6 +5,7 @@ import shlex
 from typing import TYPE_CHECKING
 
 from telegram import Update, constants
+from telegram.ext import ContextTypes
 
 from chefchat.kitchen.stations.git_chef import GitCommandValidator
 
@@ -19,9 +20,14 @@ class AdminHandlers:
         self.svc = svc
         self._override_sessions = False
 
-    async def chefchat_command(self, update: Update, context: object) -> None:
+    async def chefchat_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         if not self.svc._enable_systemd_control:
-            await update.message.reply_text("This command is disabled on this server.")
+            if update.message:
+                await update.message.reply_text(
+                    "This command is disabled on this server."
+                )
             return
 
         user = update.effective_user
@@ -31,7 +37,8 @@ class AdminHandlers:
         user_id_str = str(user.id)
         allowed = self.svc.bot_manager.get_allowed_users("telegram")
         if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
+            if update.message:
+                await update.message.reply_text("Access denied.")
             return
 
         if not context.args:
@@ -42,6 +49,8 @@ class AdminHandlers:
         await self._dispatch_chefchat_action(update, context, action)
 
     async def _show_chefchat_help(self, update: Update) -> None:
+        if not update.message:
+            return
         await update.message.reply_text(
             "Usage:\n"
             "/chefchat status\n"
@@ -56,7 +65,7 @@ class AdminHandlers:
         )
 
     async def _dispatch_chefchat_action(
-        self, update: Update, context: object, action: str
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, action: str
     ) -> None:
         if action in {"miniapp", "tunnel"}:
             await self._handle_service_action(update, context, action)
@@ -68,42 +77,53 @@ class AdminHandlers:
             await self._handle_systemd_action(update, action)
         elif action == "override":
             await self._handle_override(update, context)
-        else:
+        elif update.message:
             await update.message.reply_text("Unknown action.")
 
-    async def _handle_override(self, update: Update, context: object) -> None:
-        if len(context.args) < 2:
-            await update.message.reply_text(
-                f"Override sessions: {'ON' if self.svc.session_limit_override else 'OFF'}\n"
-                "Usage: /chefchat override <on|off>"
-            )
+    async def _handle_override(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        MIN_OVERRIDE_ARGS = 2
+        args = context.args or []
+        if len(args) < MIN_OVERRIDE_ARGS:
+            if update.message:
+                await update.message.reply_text(
+                    f"Override sessions: {'ON' if self.svc.session_limit_override else 'OFF'}\n"
+                    "Usage: /chefchat override <on|off>"
+                )
             return
-        val = context.args[1].lower()
+        val = args[1].lower()
         if val not in {"on", "off"}:
-            await update.message.reply_text("Use on/off.")
+            if update.message:
+                await update.message.reply_text("Use on/off.")
             return
         self.svc.session_limit_override = val == "on"
-        await update.message.reply_text(
-            f"Session limit override: {'ON' if self.svc.session_limit_override else 'OFF'}"
-        )
+        if update.message:
+            await update.message.reply_text(
+                f"Session limit override: {'ON' if self.svc.session_limit_override else 'OFF'}"
+            )
 
     async def _handle_service_action(
-        self, update: Update, context: object, action: str
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, action: str
     ) -> None:
-        if len(context.args) < self.svc.MIN_COMMAND_ARGS_MINIAPP:
+        if not update.message:
+            return
+
+        args = context.args or []
+        if len(args) < self.svc.MIN_COMMAND_ARGS_MINIAPP:
             await update.message.reply_text(
                 f"Usage: /chefchat {action} <start|stop|restart|status> [project]"
             )
             return
 
-        sub_action = context.args[1].strip().lower()
+        sub_action = args[1].strip().lower()
         if sub_action not in {"start", "stop", "restart", "status"}:
             await update.message.reply_text("Unknown action.")
             return
 
         project = (
-            context.args[2].strip()
-            if len(context.args) >= self.svc.MIN_COMMAND_ARGS_SWITCH
+            args[2].strip()
+            if len(args) >= self.svc.MIN_COMMAND_ARGS_SWITCH
             else "chefchat"
         )
         if self.svc._allowed_projects and project not in self.svc._allowed_projects:
@@ -116,6 +136,8 @@ class AdminHandlers:
         await update.message.reply_text(out if ok else f"Failed: {out}")
 
     async def _handle_projects_action(self, update: Update) -> None:
+        if not update.message:
+            return
         projects = (
             ", ".join(self.svc._allowed_projects)
             if self.svc._allowed_projects
@@ -123,12 +145,18 @@ class AdminHandlers:
         )
         await update.message.reply_text(f"Projects: {projects}")
 
-    async def _handle_switch_action(self, update: Update, context: object) -> None:
-        if len(context.args) < self.svc.MIN_COMMAND_ARGS_MINIAPP:
+    async def _handle_switch_action(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        if not update.message:
+            return
+
+        args = context.args or []
+        if len(args) < self.svc.MIN_COMMAND_ARGS_MINIAPP:
             await update.message.reply_text("Usage: /chefchat switch <project>")
             return
 
-        project = context.args[1].strip()
+        project = args[1].strip()
         if self.svc._allowed_projects and project not in self.svc._allowed_projects:
             await update.message.reply_text("Unknown project.")
             return
@@ -138,12 +166,14 @@ class AdminHandlers:
         await update.message.reply_text(out if ok else f"Failed: {out}")
 
     async def _handle_systemd_action(self, update: Update, action: str) -> None:
+        if not update.message:
+            return
         unit = f"{self.svc._systemd_unit_base}.service"
         ok, out = await self.svc._systemctl_user([action, unit])
         await update.message.reply_text(out if ok else f"Failed: {out}")
 
     async def git_command(
-        self, update: Update, context: object
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
         if not user:
@@ -151,16 +181,26 @@ class AdminHandlers:
 
         user_id_str = str(user.id)
         if user_id_str not in self.svc.bot_manager.get_allowed_users("telegram"):
-            await update.message.reply_text("Access denied.")
+            if update.message:
+                await update.message.reply_text("Access denied.")
             return
 
-        if not context.args:
+        if not update.message:
+            return
+
+        raw_args = ""
+        if context.args:
+            raw_args = " ".join(context.args)
+        elif update.message and update.message.text:
+            text = update.message.text.strip()
+            if text.lower().startswith("git "):
+                raw_args = text[4:].strip()
+
+        if not raw_args:
             await update.message.reply_text(
                 "Usage: /git <command> (e.g., status, log, diff)"
             )
             return
-
-        raw_args = " ".join(context.args)
 
         validated_args = GitCommandValidator.parse_and_validate(raw_args)
         if validated_args is None:

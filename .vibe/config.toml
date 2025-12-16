@@ -1,4 +1,4 @@
-active_model = "devstral-2512"
+active_model = "devstral-2"
 vim_keybindings = false
 disable_welcome_banner_animation = false
 displayed_workdir = ""
@@ -33,67 +33,391 @@ api_style = "openai"
 backend = "generic"
 
 [[providers]]
-name = "llamacpp"
-api_base = "http://127.0.0.1:8080/v1"
-api_key_env_var = ""
+name = "groq"
+api_base = "https://api.groq.com/openai/v1"
+api_key_env_var = "GROQ_API_KEY"
+api_style = "openai"
+backend = "generic"
+
+[[providers]]
+name = "openrouter"
+api_base = "https://openrouter.ai/api/v1"
+api_key_env_var = "OPENROUTER_API_KEY"
+api_style = "openai"
+backend = "generic"
+
+[[providers]]
+name = "opencode"
+api_base = "https://api.zeninference.ai/v1"
+api_key_env_var = "ZEN_API_KEY"
 api_style = "openai"
 backend = "generic"
 
 [[models]]
-name = "codestral-2501"
+alias = "mistral-small"
+name = "mistral-small-latest"
 provider = "mistral"
+temperature = 0.2
+input_price = 0.2
+output_price = 0.6
+max_tokens = 32000
+features = [
+    "speed",
+    "coding",
+    "tool_use",
+    "cost_effective",
+]
+
+[[models]]
+alias = "mistral-large"
+name = "mistral-large-latest"
+provider = "mistral"
+temperature = 0.2
+input_price = 2.0
+output_price = 6.0
+max_tokens = 128000
+features = [
+    "reasoning",
+    "coding",
+    "tool_use",
+    "large_context",
+]
+
+[[models]]
 alias = "devstral-2512"
+name = "codestral-latest"
+provider = "mistral"
 temperature = 0.2
 input_price = 0.4
 output_price = 2.0
 
 [[models]]
-name = "devstral-small-2-25-12"
+alias = "devstral-2"
+name = "mistral-small-latest"
 provider = "mistral"
-alias = "devstral-small"
 temperature = 0.2
-input_price = 0.1
-output_price = 0.3
-
-[[models]]
-name = "gpt-4o"
-provider = "openai"
-alias = "gpt4o"
-temperature = 0.2
-input_price = 2.5
-output_price = 10.0
-
-[[models]]
-name = "gpt-4o-mini"
-provider = "openai"
-alias = "gpt4o-mini"
-temperature = 0.2
-input_price = 0.15
+input_price = 0.2
 output_price = 0.6
 
 [[models]]
-name = "gpt-4-turbo"
-provider = "openai"
-alias = "gpt4-turbo"
+alias = "mistral-vibe-cli"
+name = "codestral-2501"
+provider = "mistral"
 temperature = 0.2
-input_price = 10.0
-output_price = 30.0
+input_price = 0.4
+output_price = 2.0
 
 [[models]]
+alias = "gpt35"
 name = "gpt-3.5-turbo"
 provider = "openai"
-alias = "gpt35"
 temperature = 0.2
 input_price = 0.5
 output_price = 1.5
 
 [[models]]
-name = "devstral"
-provider = "llamacpp"
-alias = "local"
+alias = "groq-8b"
+name = "llama-3.1-8b-instant"
+provider = "groq"
+temperature = 0.2
+input_price = 0.05
+output_price = 0.08
+max_tokens = 131072
+features = [
+    "speed",
+    "low_cost",
+]
+
+[models.rate_limits]
+tpm = 250000
+rpm = 1000
+
+[[models]]
+alias = "groq-70b"
+name = "llama-3.3-70b-versatile"
+provider = "groq"
+temperature = 0.2
+input_price = 0.59
+output_price = 0.79
+max_tokens = 32768
+features = [
+    "versatile",
+    "balanced",
+]
+
+[models.rate_limits]
+tpm = 300000
+rpm = 1000
+
+[[models]]
+alias = "llama-scout"
+name = "meta-llama/llama-4-scout-17b-16e-instruct"
+provider = "groq"
+temperature = 0.2
+input_price = 0.11
+output_price = 0.34
+max_tokens = 8192
+multimodal = true
+max_file_size = 20
+features = [
+    "multimodal",
+    "vision",
+    "tool_use",
+    "fast",
+]
+
+[models.rate_limits]
+tpm = 300000
+rpm = 1000
+
+[[models]]
+alias = "llama-maverick"
+name = "meta-llama/llama-4-maverick-17b-128e-instruct"
+provider = "groq"
+temperature = 0.2
+input_price = 0.2
+output_price = 0.6
+max_tokens = 8192
+multimodal = true
+max_file_size = 20
+features = [
+    "multimodal",
+    "vision",
+    "tool_use",
+    "premium",
+]
+
+[models.rate_limits]
+tpm = 300000
+rpm = 1000
+
+[[models]]
+alias = "kimi-k2"
+name = "moonshotai/kimi-k2-instruct-0905"
+provider = "groq"
+temperature = 0.3
+input_price = 1.0
+output_price = 3.0
+max_tokens = 16384
+features = [
+    "reasoning",
+    "large_context",
+    "coding",
+]
+
+[models.rate_limits]
+tpm = 250000
+rpm = 1000
+
+[[models]]
+alias = "gpt-oss-120b"
+name = "openai/gpt-oss-120b"
+provider = "groq"
+temperature = 0.2
+input_price = 0.15
+output_price = 0.6
+max_tokens = 65536
+features = [
+    "reasoning",
+    "browser_tools",
+    "balanced",
+]
+
+[models.rate_limits]
+tpm = 250000
+rpm = 1000
+
+[[models]]
+alias = "gpt-oss-20b"
+name = "openai/gpt-oss-20b"
+provider = "groq"
+temperature = 0.2
+input_price = 0.075
+output_price = 0.3
+max_tokens = 65536
+features = [
+    "speed",
+    "browser_tools",
+    "cost_effective",
+]
+
+[models.rate_limits]
+tpm = 250000
+rpm = 1000
+
+[[models]]
+alias = "qwen-32b"
+name = "qwen/qwen3-32b"
+provider = "groq"
+temperature = 0.2
+input_price = 0.29
+output_price = 0.59
+max_tokens = 40960
+features = [
+    "multilingual",
+    "balanced",
+]
+
+[models.rate_limits]
+tpm = 300000
+rpm = 1000
+
+[[models]]
+alias = "or-claude-sonnet"
+name = "anthropic/claude-3.5-sonnet"
+provider = "openrouter"
+temperature = 0.2
+input_price = 3.0
+output_price = 15.0
+max_tokens = 8192
+multimodal = true
+features = [
+    "reasoning",
+    "coding",
+    "vision",
+    "tool_use",
+]
+
+[[models]]
+alias = "or-claude-haiku"
+name = "anthropic/claude-3.5-haiku"
+provider = "openrouter"
+temperature = 0.2
+input_price = 0.8
+output_price = 4.0
+max_tokens = 8192
+features = [
+    "speed",
+    "coding",
+    "tool_use",
+]
+
+[[models]]
+alias = "or-gemini-flash"
+name = "google/gemini-2.0-flash-exp:free"
+provider = "openrouter"
 temperature = 0.2
 input_price = 0.0
 output_price = 0.0
+max_tokens = 8192
+multimodal = true
+features = [
+    "speed",
+    "vision",
+    "free",
+]
+
+[[models]]
+alias = "or-deepseek"
+name = "deepseek/deepseek-chat"
+provider = "openrouter"
+temperature = 0.2
+input_price = 0.14
+output_price = 0.28
+max_tokens = 8192
+features = [
+    "coding",
+    "reasoning",
+    "cost_effective",
+]
+
+[[models]]
+alias = "or-deepseek-coder"
+name = "deepseek/deepseek-coder"
+provider = "openrouter"
+temperature = 0.2
+input_price = 0.14
+output_price = 0.28
+max_tokens = 16384
+features = [
+    "coding",
+    "tool_use",
+    "cost_effective",
+]
+
+[[models]]
+alias = "or-qwen-coder"
+name = "qwen/qwen-2.5-coder-32b-instruct"
+provider = "openrouter"
+temperature = 0.2
+input_price = 0.07
+output_price = 0.16
+max_tokens = 32768
+features = [
+    "coding",
+    "large_context",
+    "cost_effective",
+]
+
+[[models]]
+alias = "or-llama-70b"
+name = "meta-llama/llama-3.3-70b-instruct"
+provider = "openrouter"
+temperature = 0.2
+input_price = 0.39
+output_price = 0.39
+max_tokens = 8192
+features = [
+    "versatile",
+    "open_source",
+    "tool_use",
+]
+
+[[models]]
+alias = "or-mistral-large"
+name = "mistralai/mistral-large-2411"
+provider = "openrouter"
+temperature = 0.2
+input_price = 2.0
+output_price = 6.0
+max_tokens = 32768
+features = [
+    "reasoning",
+    "coding",
+    "multilingual",
+]
+
+[[models]]
+alias = "zen-1"
+name = "opencode/zen-1"
+provider = "opencode"
+temperature = 0.2
+input_price = 0.0
+output_price = 0.0
+max_tokens = 32768
+features = [
+    "coding",
+    "reasoning",
+    "tool_use",
+]
+
+[[models]]
+alias = "zen-mini"
+name = "opencode/zen-mini"
+provider = "opencode"
+temperature = 0.2
+input_price = 0.0
+output_price = 0.0
+max_tokens = 16000
+features = [
+    "speed",
+    "coding",
+    "cost_effective",
+]
+
+[[models]]
+alias = "grok-fast"
+name = "grok-fast-code-1"
+provider = "opencode"
+temperature = 0.2
+input_price = 0.0
+output_price = 0.0
+max_tokens = 16000
+features = [
+    "coding",
+    "speed",
+    "free",
+]
 
 [project_context]
 max_chars = 40000
@@ -215,16 +539,6 @@ allowlist = [
     "ip",
     "ping",
     "dig",
-    "nslookup",
-    # Dangrous commands removed
-    "kilocode",
-    "opencode",
-    "claude",
-    "aider",
-    "cody",
-]
-denylist = [
-    "gdb",
     "pdb",
     "passwd",
     "nano",
@@ -238,7 +552,14 @@ denylist = [
     "dash -i",
     "screen",
     "tmux",
+    "nslookup",
+    "kilocode",
+    "opencode",
+    "claude",
+    "aider",
+    "cody",
 ]
+denylist = []
 max_output_bytes = 16000
 default_timeout = 30
 denylist_standalone = [

@@ -35,14 +35,20 @@ class BotCommandsMixin:
     async def _handle_bot_command(self, bot_type: str, arg: str) -> None:
         """Unified handler for bot commands (telegram/discord)."""
         from chefchat.bots.manager import BotManager
-        from chefchat.core.config import VibeConfig
+        from chefchat.core.config import MissingAPIKeyError, VibeConfig
         from chefchat.interface.widgets.ticket_rail import TicketRail
 
         action = arg.lower().strip() if arg else "help"
 
         # Get or create bot manager
         if not hasattr(self, "_bot_manager") or self._bot_manager is None:
-            self._bot_manager = BotManager(self._config or VibeConfig.load())
+            try:
+                self._bot_manager = BotManager(self._config or VibeConfig.load())
+            except MissingAPIKeyError as exc:
+                self.query_one("#ticket-rail", TicketRail).add_system_message(
+                    f"❌ Missing API key: {exc}. Please set the required env var."
+                )
+                return
 
         # Dispatch to action handlers
         handlers = {
@@ -65,13 +71,33 @@ class BotCommandsMixin:
         """Show bot help."""
         from chefchat.interface.widgets.ticket_rail import TicketRail
 
-        help_text = f"""## 🤖 {bot_type.title()} Bot Commands
+        base_help = [
+            f"## 🤖 {bot_type.title()} Bot Commands",
+            "",
+            f"• `/{bot_type} setup` — Configure token and user ID",
+            f"• `/{bot_type} start` — Start the bot",
+            f"• `/{bot_type} stop` — Stop the bot",
+            f"• `/{bot_type} status` — Check status",
+        ]
 
-• `/{bot_type} setup` — Configure token and user ID
-• `/{bot_type} start` — Start the bot
-• `/{bot_type} stop` — Stop the bot
-• `/{bot_type} status` — Check status
-"""
+        if bot_type == "telegram":
+            base_help.extend(
+                [
+                    "",
+                    "### In-chat Telegram commands",
+                    "• `/start`, `/help`, `/status`, `/stop`, `/clear`",
+                    "• `/model`, `/modellist`, `/modelselect`, `/modelrefresh`",
+                    "• `/botmode <dev|chat|combo>`; shortcuts: `devmode`, `chatmode`, `combimode`",
+                    "• `/mode`, `plan`, `normal`, `auto`, `yolo`, `architect`",
+                    "• `/task <...>` (list/edit/do/done/delete/changelog)",
+                    "• `/term...` (term, termstatus, termclose, termupload, termswitch, termbash, termpython3, termvim, termnode, termnpm)",
+                    "• `/cli <provider>`, `/clirun`, `/cliproviders`, `/clistatus`, `/cliclose`, `/clidiag`, `/clihistory`, `/clisetup`, `/cliretry`, `/clicancel`",
+                    "• `/git <cmd>` (validated), `/chefchat ...` (systemd controls where enabled)",
+                    "• Fun: `/chef`, `/wisdom`, `/roast`, `/fortune`, `/stats`, `/reload`",
+                ]
+            )
+
+        help_text = "\n".join(base_help)
         self.query_one("#ticket-rail", TicketRail).add_system_message(help_text)
 
     async def _bot_cmd_setup(self, bot_type: str) -> None:

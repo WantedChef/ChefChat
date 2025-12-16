@@ -10,7 +10,6 @@ from chefchat.acp.tools.base import AcpToolState, BaseAcpTool
 from chefchat.core.tools.builtins.todo import (
     Todo as CoreTodoTool,
     TodoArgs,
-    TodoConfig,
     TodoPriority,
     TodoResult,
     TodoState,
@@ -25,8 +24,7 @@ class AcpTodoState(TodoState, AcpToolState):
     pass
 
 
-class Todo(CoreTodoTool, BaseAcpTool[TodoArgs, TodoResult, TodoConfig, AcpTodoState]):
-    state: AcpTodoState
+class Todo(BaseAcpTool, CoreTodoTool):
     prompt_path = CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "todo.md"
 
     @classmethod

@@ -197,6 +197,35 @@ class ChefChatApp(
             raise RuntimeError("Kitchen bus not initialized")
         return self._bus
 
+    async def _reload_config(self) -> None:
+        """Reload configuration from disk and refresh agent/models."""
+        from chefchat.core.config import VibeConfig, load_api_keys_from_env
+        from chefchat.interface.widgets.ticket_rail import TicketRail
+
+        ticket_rail = self.query_one("#ticket-rail", TicketRail)
+        try:
+            load_api_keys_from_env()
+            new_config = VibeConfig.load()
+
+            # Update services/config snapshot
+            self._config = new_config
+            if self._config_service:
+                self._config_service._config = new_config  # type: ignore[attr-defined]
+            if self._model_service:
+                self._model_service = ModelService(self._config_service or new_config)
+
+            # Refresh agent config in-place; if none, initialize
+            if self._agent:
+                self._agent.config = new_config
+            else:
+                await self._initialize_agent()
+
+            ticket_rail.add_system_message(
+                f"✅ Config reloaded. Active model: `{new_config.active_model}`"
+            )
+        except Exception as exc:
+            ticket_rail.add_system_message(f"❌ Reload failed: {exc}")
+
     @property
     def model_service(self) -> ModelService:
         return self._model_service

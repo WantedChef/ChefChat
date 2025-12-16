@@ -83,7 +83,10 @@ class ReadFile(
             was_truncated=read_result.was_truncated,
         )
 
-    def check_allowlist_denylist(self, args: ReadFileArgs) -> ToolPermission | None:
+    def check_allowlist_denylist(self, args: ReadFileArgs) -> ToolPermission:
+        # Check against allowlist/denylist based on file path
+        # If no allowlist/denylist, default to ASK
+        # Implementation details omitted for brevity in prompt, but replacing signature.
         import fnmatch
 
         file_path = Path(args.path).expanduser()
@@ -99,7 +102,7 @@ class ReadFile(
             if fnmatch.fnmatch(file_str, pattern):
                 return ToolPermission.ALWAYS
 
-        return None
+        return ToolPermission.ASK
 
     def _prepare_and_validate_path(self, args: ReadFileArgs) -> Path:
         self._validate_inputs(args)

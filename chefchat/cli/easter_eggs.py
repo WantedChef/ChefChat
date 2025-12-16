@@ -193,9 +193,32 @@ def get_kitchen_status(mode_manager: ModeManager | None) -> str:
 
 def get_modes_display(mode_manager: ModeManager | None) -> str:
     """Display all modes with fun descriptions."""
-    from chefchat.cli.mode_manager import MODE_CONFIGS, VibeMode
+    from chefchat.cli.mode_manager import (
+        MODE_CONFIGS,
+        MODE_CYCLE_ORDER,
+        MODE_TIPS,
+        ModeDescriptor,
+        VibeMode,
+    )
 
-    current = mode_manager.current_mode if mode_manager else None
+    if mode_manager:
+        descriptors = mode_manager.list_modes()
+        current = mode_manager.current_mode
+    else:
+        descriptors = [
+            ModeDescriptor(
+                id=mode,
+                name=mode.value.upper(),
+                emoji=MODE_CONFIGS[mode].emoji,
+                description=MODE_CONFIGS[mode].description,
+                auto_approve=MODE_CONFIGS[mode].auto_approve,
+                read_only=MODE_CONFIGS[mode].read_only,
+                personality=MODE_CONFIGS[mode].personality,
+                tips=list(MODE_TIPS.get(mode, [])),
+            )
+            for mode in MODE_CYCLE_ORDER
+        ]
+        current = None
 
     lines = [
         "## 🔄 ChefChat Modes",
@@ -208,22 +231,21 @@ def get_modes_display(mode_manager: ModeManager | None) -> str:
         "",
     ]
 
+    fun_desc = {
+        VibeMode.PLAN: '📋 *"Measure twice, cut once"* — Research & planning mode',
+        VibeMode.NORMAL: '✋ *"Safe and steady"* — Asks before each tool',
+        VibeMode.AUTO: '⚡ *"Trust and execute"* — Auto-approves everything',
+        VibeMode.YOLO: '🚀 *"JUST DO IT!"* — Maximum speed, no mercy',
+        VibeMode.ARCHITECT: '🏛️ *"Design the cathedral"* — Strategic thinking only',
+    }
+
     # Mode details table
-    for mode in VibeMode:
+    for descriptor in descriptors:
+        mode = descriptor.id
         config = MODE_CONFIGS[mode]
         is_current = mode == current
         marker = "▶️" if is_current else "  "
 
-        # Fun descriptions
-        fun_desc = {
-            VibeMode.PLAN: '📋 *"Measure twice, cut once"* — Research & planning mode',
-            VibeMode.NORMAL: '✋ *"Safe and steady"* — Asks before each tool',
-            VibeMode.AUTO: '⚡ *"Trust and execute"* — Auto-approves everything',
-            VibeMode.YOLO: '🚀 *"JUST DO IT!"* — Maximum speed, no mercy',
-            VibeMode.ARCHITECT: '🏛️ *"Design the cathedral"* — Strategic thinking only',
-        }
-
-        # Permissions
         perms = []
         if config.read_only:
             perms.append("🔒 Read-only")
@@ -234,7 +256,7 @@ def get_modes_display(mode_manager: ModeManager | None) -> str:
 
         perm_str = " • ".join(perms)
 
-        lines.append(f"### {marker} {config.emoji} {mode.value.upper()}")
+        lines.append(f"### {marker} {descriptor.emoji} {descriptor.name}")
         lines.append(f"{fun_desc[mode]}")
         lines.append(f"*{perm_str}*")
         lines.append("")

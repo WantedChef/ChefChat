@@ -77,6 +77,57 @@ class DiscordBotService:
         self.admin = AdminHandlers(self)
         self.model = ModelHandlers(self)
         self.terminal = TerminalHandlers(self)
+        self._mode_tip_limit = 2
+
+    def _render_mode_embed(self, session: BotSession) -> discord.Embed:
+        mode_manager = getattr(session.agent, "mode_manager", None)
+        if mode_manager is None:
+            return discord.Embed(
+                title="Modes",
+                description="Mode manager not available for this session.",
+                color=discord.Color.red(),
+            )
+
+        current = mode_manager.describe_mode()
+        descriptors = mode_manager.list_modes()
+
+        desc_lines = [
+            f"{current.emoji} **{current.name}**",
+            f"🤖 Auto-Approve: {'ON' if current.auto_approve else 'OFF'}",
+            f"🔒 Read-only: {'YES' if current.read_only else 'NO'}",
+        ]
+
+        embed = discord.Embed(
+            title="🔄 ChefChat Modes",
+            description="\n".join(desc_lines),
+            color=discord.Color.blue(),
+        )
+
+        for desc in descriptors:
+            marker = "▶️" if desc.id == current.id else "  "
+            perms = []
+            if desc.read_only:
+                perms.append("🔒 Read-only")
+            if desc.auto_approve:
+                perms.append("🤖 Auto-approve")
+            if not perms:
+                perms.append("✋ Confirm each")
+            perm_str = " • ".join(perms)
+
+            tips = desc.tips[: self._mode_tip_limit] if desc.tips else []
+            tips_str = "\n".join(f"- {tip}" for tip in tips)
+
+            value_parts = [perm_str, desc.description]
+            if tips_str:
+                value_parts.append(tips_str)
+
+            embed.add_field(
+                name=f"{marker} {desc.emoji} {desc.name}",
+                value="\n".join(value_parts),
+                inline=False,
+            )
+
+        return embed
 
     def _get_session(self, channel_id: int, user_id_str: str) -> BotSession | None:
         if channel_id not in self.sessions:
@@ -170,6 +221,20 @@ class DiscordBotService:
                 return
             if await self.model.handle_message(message):
                 return
+
+            # Mode display
+            if message.content.strip().lower() in {"/mode", "/modes", "mode"}:
+                session = self._get_session(channel_id, user_id)
+                if session:
+                    embed = self._render_mode_embed(session)
+                    await message.channel.send(embed=embed)
+                return
+
+            # Direct git command without slash (e.g., "git clone ...")
+            if message.content.strip().lower().startswith("git "):
+                await self.admin.handle_git_direct(message)
+                return
+
             if await self.terminal.handle_message(message):
                 return
 

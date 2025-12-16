@@ -11,13 +11,15 @@ Tests for:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from typing import cast
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from chefchat.cli.mode_manager import (
     MODE_CONFIGS,
     MODE_CYCLE_ORDER,
+    MODE_TIPS,
     READONLY_TOOLS,
     WRITE_TOOLS,
     ModeAwareToolExecutor,
@@ -29,6 +31,8 @@ from chefchat.cli.mode_manager import (
     inject_mode_into_system_prompt,
     mode_from_auto_approve,
 )
+from chefchat.core.config import VibeConfig
+from chefchat.core.tools.manager import ToolManager
 
 # =============================================================================
 # FIXTURES
@@ -143,6 +147,54 @@ class TestModeState:
         assert d["read_only"] is True
         assert "started_at" in d
         assert "transitions" in d
+
+
+# =============================================================================
+# UNIT TESTS: Mode Metadata and Discovery
+# =============================================================================
+
+
+class TestModeMetadata:
+    """Tests for metadata helpers on the mode manager."""
+
+    def test_describe_mode_returns_descriptor(self, manager: ModeManager) -> None:
+        """Descriptor should mirror config values."""
+        descriptor = manager.describe_mode(VibeMode.PLAN)
+        assert descriptor.id == VibeMode.PLAN
+        assert descriptor.name == "PLAN"
+        assert descriptor.read_only is True
+        assert descriptor.auto_approve is False
+        assert descriptor.tips == MODE_TIPS[VibeMode.PLAN]
+
+    def test_list_modes_respects_cycle_order(self, manager: ModeManager) -> None:
+        """list_modes should follow the defined cycle order."""
+        ids = [desc.id for desc in manager.list_modes()]
+        assert tuple(ids) == MODE_CYCLE_ORDER
+
+    def test_set_mode_from_name_case_insensitive(self, manager: ModeManager) -> None:
+        """set_mode_from_name should accept string names."""
+        manager.set_mode_from_name("yOlO")
+        assert manager.current_mode == VibeMode.YOLO
+
+    def test_state_snapshot_includes_available_modes(
+        self, plan_manager: ModeManager
+    ) -> None:
+        """Snapshot should expose current and available modes."""
+        snapshot = plan_manager.get_state_snapshot()
+        assert snapshot["current_mode"]["id"] == VibeMode.PLAN.value
+        assert len(snapshot["available_modes"]) == len(MODE_CYCLE_ORDER)
+        assert snapshot["state"]["mode"] == VibeMode.PLAN.value
+
+    def test_snapshot_toggle(self, manager: ModeManager) -> None:
+        """Snapshots should be toggleable."""
+        manager.set_snapshots_enabled(False)
+        assert manager.get_state_snapshot() == {}
+
+        # Override toggle per call and omit available modes
+        manager.set_snapshots_enabled(False)
+        snapshot = manager.get_state_snapshot(enabled=True, include_modes=False)
+        assert snapshot["current_mode"]["id"] == VibeMode.NORMAL.value
+        assert "available_modes" not in snapshot
 
 
 # =============================================================================
@@ -582,7 +634,12 @@ class TestIntegrationWithSystemPrompt:
                 return MockModel()
 
         manager = ModeManager(initial_mode=VibeMode.ARCHITECT)
-        prompt = get_universal_system_prompt(None, MockConfig(), manager)
+
+        # Cast mocks to expected types to satisfy static analysis
+        mock_config = cast(VibeConfig, MockConfig())
+        mock_tm = cast(ToolManager, MagicMock())
+
+        prompt = get_universal_system_prompt(mock_tm, mock_config, manager)
 
         assert "<active_mode>" in prompt
         assert "ARCHITECT" in prompt
@@ -604,7 +661,10 @@ class TestIntegrationWithSystemPrompt:
             def get_active_model(self):
                 return MockModel()
 
-        prompt = get_universal_system_prompt(None, MockConfig(), None)
+        mock_config = cast(VibeConfig, MockConfig())
+        mock_tm = cast(ToolManager, MagicMock())
+
+        prompt = get_universal_system_prompt(mock_tm, mock_config, None)
 
         assert "<active_mode>" not in prompt
         assert prompt == "Base prompt only."

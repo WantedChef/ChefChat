@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from telegram import Update
+from telegram.ext import ContextTypes
 
 if TYPE_CHECKING:
     from chefchat.bots.telegram.telegram_bot import TelegramBotService
@@ -11,10 +12,16 @@ if TYPE_CHECKING:
 class TaskHandlers:
     """Task command handling for Telegram."""
 
+    # Constants for argument count validation
+    MIN_EDIT_ARGS = 3
+    MIN_ACTION_ARGS = 2
+
     def __init__(self, svc: TelegramBotService) -> None:
         self.svc = svc
 
-    async def task_command(self, update: Update, context: object) -> None:
+    async def task_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         chat_id = update.effective_chat.id
         raw_text = (update.message.text or "").strip()
         tokens = raw_text.split(maxsplit=1)
@@ -38,7 +45,9 @@ class TaskHandlers:
         action = parts[0].lower()
 
         if action in {"list", "ls"}:
-            await self.svc._send_message(chat_id, self.svc.task_manager.list_text(chat_id))
+            await self.svc._send_message(
+                chat_id, self.svc.task_manager.list_text(chat_id)
+            )
             return
 
         if action == "changelog":
@@ -47,7 +56,7 @@ class TaskHandlers:
             )
             return
 
-        if action == "edit" and len(parts) >= 3:
+        if action == "edit" and len(parts) >= self.MIN_EDIT_ARGS:
             try:
                 task_id = int(parts[1])
             except ValueError:
@@ -63,7 +72,7 @@ class TaskHandlers:
             )
             return
 
-        if action in {"do", "run"} and len(parts) >= 2:
+        if action in {"do", "run"} and len(parts) >= self.MIN_ACTION_ARGS:
             try:
                 task_id = int(parts[1])
             except ValueError:
@@ -72,13 +81,11 @@ class TaskHandlers:
             task = self.svc.task_manager.set_status(chat_id, task_id, "doing")
             await self.svc._send_message(
                 chat_id,
-                f"🏁 Gestart #{task_id}: {task.text}"
-                if task
-                else "❌ Niet gevonden.",
+                f"🏁 Gestart #{task_id}: {task.text}" if task else "❌ Niet gevonden.",
             )
             return
 
-        if action in {"done", "close"} and len(parts) >= 2:
+        if action in {"done", "close"} and len(parts) >= self.MIN_ACTION_ARGS:
             try:
                 task_id = int(parts[1])
             except ValueError:
@@ -87,13 +94,11 @@ class TaskHandlers:
             task = self.svc.task_manager.set_status(chat_id, task_id, "done")
             await self.svc._send_message(
                 chat_id,
-                f"✅ Klaar #{task_id}: {task.text}"
-                if task
-                else "❌ Niet gevonden.",
+                f"✅ Klaar #{task_id}: {task.text}" if task else "❌ Niet gevonden.",
             )
             return
 
-        if action in {"delete", "del"} and len(parts) >= 2:
+        if action in {"delete", "del"} and len(parts) >= self.MIN_ACTION_ARGS:
             try:
                 task_id = int(parts[1])
             except ValueError:

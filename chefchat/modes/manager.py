@@ -16,10 +16,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from chefchat.modes.constants import MODE_CONFIGS, MODE_CYCLE_ORDER, READONLY_TOOLS
+from chefchat.modes.constants import (
+    MODE_CONFIGS,
+    MODE_CYCLE_ORDER,
+    MODE_PERSONALITIES,
+    MODE_TIPS,
+    READONLY_TOOLS,
+)
 from chefchat.modes.prompts import get_system_prompt_modifier
 from chefchat.modes.security import is_write_operation
-from chefchat.modes.types import ModeState, VibeMode
+from chefchat.modes.types import ModeDescriptor, ModeState, VibeMode
 
 if TYPE_CHECKING:
     from chefchat.modes.types import ModeConfig
@@ -43,13 +49,17 @@ class ModeManager:
     # Class-level constants
     CYCLE_ORDER: ClassVar[tuple[VibeMode, ...]] = MODE_CYCLE_ORDER
 
-    def __init__(self, initial_mode: VibeMode = VibeMode.NORMAL) -> None:
+    def __init__(
+        self, initial_mode: VibeMode = VibeMode.NORMAL, snapshots_enabled: bool = True
+    ) -> None:
         """Initialize the mode manager.
 
         Args:
             initial_mode: Starting mode (default: NORMAL for safety)
+            snapshots_enabled: Whether get_state_snapshot returns data (can be toggled)
         """
         self.state = ModeState(current_mode=initial_mode)
+        self._snapshots_enabled = snapshots_enabled
 
     # -------------------------------------------------------------------------
     # Properties
@@ -75,6 +85,11 @@ class ModeManager:
         """Get the configuration for the current mode."""
         return MODE_CONFIGS[self.state.current_mode]
 
+    @property
+    def snapshots_enabled(self) -> bool:
+        """Whether state snapshots are enabled."""
+        return self._snapshots_enabled
+
     # -------------------------------------------------------------------------
     # Mode Transitions
     # -------------------------------------------------------------------------
@@ -97,6 +112,19 @@ class ModeManager:
         self.set_mode(new_mode)
         return old_mode, new_mode
 
+    def _coerce_mode(self, mode: VibeMode | str) -> VibeMode:
+        """Convert a string or enum into a VibeMode, with validation."""
+        if isinstance(mode, VibeMode):
+            return mode
+
+        normalized = mode.strip().lower()
+        for candidate in VibeMode:
+            if candidate.value == normalized:
+                return candidate
+
+        valid = ", ".join(m.value for m in VibeMode)
+        raise ValueError(f"Unknown mode '{mode}'. Valid modes: {valid}.")
+
     def set_mode(self, mode: VibeMode) -> None:
         """Set a specific mode.
 
@@ -111,6 +139,58 @@ class ModeManager:
         self.state.read_only_tools = config.read_only
         self.state.started_at = now
         self.state.mode_history.append((mode, now))
+
+    def set_mode_from_name(self, mode: VibeMode | str) -> VibeMode:
+        """Set mode using either a VibeMode or a string name."""
+        target = self._coerce_mode(mode)
+        self.set_mode(target)
+        return target
+
+    def set_snapshots_enabled(self, enabled: bool) -> None:
+        """Toggle whether get_state_snapshot should return data."""
+        self._snapshots_enabled = bool(enabled)
+
+    def describe_mode(self, mode: VibeMode | str | None = None) -> ModeDescriptor:
+        """Return a structured descriptor for the requested mode."""
+        target = self._coerce_mode(mode) if mode is not None else self.state.current_mode
+        config = MODE_CONFIGS[target]
+
+        return ModeDescriptor(
+            id=target,
+            name=target.value.upper(),
+            emoji=config.emoji,
+            description=config.description,
+            auto_approve=config.auto_approve,
+            read_only=config.read_only,
+            personality=MODE_PERSONALITIES.get(target, ""),
+            tips=list(MODE_TIPS.get(target, [])),
+        )
+
+    def list_modes(self) -> list[ModeDescriptor]:
+        """Return descriptors for all modes in cycle order."""
+        return [self.describe_mode(mode) for mode in self.CYCLE_ORDER]
+
+    def get_state_snapshot(
+        self, *, enabled: bool | None = None, include_modes: bool = True
+    ) -> dict[str, Any]:
+        """Structured snapshot of current mode state.
+
+        Args:
+            enabled: Override snapshots_enabled flag for this call.
+            include_modes: Whether to include the list of available modes.
+        """
+        is_enabled = self._snapshots_enabled if enabled is None else bool(enabled)
+        if not is_enabled:
+            return {}
+
+        current = self.describe_mode()
+        snapshot: dict[str, Any] = {
+            "current_mode": current.to_dict(),
+            "state": self.state.to_dict(),
+        }
+        if include_modes:
+            snapshot["available_modes"] = [mode.to_dict() for mode in self.list_modes()]
+        return snapshot
 
     # -------------------------------------------------------------------------
     # Tool Permission Checks

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes
 
 if TYPE_CHECKING:
     from chefchat.bots.telegram.telegram_bot import TelegramBotService
@@ -35,7 +36,7 @@ class PolicyHandlers:
         return f"🔧 Bot-modus: {labels.get(policy, policy)}"
 
     async def botmode_command(
-        self, update: Update, context: object  # ContextTypes.DEFAULT_TYPE
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         chat_id = update.effective_chat.id
         if context and getattr(context, "args", None):
@@ -70,7 +71,7 @@ class PolicyHandlers:
             pass
 
     async def handle_shortcut(
-        self, update: Update, context: object, policy: str
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, policy: str
     ) -> None:
         chat_id = update.effective_chat.id
         msg = self.set_policy(chat_id, policy)

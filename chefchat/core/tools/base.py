@@ -294,6 +294,16 @@ class BaseTool(
                         f"got {param}"
                     )
                 return param
+
+        # Fallback: walk base classes that already resolved BaseTool generics.
+        for base in cls.__mro__[1:]:
+            if base is BaseTool or not issubclass(base, BaseTool):
+                continue
+
+            try:
+                return base._extract_generic_param(index, expected)  # type: ignore[misc]
+            except TypeError:
+                continue
         raise TypeError(
             f"{cls.__name__} must inherit BaseTool[Args, Result, Config, State] "
             f"with all four generics specified."

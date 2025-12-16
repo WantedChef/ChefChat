@@ -1,0 +1,1130 @@
+/home/chef/chefchat/ChefChat/chefchat/acp/tools/base.py
+  /home/chef/chefchat/ChefChat/chefchat/acp/tools/base.py:61:51 - error: Cannot access attribute "get_name" for class "type[BaseAcpTool]*"
+    Attribute "get_name" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/bots/discord/bot.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/discord/bot.py:108:30 - error: Cannot access attribute "send" for class "ForumChannel"
+    Attribute "send" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/discord/bot.py:108:30 - error: Cannot access attribute "send" for class "CategoryChannel"
+    Attribute "send" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/discord/bot.py:108:30 - error: Cannot access attribute "send" for class "PrivateChannel"
+    Attribute "send" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/discord/bot.py:128:23 - error: Cannot access attribute "send" for class "ForumChannel"
+    Attribute "send" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/discord/bot.py:128:23 - error: Cannot access attribute "send" for class "CategoryChannel"
+    Attribute "send" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/discord/bot.py:128:23 - error: Cannot access attribute "send" for class "PrivateChannel"
+    Attribute "send" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/bots/discord/handlers/model.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/discord/handlers/model.py:152:39 - error: "edit" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:34:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:37:37 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:71:26 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:94:26 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:115:26 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:136:26 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:150:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:153:37 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:157:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:179:26 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:193:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:212:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/fun_commands.py:220:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:27:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:37:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:48:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:75:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:81:16 - error: Argument of type "list[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    Type "list[str] | None" is not assignable to type "Sized"
+      "None" is incompatible with protocol "Sized"
+        "__len__" is not present (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:82:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:87:15 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:89:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:92:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:99:16 - error: Argument of type "list[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    Type "list[str] | None" is not assignable to type "Sized"
+      "None" is incompatible with protocol "Sized"
+        "__len__" is not present (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:100:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:105:22 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:107:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:111:13 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:112:20 - error: Argument of type "list[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    Type "list[str] | None" is not assignable to type "Sized"
+      "None" is incompatible with protocol "Sized"
+        "__len__" is not present (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:116:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:122:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:130:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:135:16 - error: Argument of type "list[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    Type "list[str] | None" is not assignable to type "Sized"
+      "None" is incompatible with protocol "Sized"
+        "__len__" is not present (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:136:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:139:19 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:141:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:146:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:151:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:162:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:174:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:181:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:184:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:207:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/admin.py:213:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:23:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:47:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:54:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:61:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:75:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:104:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:111:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:122:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:129:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:135:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/cli.py:154:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:27:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:30:80 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:32:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:111:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:125:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:142:84 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:143:72 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/core.py:154:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:159:73 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:180:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:184:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:190:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:194:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:350:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:372:22 - error: "data" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:378:17 - error: "startswith" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:379:29 - error: "split" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:383:17 - error: "startswith" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:384:26 - error: "split" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:428:41 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:484:37 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:493:41 - error: "answer" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:498:50 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:506:41 - error: "answer" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/models.py:511:37 - error: "answer" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/policy.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/policy.py:41:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/policy.py:43:48 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/policy.py:76:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/policy.py:81:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/policy.py:85:41 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/tasks.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/tasks.py:25:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/tasks.py:26:36 - error: "text" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:33:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:67:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:85:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:103:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:115:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:119:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:121:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:126:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:133:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:135:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:138:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:143:38 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:146:38 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/handlers/terminal.py:154:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:369:44 - error: Cannot access attribute "_handle_model_list" for class "TelegramBotService*"
+    Attribute "_handle_model_list" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:370:46 - error: Cannot access attribute "_handle_model_select_prompt" for class "TelegramBotService*"
+    Attribute "_handle_model_select_prompt" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:480:69 - error: Argument of type "str | None" cannot be assigned to parameter "prompt" of type "str" in function "execute_prompt"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:480:84 - error: "text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:486:69 - error: Argument of type "str | None" cannot be assigned to parameter "text" of type "str" in function "send_to_session"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:486:84 - error: "text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:499:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:528:51 - error: Argument of type "str | None" cannot be assigned to parameter "text" of type "str" in function "handle_user_message"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:528:66 - error: "text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:546:21 - error: "answer" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:548:22 - error: "data" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:566:29 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:571:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:583:25 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:587:25 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:591:25 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:594:25 - error: "edit_message_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:616:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:630:59 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:844:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:846:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:859:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:871:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:876:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:881:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:894:34 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:897:30 - error: "reply_text" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:936:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:945:40 - error: "current_mode" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:979:41 - error: "id" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:992:44 - error: Cannot access attribute "switch_mode" for class "ModeManager"
+    Attribute "switch_mode" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:992:44 - error: "switch_mode" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1179:30 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1193:30 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1199:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1204:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1210:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1211:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1225:30 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1233:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1234:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1237:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1240:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1243:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1256:30 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1332:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1333:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1334:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1337:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1340:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1341:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1344:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1345:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1346:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1347:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1358:30 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1367:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1370:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1373:26 - error: "add_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1374:26 - error: "add_error_handler" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1390:48 - error: "stop" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/telegram/telegram_bot.py:1442:44 - error: "start_polling" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/bots/terminal.py
+  /home/chef/chefchat/ChefChat/chefchat/bots/terminal.py:49:40 - error: "readline" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/terminal.py:62:40 - error: "readline" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/terminal.py:84:36 - error: "write" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/bots/terminal.py:85:32 - error: "flush" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/cli/repl.py
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:196:32 - error: Cannot assign to attribute "approval_callback" for class "Agent"
+    Attribute "approval_callback" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:198:32 - error: Cannot assign to attribute "approval_callback" for class "Agent"
+    Attribute "approval_callback" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:547:18 - error: "model_alias" is not defined (reportUndefinedVariable)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:554:63 - error: "model_alias" is not defined (reportUndefinedVariable)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:585:40 - error: "api_key_env_var" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:858:24 - error: Cannot assign to attribute "approval_callback" for class "Agent"
+    Attribute "approval_callback" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:921:28 - error: Cannot assign to attribute "approval_callback" for class "Agent"
+    Attribute "approval_callback" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:923:28 - error: Cannot assign to attribute "approval_callback" for class "Agent"
+    Attribute "approval_callback" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:948:63 - error: Argument of type "BaseEvent" cannot be assigned to parameter "event" of type "AssistantEvent | ToolCallEvent | ToolResultEvent" in function "_process_agent_event"
+    Type "BaseEvent" is not assignable to type "AssistantEvent | ToolCallEvent | ToolResultEvent"
+      "BaseEvent" is not assignable to "AssistantEvent"
+      "BaseEvent" is not assignable to "ToolCallEvent"
+      "BaseEvent" is not assignable to "ToolResultEvent" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:1238:13 - error: Result of async function call is not used; use "await" or assign result to variable (reportUnusedCoroutine)
+  /home/chef/chefchat/ChefChat/chefchat/cli/repl.py:1294:22 - error: Function with declared return type "NoReturn" cannot return "None" (reportReturnType)
+/home/chef/chefchat/ChefChat/chefchat/core/agent_tool_executor.py
+  /home/chef/chefchat/ChefChat/chefchat/core/agent_tool_executor.py:244:76 - error: Argument of type "str | None" cannot be assigned to parameter "reason" of type "str" in function "_create_mode_blocked_decision"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportArgumentType)
+/home/chef/chefchat/ChefChat/chefchat/core/config.py
+  /home/chef/chefchat/ChefChat/chefchat/core/config.py:11:12 - error: Import "tomli" could not be resolved (reportMissingImports)
+/home/chef/chefchat/ChefChat/chefchat/core/llm/backend/generic.py
+  /home/chef/chefchat/ChefChat/chefchat/core/llm/backend/generic.py:121:17 - error: Cannot access attribute "_provider" for class "OpenAIAdapter*"
+    Attribute "_provider" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm/backend/generic.py:153:28 - error: Cannot access attribute "_adjust_for_groq_model" for class "OpenAIAdapter*"
+    Attribute "_adjust_for_groq_model" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/core/llm/backend/mistral.py
+  /home/chef/chefchat/ChefChat/chefchat/core/llm/backend/mistral.py:358:43 - error: Object of type "None" cannot be used as iterable value (reportOptionalIterable)
+/home/chef/chefchat/ChefChat/chefchat/core/llm/exceptions.py
+  /home/chef/chefchat/ChefChat/chefchat/core/llm/exceptions.py:240:20 - error: Type "LLMAuthenticationError" is not assignable to return type "BackendError"
+    "LLMAuthenticationError" is not assignable to "BackendError" (reportReturnType)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm/exceptions.py:243:20 - error: Type "LLMRateLimitError" is not assignable to return type "BackendError"
+    "LLMRateLimitError" is not assignable to "BackendError" (reportReturnType)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm/exceptions.py:246:20 - error: Type "LLMContextWindowError" is not assignable to return type "BackendError"
+    "LLMContextWindowError" is not assignable to "BackendError" (reportReturnType)
+/home/chef/chefchat/ChefChat/chefchat/core/llm_client.py
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:70:28 - error: No parameter named "provider" (reportCallIssue)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:70:47 - error: No parameter named "timeout" (reportCallIssue)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:208:63 - error: "prompt_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:209:67 - error: "completion_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:210:62 - error: "prompt_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:211:66 - error: "completion_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:213:30 - error: "prompt_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/core/llm_client.py:213:59 - error: "completion_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/core/multimodal.py
+  /home/chef/chefchat/ChefChat/chefchat/core/multimodal.py:52:26 - error: "TOMLDecodeError" is not a known attribute of module "toml" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/core/multimodal.py:69:26 - error: "TOMLDecodeError" is not a known attribute of module "toml" (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/core/tools/base.py
+  /home/chef/chefchat/ChefChat/chefchat/core/tools/base.py:214:20 - error: "re" is possibly unbound (reportPossiblyUnboundVariable)
+/home/chef/chefchat/ChefChat/chefchat/core/tools/builtins/bash.py
+  /home/chef/chefchat/ChefChat/chefchat/core/tools/builtins/bash.py:186:9 - error: Method "check_allowlist_denylist" overrides class "BaseTool" in an incompatible manner
+    Return type mismatch: base method returns type "ToolPermission", override returns type "ToolPermission | None"
+      Type "ToolPermission | None" is not assignable to type "ToolPermission"
+        "None" is not assignable to "ToolPermission" (reportIncompatibleMethodOverride)
+/home/chef/chefchat/ChefChat/chefchat/core/tools/builtins/read_file.py
+  /home/chef/chefchat/ChefChat/chefchat/core/tools/builtins/read_file.py:86:9 - error: Method "check_allowlist_denylist" overrides class "BaseTool" in an incompatible manner
+    Return type mismatch: base method returns type "ToolPermission", override returns type "ToolPermission | None"
+      Type "ToolPermission | None" is not assignable to type "ToolPermission"
+        "None" is not assignable to "ToolPermission" (reportIncompatibleMethodOverride)
+/home/chef/chefchat/ChefChat/chefchat/core/tools/builtins/write_file.py
+  /home/chef/chefchat/ChefChat/chefchat/core/tools/builtins/write_file.py:91:9 - error: Method "check_allowlist_denylist" overrides class "BaseTool" in an incompatible manner
+    Return type mismatch: base method returns type "ToolPermission", override returns type "ToolPermission | None"
+      Type "ToolPermission | None" is not assignable to type "ToolPermission"
+        "None" is not assignable to "ToolPermission" (reportIncompatibleMethodOverride)
+/home/chef/chefchat/ChefChat/chefchat/core/tools/ui.py
+  /home/chef/chefchat/ChefChat/chefchat/core/tools/ui.py:32:7 - warning: Type variable "TArgs" used in generic Protocol "ToolUIData" should be covariant (reportInvalidTypeVarUse)
+  /home/chef/chefchat/ChefChat/chefchat/core/tools/ui.py:32:7 - warning: Type variable "TResult" used in generic Protocol "ToolUIData" should be covariant (reportInvalidTypeVarUse)
+/home/chef/chefchat/ChefChat/chefchat/core/utils.py
+  /home/chef/chefchat/ChefChat/chefchat/core/utils.py:302:28 - error: "windll" is not a known attribute of module "ctypes" (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/app.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/app.py:144:5 - error: "BINDINGS" overrides symbol of same name in class "App"
+    Variable is mutable so its type is invariant
+      Override type "list[Binding]" is not the same as base type "list[BindingType]" (reportIncompatibleVariableOverride)
+  /home/chef/chefchat/ChefChat/chefchat/interface/app.py:263:44 - error: Argument of type "(message: ChefMessage) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter "callback" of type "(ChefMessage) -> None" in function "subscribe"
+    Type "(message: ChefMessage) -> CoroutineType[Any, Any, None]" is not assignable to type "(ChefMessage) -> None"
+      Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+        "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/app.py:341:57 - error: Argument of type "Self@ChefChatApp" cannot be assigned to parameter "app" of type "ChefAppProtocol" in function "dispatch"
+    "ChefChatApp*" is incompatible with protocol "ChefAppProtocol"
+      Type "ChefAppProtocol" is not assignable to type "Self@ChefChatApp"
+      Type "ChefAppProtocol" is not assignable to type "Self@ChefChatApp"
+      Type "ChefAppProtocol" is not assignable to type "Self@ChefChatApp"
+      "notify" is an incompatible type
+        Type "(message: str, *, title: str = "", severity: SeverityLevel = "information", timeout: float | None = None, markup: bool = True) -> None" is not assignable to type "(message: str, *, title: str = "", severity: str = "information", timeout: float = 5) -> None"
+          Keyword parameter "severity" of type "str" is incompatible with type "SeverityLevel"
+            Type "str" is not assignable to type "SeverityLevel"
+    ... (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/app.py:367:9 - error: Method "action_quit" overrides class "App" in an incompatible manner
+    Return type mismatch: base method returns type "CoroutineType[Any, Any, None]", override returns type "None"
+      "None" is not assignable to "CoroutineType[Any, Any, None]" (reportIncompatibleMethodOverride)
+  /home/chef/chefchat/ChefChat/chefchat/interface/app.py:408:34 - error: Cannot access attribute "_handle_clear" for class "ChefChatApp*"
+    Attribute "_handle_clear" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/command_registry.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/command_registry.py:249:19 - error: Cannot access attribute "_show_status" for class "ChefAppProtocol"
+    Attribute "_show_status" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/command_registry.py:295:19 - error: Cannot access attribute "_show_wisdom" for class "ChefAppProtocol"
+    Attribute "_show_wisdom" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/command_registry.py:299:19 - error: Cannot access attribute "_show_fortune" for class "ChefAppProtocol"
+    Attribute "_show_fortune" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/command_registry.py:303:19 - error: Cannot access attribute "_show_roast" for class "ChefAppProtocol"
+    Attribute "_show_roast" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/command_registry.py:333:19 - error: Cannot access attribute "_handle_telegram_command" for class "ChefAppProtocol"
+    Attribute "_handle_telegram_command" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/command_registry.py:342:19 - error: Cannot access attribute "_handle_discord_command" for class "ChefAppProtocol"
+    Attribute "_handle_discord_command" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/events.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/events.py:32:5 - error: Instance variable "bubble" overrides class variable of same name in class "Message" (reportIncompatibleVariableOverride)
+/home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:33:65 - error: Cannot access attribute "home_path" for class "VibeConfig"
+    Attribute "home_path" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:33:65 - error: "home_path" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:35:69 - error: Cannot access attribute "home_path" for class "VibeConfig"
+    Attribute "home_path" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:35:69 - error: "home_path" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:57:31 - error: Cannot access attribute "items" for class "list[MCPServerInfo]"
+    Attribute "items" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:105:60 - error: "ConfirmDialog" is unknown import symbol (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:112:17 - error: Cannot access attribute "exit" for class "ChefAppProtocol"
+    Attribute "exit" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/handlers/system_handlers.py:250:9 - error: Cannot access attribute "exit" for class "ChefAppProtocol"
+    Attribute "exit" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:57:24 - error: Cannot access attribute "push_screen" for class "AgentLifecycleMixin*"
+    Attribute "push_screen" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:60:18 - error: Cannot access attribute "notify" for class "AgentLifecycleMixin*"
+    Attribute "notify" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:65:31 - error: Cannot access attribute "_mode_manager" for class "AgentLifecycleMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:67:31 - error: Cannot access attribute "_mode_manager" for class "AgentLifecycleMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:69:43 - error: Argument of type "(tool_name: str, tool_args: dict[Unknown, Unknown] | str) -> CoroutineType[Any, Any, tuple[str, str | None]]" cannot be assigned to parameter "callback" of type "ApprovalCallback" in function "set_approval_callback"
+    Type "(tool_name: str, tool_args: dict[Unknown, Unknown] | str) -> CoroutineType[Any, Any, tuple[str, str | None]]" is not assignable to type "ApprovalCallback"
+      Type "(tool_name: str, tool_args: dict[Unknown, Unknown] | str) -> CoroutineType[Any, Any, tuple[str, str | None]]" is not assignable to type "AsyncApprovalCallback"
+        Function accepts too many positional parameters; expected 2 but received 3
+      Type "(tool_name: str, tool_args: dict[Unknown, Unknown] | str) -> CoroutineType[Any, Any, tuple[str, str | None]]" is not assignable to type "SyncApprovalCallback"
+        Function accepts too many positional parameters; expected 2 but received 3
+          Function return type "CoroutineType[Any, Any, tuple[str, str | None]]" is incompatible with type "tuple[str, str | None]"
+            "CoroutineType[Any, Any, tuple[str, str | None]]" is not assignable to "tuple[str, str | None]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:72:21 - error: Cannot access attribute "_mode_manager" for class "AgentLifecycleMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:74:14 - error: Cannot access attribute "query_one" for class "AgentLifecycleMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:89:18 - error: Cannot access attribute "notify" for class "AgentLifecycleMixin*"
+    Attribute "notify" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:100:30 - error: Cannot access attribute "notify" for class "AgentLifecycleMixin*"
+    Attribute "notify" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:122:14 - error: Cannot access attribute "call_from_thread" for class "AgentLifecycleMixin*"
+    Attribute "call_from_thread" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:123:26 - error: Cannot access attribute "push_screen" for class "AgentLifecycleMixin*"
+    Attribute "push_screen" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:138:28 - error: Cannot access attribute "query_one" for class "AgentLifecycleMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:139:22 - error: Cannot access attribute "_get_plate_if_available" for class "AgentLifecycleMixin*"
+    Attribute "_get_plate_if_available" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:140:23 - error: Cannot access attribute "query_one" for class "AgentLifecycleMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:144:14 - error: Cannot access attribute "_enter_running" for class "AgentLifecycleMixin*"
+    Attribute "_enter_running" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:148:41 - error: Argument of type "BaseEvent" cannot be assigned to parameter "event" of type "AssistantEvent | ToolCallEvent | ToolResultEvent" in function "_process_tui_event"
+    Type "BaseEvent" is not assignable to type "AssistantEvent | ToolCallEvent | ToolResultEvent"
+      "BaseEvent" is not assignable to "AssistantEvent"
+      "BaseEvent" is not assignable to "ToolCallEvent"
+      "BaseEvent" is not assignable to "ToolResultEvent" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:150:18 - error: Cannot access attribute "notify" for class "AgentLifecycleMixin*"
+    Attribute "notify" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:157:18 - error: Cannot access attribute "_enter_idle" for class "AgentLifecycleMixin*"
+    Attribute "_enter_idle" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:185:26 - error: Cannot access attribute "is_error" for class "ToolResultEvent"
+    Attribute "is_error" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:188:59 - error: Cannot access attribute "is_error" for class "ToolResultEvent"
+    Attribute "is_error" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:203:14 - error: Cannot access attribute "query_one" for class "AgentLifecycleMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:206:17 - error: Cannot access attribute "_active_mode" for class "AgentLifecycleMixin*"
+    Attribute "_active_mode" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:208:22 - error: Cannot access attribute "notify" for class "AgentLifecycleMixin*"
+    Attribute "notify" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:220:18 - error: Cannot access attribute "query_one" for class "AgentLifecycleMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:221:18 - error: Cannot access attribute "_enter_running" for class "AgentLifecycleMixin*"
+    Attribute "_enter_running" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:228:18 - error: Cannot access attribute "query_one" for class "AgentLifecycleMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:237:18 - error: Cannot access attribute "notify" for class "AgentLifecycleMixin*"
+    Attribute "notify" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:249:14 - error: Cannot access attribute "query_one" for class "AgentLifecycleMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:250:14 - error: Cannot access attribute "_enter_running" for class "AgentLifecycleMixin*"
+    Attribute "_enter_running" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/agent_lifecycle.py:266:41 - error: Cannot access attribute "_handle_bus_message" for class "AgentLifecycleMixin*"
+    Attribute "_handle_bus_message" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:45:49 - error: Cannot access attribute "_config" for class "BotCommandsMixin*"
+    Attribute "_config" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:60:18 - error: Cannot access attribute "query_one" for class "BotCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:95:14 - error: Cannot access attribute "query_one" for class "BotCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:102:28 - error: Cannot access attribute "query_one" for class "BotCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:106:22 - error: Cannot access attribute "notify" for class "BotCommandsMixin*"
+    Attribute "notify" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:109:20 - error: Cannot access attribute "push_screen" for class "BotCommandsMixin*"
+    Attribute "push_screen" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:115:28 - error: Cannot access attribute "query_one" for class "BotCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:129:28 - error: Cannot access attribute "query_one" for class "BotCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bot_commands.py:150:14 - error: Cannot access attribute "query_one" for class "BotCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:69:17 - error: Cannot access attribute "_state" for class "BusEventHandlerMixin*"
+    Attribute "_state" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:69:70 - error: Cannot access attribute "_state" for class "BusEventHandlerMixin*"
+    Attribute "_state" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:72:14 - error: Cannot access attribute "_enter_idle" for class "BusEventHandlerMixin*"
+    Attribute "_enter_idle" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:75:18 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:80:18 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:90:17 - error: Cannot access attribute "_layout" for class "BusEventHandlerMixin*"
+    Attribute "_layout" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:102:30 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:106:17 - error: Cannot access attribute "_state" for class "BusEventHandlerMixin*"
+    Attribute "_state" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:108:44 - error: Cannot access attribute "_state" for class "BusEventHandlerMixin*"
+    Attribute "_state" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:124:14 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:126:17 - error: Cannot access attribute "_layout" for class "BusEventHandlerMixin*"
+    Attribute "_layout" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:127:18 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:135:17 - error: Cannot access attribute "_layout" for class "BusEventHandlerMixin*"
+    Attribute "_layout" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:144:22 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:153:17 - error: Cannot access attribute "_layout" for class "BusEventHandlerMixin*"
+    Attribute "_layout" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:160:18 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/bus_event_handler.py:171:18 - error: Cannot access attribute "query_one" for class "BusEventHandlerMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:37:24 - error: Cannot access attribute "_mode_manager" for class "ChefCommandsMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:53:14 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:60:21 - error: Cannot access attribute "_mode_manager" for class "ChefCommandsMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:62:29 - error: Cannot access attribute "_mode_manager" for class "ChefCommandsMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:65:49 - error: Cannot access attribute "_session_start_time" for class "ChefCommandsMixin*"
+    Attribute "_session_start_time" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:77:17 - error: Cannot access attribute "_agent" for class "ChefCommandsMixin*"
+    Attribute "_agent" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:77:41 - error: Cannot access attribute "_agent" for class "ChefCommandsMixin*"
+    Attribute "_agent" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:78:40 - error: Cannot access attribute "_agent" for class "ChefCommandsMixin*"
+    Attribute "_agent" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:84:30 - error: Cannot access attribute "_tools_executed" for class "ChefCommandsMixin*"
+    Attribute "_tools_executed" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:87:37 - error: Cannot access attribute "_bus" for class "ChefCommandsMixin*"
+    Attribute "_bus" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:89:14 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:103:14 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:119:14 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:135:14 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:144:21 - error: Cannot access attribute "_mode_manager" for class "ChefCommandsMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:146:29 - error: Cannot access attribute "_mode_manager" for class "ChefCommandsMixin*"
+    Attribute "_mode_manager" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:148:34 - error: Cannot access attribute "_bus" for class "ChefCommandsMixin*"
+    Attribute "_bus" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:148:48 - error: Cannot access attribute "_bus" for class "ChefCommandsMixin*"
+    Attribute "_bus" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:161:14 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:168:21 - error: Cannot access attribute "_brigade" for class "ChefCommandsMixin*"
+    Attribute "_brigade" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:169:18 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:184:20 - error: Cannot access attribute "_bus" for class "ChefCommandsMixin*"
+    Attribute "_bus" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:186:18 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/chef_commands.py:197:14 - error: Cannot access attribute "query_one" for class "ChefCommandsMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:49:14 - error: Cannot access attribute "query_one" for class "CommandDispatcherMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:55:24 - error: Cannot access attribute "_command_registry" for class "CommandDispatcherMixin*"
+    Attribute "_command_registry" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:84:26 - error: Argument of type "str | None" cannot be assigned to parameter "name" of type "str" in function "hasattr"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:85:37 - error: Argument of type "str | None" cannot be assigned to parameter "name" of type "str" in function "getattr"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:97:37 - error: Cannot access attribute "_handle_layout_command" for class "CommandDispatcherMixin*"
+    Attribute "_handle_layout_command" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:98:38 - error: Cannot access attribute "_show_fortune" for class "CommandDispatcherMixin*"
+    Attribute "_show_fortune" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:99:34 - error: Cannot access attribute "_handle_api_command" for class "CommandDispatcherMixin*"
+    Attribute "_handle_api_command" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:100:36 - error: Cannot access attribute "_handle_model_command" for class "CommandDispatcherMixin*"
+    Attribute "_handle_model_command" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:101:34 - error: Cannot access attribute "_handle_mcp_command" for class "CommandDispatcherMixin*"
+    Attribute "_handle_mcp_command" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:102:41 - error: Cannot access attribute "_handle_openrouter_command" for class "CommandDispatcherMixin*"
+    Attribute "_handle_openrouter_command" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:126:18 - error: Cannot access attribute "query_one" for class "CommandDispatcherMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:131:28 - error: Cannot access attribute "query_one" for class "CommandDispatcherMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/mixins/command_dispatcher.py:135:23 - error: Cannot access attribute "query_one" for class "CommandDispatcherMixin*"
+    Attribute "query_one" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/screens/active_model_picker.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/active_model_picker.py:140:55 - error: "ModelManagerScreen" is unknown import symbol (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/screens/command_palette.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/command_palette.py:16:5 - error: "COMMANDS" overrides symbol of same name in class "Screen"
+    Variable is mutable so its type is invariant
+      Override type "list[tuple[str, str]]" is not the same as base type "set[type[Provider] | (() -> type[Provider])]" (reportIncompatibleVariableOverride)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/command_palette.py:29:9 - error: Method "action_dismiss" overrides class "Screen" in an incompatible manner
+    Positional parameter count mismatch; base method has 2, but override has 1
+    Parameter 2 mismatch: base parameter "result" is keyword parameter, override parameter is position-only
+    Return type mismatch: base method returns type "CoroutineType[Any, Any, None]", override returns type "None"
+      "None" is not assignable to "CoroutineType[Any, Any, None]" (reportIncompatibleMethodOverride)
+/home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:31:22 - error: Argument of type "Literal['🤖 Model Manager']" cannot be assigned to parameter "show_clock" of type "bool" in function "__init__"
+    "Literal['🤖 Model Manager']" is not assignable to "bool" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:47:13 - error: Argument of type "TabPane" cannot be assigned to parameter "titles" of type "ContentType" in function "__init__"
+    Type "TabPane" is not assignable to type "ContentType"
+      "TabPane" is not assignable to "Content"
+      "TabPane" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:48:13 - error: Argument of type "TabPane" cannot be assigned to parameter "titles" of type "ContentType" in function "__init__"
+    Type "TabPane" is not assignable to type "ContentType"
+      "TabPane" is not assignable to "Content"
+      "TabPane" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:49:13 - error: Argument of type "TabPane" cannot be assigned to parameter "titles" of type "ContentType" in function "__init__"
+    Type "TabPane" is not assignable to type "ContentType"
+      "TabPane" is not assignable to "Content"
+      "TabPane" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:50:13 - error: Argument of type "TabPane" cannot be assigned to parameter "titles" of type "ContentType" in function "__init__"
+    Type "TabPane" is not assignable to type "ContentType"
+      "TabPane" is not assignable to "Content"
+      "TabPane" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:51:13 - error: Argument of type "TabPane" cannot be assigned to parameter "titles" of type "ContentType" in function "__init__"
+    Type "TabPane" is not assignable to type "ContentType"
+      "TabPane" is not assignable to "Content"
+      "TabPane" is not assignable to "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:145:24 - error: "startswith" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:146:37 - error: "replace" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:148:24 - error: "startswith" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/interface/screens/model_manager.py:150:31 - error: "replace" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/interface/services/config_service.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/services/config_service.py:93:25 - error: No overloads for "__init__" match the provided arguments (reportCallIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/services/config_service.py:93:25 - error: Argument of type "dict[bytes, bytes] | dict[str, Any]" cannot be assigned to parameter "mcp_servers" of type "dict[str, Any]" in function "__init__"
+    Type "dict[bytes, bytes] | dict[str, Any]" is not assignable to type "dict[str, Any]"
+      "dict[bytes, bytes]" is not assignable to "dict[str, Any]"
+        Type parameter "_KT@dict" is invariant, but "bytes" is not the same as "str" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/services/config_service.py:93:30 - error: Argument of type "list[MCPServer]" cannot be assigned to parameter "iterable" of type "Iterable[list[bytes]]" in function "__init__"
+    "list[MCPServer]" is not assignable to "Iterable[list[bytes]]"
+      Type parameter "_T_co@Iterable" is covariant, but "MCPServer" is not a subtype of "list[bytes]"
+        Type "MCPServer" is not assignable to type "list[bytes]"
+          "MCPHttp" is not assignable to "list[bytes]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/services/config_service.py:133:55 - error: Cannot access attribute "items" for class "list[MCPServer]"
+    Attribute "items" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/services/config_service.py:173:42 - error: Cannot access attribute "get_config_path" for class "type[VibeConfig]"
+    Attribute "get_config_path" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/services/model_service.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/services/model_service.py:74:41 - error: Cannot access attribute "ensure_config" for class "VibeConfig"
+    Attribute "ensure_config" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/services/model_service.py:75:16 - error: Type "ConfigService | VibeConfig" is not assignable to return type "VibeConfig"
+    Type "ConfigService | VibeConfig" is not assignable to type "VibeConfig"
+      "ConfigService" is not assignable to "VibeConfig" (reportReturnType)
+/home/chef/chefchat/ChefChat/chefchat/interface/state.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/state.py:145:14 - error: Cannot assign to attribute "model_alias" for class "TUIState*"
+    Argument of type "Self@TUIState" cannot be assigned to parameter "obj" of type "Reactable" in function "__set__"
+      "TUIState*" is not assignable to "DOMNode" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/state.py:161:14 - error: Cannot assign to attribute "processing" for class "TUIState*"
+    Argument of type "Self@TUIState" cannot be assigned to parameter "obj" of type "Reactable" in function "__set__"
+      "TUIState*" is not assignable to "DOMNode" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/state.py:170:14 - error: Cannot assign to attribute "processing" for class "TUIState*"
+    Argument of type "Self@TUIState" cannot be assigned to parameter "obj" of type "Reactable" in function "__set__"
+      "TUIState*" is not assignable to "DOMNode" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/state.py:179:14 - error: Cannot assign to attribute "processing" for class "TUIState*"
+    Argument of type "Self@TUIState" cannot be assigned to parameter "obj" of type "Reactable" in function "__set__"
+      "TUIState*" is not assignable to "DOMNode" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/state.py:184:14 - error: Cannot assign to attribute "processing" for class "TUIState*"
+    Argument of type "Self@TUIState" cannot be assigned to parameter "obj" of type "Reactable" in function "__set__"
+      "TUIState*" is not assignable to "DOMNode" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/interface/state.py:224:14 - error: Cannot assign to attribute "layout" for class "TUIState*"
+    Argument of type "Self@TUIState" cannot be assigned to parameter "obj" of type "Reactable" in function "__set__"
+      "TUIState*" is not assignable to "DOMNode" (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/widgets/command_input.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/command_input.py:35:5 - error: "BINDINGS" overrides symbol of same name in class "Input"
+    Variable is mutable so its type is invariant
+      Override type "list[Binding]" is not the same as base type "list[BindingType]" (reportIncompatibleVariableOverride)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/command_input.py:141:9 - error: Method "action_submit" overrides class "Input" in an incompatible manner
+    Return type mismatch: base method returns type "CoroutineType[Any, Any, None]", override returns type "None"
+      "None" is not assignable to "CoroutineType[Any, Any, None]" (reportIncompatibleMethodOverride)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/command_input.py:167:37 - error: "highlighted" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/command_input.py:175:31 - error: "display" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/command_input.py:206:31 - error: "display" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/chefchat/interface/widgets/the_plate.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/the_plate.py:169:42 - error: Argument of type "DOMQuery[Widget]" cannot be assigned to parameter "iterable" of type "Iterable[Static | CodeBlock]" in function "extend"
+    "DOMQuery[Widget]" is incompatible with protocol "Iterable[Static | CodeBlock]"
+      "__iter__" is an incompatible type
+        Type "() -> Iterator[Widget]" is not assignable to type "() -> Iterator[_T_co@Iterable]"
+          Function return type "Iterator[Widget]" is incompatible with type "Iterator[_T_co@Iterable]"
+            "Iterator[Widget]" is not assignable to "Iterator[_T_co@Iterable]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/the_plate.py:211:38 - error: Argument of type "DOMQuery[Widget]" cannot be assigned to parameter "iterable" of type "Iterable[Static | CodeBlock]" in function "extend"
+    "DOMQuery[Widget]" is incompatible with protocol "Iterable[Static | CodeBlock]"
+      "__iter__" is an incompatible type
+        Type "() -> Iterator[Widget]" is not assignable to type "() -> Iterator[_T_co@Iterable]"
+          Function return type "Iterator[Widget]" is incompatible with type "Iterator[_T_co@Iterable]"
+            "Iterator[Widget]" is not assignable to "Iterator[_T_co@Iterable]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/the_plate.py:354:14 - error: Cannot access attribute "call_from_thread" for class "ThePlate*"
+    Attribute "call_from_thread" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/interface/widgets/ticket_rail.py
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/ticket_rail.py:88:14 - error: "content" incorrectly overrides property of same name in class "Static" (reportIncompatibleMethodOverride)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/ticket_rail.py:98:5 - error: "BINDINGS" overrides symbol of same name in class "DOMNode"
+    Variable is mutable so its type is invariant
+      Override type "list[Binding]" is not the same as base type "list[BindingType]" (reportIncompatibleVariableOverride)
+  /home/chef/chefchat/ChefChat/chefchat/interface/widgets/ticket_rail.py:250:26 - error: Argument of type "object" cannot be assigned to parameter "content" of type "VisualType" in function "__init__"
+    Type "object" is not assignable to type "VisualType"
+      "object" is incompatible with protocol "ConsoleRenderable"
+        "__rich_console__" is not present
+      "object" is incompatible with protocol "RichCast"
+        "__rich__" is not present
+      "object" is not assignable to "str"
+      "object" is incompatible with protocol "SupportsVisual"
+        "visualize" is not present
+    ... (reportArgumentType)
+/home/chef/chefchat/ChefChat/chefchat/kitchen/bus.py
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/bus.py:169:31 - error: "Never" is not awaitable (reportGeneralTypeIssues)
+/home/chef/chefchat/ChefChat/chefchat/kitchen/manager.py
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/manager.py:125:23 - error: Method "chat" overrides class "ChefBrain" in an incompatible manner
+    Return type mismatch: base method returns type "CoroutineType[Any, Any, str | AsyncIterator[str]]", override returns type "AsyncIterator[str]"
+      "AsyncIterator[str]" is not assignable to "CoroutineType[Any, Any, str | AsyncIterator[str]]" (reportIncompatibleMethodOverride)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/manager.py:146:32 - error: "str" is not iterable
+    "__aiter__" method not defined (reportGeneralTypeIssues)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/manager.py:166:32 - error: "str" is not iterable
+    "__aiter__" method not defined (reportGeneralTypeIssues)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/manager.py:187:32 - error: "str" is not iterable
+    "__aiter__" method not defined (reportGeneralTypeIssues)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/manager.py:207:32 - error: "str" is not iterable
+    "__aiter__" method not defined (reportGeneralTypeIssues)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/manager.py:230:32 - error: "str" is not iterable
+    "__aiter__" method not defined (reportGeneralTypeIssues)
+/home/chef/chefchat/ChefChat/chefchat/kitchen/security.py
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/security.py:202:28 - error: Cannot assign to attribute "error" for class "type[Logger]"
+    Type "(self: Logger, msg: str, ...) -> None" is not assignable to type "(self: Logger, msg: object, *args: object, exc_info: _ExcInfoType = None, stack_info: bool = False, stacklevel: int = 1, extra: Mapping[str, object] | None = None) -> None"
+      Parameter 2: type "object" is incompatible with type "str"
+        "object" is not assignable to "str" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/security.py:203:30 - error: Cannot assign to attribute "warning" for class "type[Logger]"
+    Type "(self: Logger, msg: str, ...) -> None" is not assignable to type "(self: Logger, msg: object, *args: object, exc_info: _ExcInfoType = None, stack_info: bool = False, stacklevel: int = 1, extra: Mapping[str, object] | None = None) -> None"
+      Parameter 2: type "object" is incompatible with type "str"
+        "object" is not assignable to "str" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/security.py:204:27 - error: Cannot assign to attribute "info" for class "type[Logger]"
+    Type "(self: Logger, msg: str, ...) -> None" is not assignable to type "(self: Logger, msg: object, *args: object, exc_info: _ExcInfoType = None, stack_info: bool = False, stacklevel: int = 1, extra: Mapping[str, object] | None = None) -> None"
+      Parameter 2: type "object" is incompatible with type "str"
+        "object" is not assignable to "str" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/security.py:205:28 - error: Cannot assign to attribute "debug" for class "type[Logger]"
+    Type "(self: Logger, msg: str, ...) -> None" is not assignable to type "(self: Logger, msg: object, *args: object, exc_info: _ExcInfoType = None, stack_info: bool = False, stacklevel: int = 1, extra: Mapping[str, object] | None = None) -> None"
+      Parameter 2: type "object" is incompatible with type "str"
+        "object" is not assignable to "str" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/security.py:206:32 - error: Cannot assign to attribute "exception" for class "type[Logger]"
+    Type "(self: Logger, msg: str, ...) -> None" is not assignable to type "(self: Logger, msg: object, *args: object, exc_info: _ExcInfoType = True, stack_info: bool = False, stacklevel: int = 1, extra: Mapping[str, object] | None = None) -> None"
+      Parameter 2: type "object" is incompatible with type "str"
+        "object" is not assignable to "str" (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/kitchen/stations/git_chef.py
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/stations/git_chef.py:104:35 - error: "SplitError" is not a known attribute of module "shlex" (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/kitchen/stations/line_cook.py
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/stations/line_cook.py:86:33 - error: Cannot access attribute "brain" for class "LineCook*"
+    Attribute "brain" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/stations/line_cook.py:87:58 - error: Cannot access attribute "brain" for class "LineCook*"
+    Attribute "brain" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/kitchen/stations/sommelier.py
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/stations/sommelier.py:180:37 - error: Cannot access attribute "RECOMMEND_SYSTEM_PROMPT" for class "KitchenManager"
+    Attribute "RECOMMEND_SYSTEM_PROMPT" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/kitchen/stations/sous_chef.py
+  /home/chef/chefchat/ChefChat/chefchat/kitchen/stations/sous_chef.py:365:45 - error: Expected class but received "(iterable: Iterable[object], /) -> bool" (reportGeneralTypeIssues)
+/home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/api_key.py
+  /home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/api_key.py:87:43 - error: Cannot access attribute "selected_provider" for class "App[Unknown]"
+    Attribute "selected_provider" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/provider_selection.py
+  /home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/provider_selection.py:93:18 - error: Cannot assign to attribute "selected_provider" for class "App[Unknown]"
+    Attribute "selected_provider" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/provider_selection.py:98:18 - error: Cannot assign to attribute "selected_provider" for class "App[Unknown]"
+    Attribute "selected_provider" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/provider_selection.py:103:18 - error: Cannot assign to attribute "selected_provider" for class "App[Unknown]"
+    Attribute "selected_provider" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/provider_selection.py:108:18 - error: Cannot assign to attribute "selected_provider" for class "App[Unknown]"
+    Attribute "selected_provider" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/chefchat/setup/onboarding/screens/provider_selection.py:113:18 - error: Cannot assign to attribute "selected_provider" for class "App[Unknown]"
+    Attribute "selected_provider" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/chefchat/utils/tokenizer.py
+  /home/chef/chefchat/ChefChat/chefchat/utils/tokenizer.py:7:12 - error: Import "tiktoken" could not be resolved (reportMissingImports)
+/home/chef/chefchat/ChefChat/tests/acp/test_content.py
+  /home/chef/chefchat/ChefChat/tests/acp/test_content.py:40:55 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/acp/test_multi_session.py
+  /home/chef/chefchat/ChefChat/tests/acp/test_multi_session.py:49:28 - error: Cannot assign to attribute "backend" for class "PatchedAgent*"
+    "FakeBackend" is incompatible with protocol "BackendLike"
+      "list_models" is not present (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/tests/acp/test_set_mode.py
+  /home/chef/chefchat/ChefChat/tests/acp/test_set_mode.py:35:55 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/backend/test_openai_adapter.py
+  /home/chef/chefchat/ChefChat/tests/backend/test_openai_adapter.py:116:24 - error: "prompt_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/backend/test_openai_adapter.py:117:24 - error: "completion_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+/home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:86:38 - error: Argument of type "Self@DummySvc" cannot be assigned to parameter "svc" of type "TelegramBotService" in function "__init__"
+    "DummySvc*" is not assignable to "TelegramBotService" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:121:38 - error: Argument of type "StubUpdate" cannot be assigned to parameter "update" of type "Update" in function "botmode_command"
+    "StubUpdate" is not assignable to "Update" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:121:46 - error: Argument of type "SimpleNamespace" cannot be assigned to parameter "context" of type "DEFAULT_TYPE" in function "botmode_command"
+    "SimpleNamespace" is not assignable to "CallbackContext[ExtBot[None], ADict, ADict, ADict]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:133:9 - error: Argument of type "DummySvc" cannot be assigned to parameter "svc" of type "TelegramBotService" in function "__init__"
+    "DummySvc" is not assignable to "TelegramBotService" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:142:33 - error: Argument of type "StubUpdate" cannot be assigned to parameter "update" of type "Update" in function "model_command"
+    "StubUpdate" is not assignable to "Update" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:142:41 - error: Argument of type "SimpleNamespace" cannot be assigned to parameter "context" of type "DEFAULT_TYPE" in function "model_command"
+    "SimpleNamespace" is not assignable to "CallbackContext[ExtBot[None], ADict, ADict, ADict]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:144:27 - error: "replies" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:145:55 - error: "replies" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:153:42 - error: Argument of type "StubUpdate" cannot be assigned to parameter "update" of type "Update" in function "_handle_model_callback"
+    "StubUpdate" is not assignable to "Update" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:153:53 - error: Argument of type "SimpleNamespace" cannot be assigned to parameter "context" of type "DEFAULT_TYPE" in function "_handle_model_callback"
+    "SimpleNamespace" is not assignable to "CallbackContext[ExtBot[None], ADict, ADict, ADict]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:156:37 - error: "answered" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:162:28 - error: Argument of type "DummySvc" cannot be assigned to parameter "svc" of type "TelegramBotService" in function "__init__"
+    "DummySvc" is not assignable to "TelegramBotService" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:170:32 - error: Argument of type "StubUpdate" cannot be assigned to parameter "update" of type "Update" in function "task_command"
+    "StubUpdate" is not assignable to "Update" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:170:47 - error: Argument of type "SimpleNamespace" cannot be assigned to parameter "context" of type "DEFAULT_TYPE" in function "task_command"
+    "SimpleNamespace" is not assignable to "CallbackContext[ExtBot[None], ADict, ADict, ADict]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:178:32 - error: Argument of type "StubUpdate" cannot be assigned to parameter "update" of type "Update" in function "task_command"
+    "StubUpdate" is not assignable to "Update" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:178:45 - error: Argument of type "SimpleNamespace" cannot be assigned to parameter "context" of type "DEFAULT_TYPE" in function "task_command"
+    "SimpleNamespace" is not assignable to "CallbackContext[ExtBot[None], ADict, ADict, ADict]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:186:32 - error: Argument of type "StubUpdate" cannot be assigned to parameter "update" of type "Update" in function "task_command"
+    "StubUpdate" is not assignable to "Update" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/bots/telegram/test_handlers.py:186:45 - error: Argument of type "SimpleNamespace" cannot be assigned to parameter "context" of type "DEFAULT_TYPE" in function "task_command"
+    "SimpleNamespace" is not assignable to "CallbackContext[ExtBot[None], ADict, ADict, ADict]" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/chef_unit/test_agent_safety_integration.py
+  /home/chef/chefchat/ChefChat/tests/chef_unit/test_agent_safety_integration.py:17:9 - error: Method "get_name" overrides class "BaseTool" in an incompatible manner
+    Base method is declared as a classmethod but override is not (reportIncompatibleMethodOverride)
+  /home/chef/chefchat/ChefChat/tests/chef_unit/test_agent_safety_integration.py:17:18 - warning: Instance methods should take a "self" parameter (reportSelfClsParameterName)
+/home/chef/chefchat/ChefChat/tests/conftest.py
+  /home/chef/chefchat/ChefChat/tests/conftest.py:48:12 - error: "any" is not a known attribute of module "pytest" (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/tests/core/llm/test_security_patches.py
+  /home/chef/chefchat/ChefChat/tests/core/llm/test_security_patches.py:32:55 - error: Argument of type "Literal['not a dict']" cannot be assigned to parameter "raw_args" of type "dict[str, Any]" in function "__init__"
+    "Literal['not a dict']" is not assignable to "dict[str, Any]" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/core/test_config_migration.py
+  /home/chef/chefchat/ChefChat/tests/core/test_config_migration.py:9:12 - error: Import "tomli" could not be resolved (reportMissingImports)
+/home/chef/chefchat/ChefChat/tests/integration/test_openai_integration.py
+  /home/chef/chefchat/ChefChat/tests/integration/test_openai_integration.py:23:43 - error: Expected 0 positional arguments (reportCallIssue)
+  /home/chef/chefchat/ChefChat/tests/integration/test_openai_integration.py:24:37 - error: Expected 0 positional arguments (reportCallIssue)
+  /home/chef/chefchat/ChefChat/tests/integration/test_openai_integration.py:44:25 - error: "completion_tokens" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/integration/test_openai_integration.py:54:43 - error: Expected 0 positional arguments (reportCallIssue)
+  /home/chef/chefchat/ChefChat/tests/integration/test_openai_integration.py:55:37 - error: Expected 0 positional arguments (reportCallIssue)
+/home/chef/chefchat/ChefChat/tests/integration/test_repl_flows.py
+  /home/chef/chefchat/ChefChat/tests/integration/test_repl_flows.py:275:39 - error: Argument of type "list[(v: int = i) -> CoroutineType[Any, Any, int]]" cannot be assigned to parameter "tasks" of type "list[() -> Awaitable[T@batch_execute]]" in function "batch_execute"
+    "list[(v: int = i) -> CoroutineType[Any, Any, int]]" is not assignable to "list[() -> Awaitable[T@batch_execute]]"
+      Type parameter "_T@list" is invariant, but "(v: int = i) -> CoroutineType[Any, Any, int]" is not the same as "() -> Awaitable[T@batch_execute]"
+      Consider switching from "list" to "Sequence" which is covariant (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py
+  /home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py:86:28 - error: Argument of type "DummyConfig" cannot be assigned to parameter "config_service" of type "ConfigService | VibeConfig" in function "__init__"
+    Type "DummyConfig" is not assignable to type "ConfigService | VibeConfig"
+      "DummyConfig" is not assignable to "ConfigService"
+      "DummyConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py:91:28 - error: Argument of type "DummyConfig" cannot be assigned to parameter "config_service" of type "ConfigService | VibeConfig" in function "__init__"
+    Type "DummyConfig" is not assignable to type "ConfigService | VibeConfig"
+      "DummyConfig" is not assignable to "ConfigService"
+      "DummyConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py:99:28 - error: Argument of type "DummyConfig" cannot be assigned to parameter "config_service" of type "ConfigService | VibeConfig" in function "__init__"
+    Type "DummyConfig" is not assignable to type "ConfigService | VibeConfig"
+      "DummyConfig" is not assignable to "ConfigService"
+      "DummyConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py:108:28 - error: Argument of type "DummyConfig" cannot be assigned to parameter "config_service" of type "ConfigService | VibeConfig" in function "__init__"
+    Type "DummyConfig" is not assignable to type "ConfigService | VibeConfig"
+      "DummyConfig" is not assignable to "ConfigService"
+      "DummyConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py:114:28 - error: Argument of type "DummyConfig" cannot be assigned to parameter "config_service" of type "ConfigService | VibeConfig" in function "__init__"
+    Type "DummyConfig" is not assignable to type "ConfigService | VibeConfig"
+      "DummyConfig" is not assignable to "ConfigService"
+      "DummyConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py:123:28 - error: Argument of type "DummyConfig" cannot be assigned to parameter "config_service" of type "ConfigService | VibeConfig" in function "__init__"
+    Type "DummyConfig" is not assignable to type "ConfigService | VibeConfig"
+      "DummyConfig" is not assignable to "ConfigService"
+      "DummyConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/services/test_model_service.py:134:28 - error: Argument of type "DummyConfig" cannot be assigned to parameter "config_service" of type "ConfigService | VibeConfig" in function "__init__"
+    Type "DummyConfig" is not assignable to type "ConfigService | VibeConfig"
+      "DummyConfig" is not assignable to "ConfigService"
+      "DummyConfig" is not assignable to "VibeConfig" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/interface/test_characterization.py
+  /home/chef/chefchat/ChefChat/tests/interface/test_characterization.py:161:55 - error: Argument of type "ChefChatApp" cannot be assigned to parameter "app" of type "ChefAppProtocol" in function "handle_model_command"
+    "ChefChatApp" is incompatible with protocol "ChefAppProtocol"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "notify" is an incompatible type
+        Type "(message: str, *, title: str = "", severity: SeverityLevel = "information", timeout: float | None = None, markup: bool = True) -> None" is not assignable to type "(message: str, *, title: str = "", severity: str = "information", timeout: float = 5) -> None"
+          Keyword parameter "severity" of type "str" is incompatible with type "SeverityLevel"
+            Type "str" is not assignable to type "SeverityLevel"
+    ... (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/test_characterization.py:172:35 - error: Cannot access attribute "_model_list" for class "ChefChatApp"
+    Attribute "_model_list" is unknown (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/tests/interface/test_characterization.py:186:47 - error: Argument of type "ChefChatApp" cannot be assigned to parameter "app" of type "ChefAppProtocol" in function "_show_status"
+    "ChefChatApp" is incompatible with protocol "ChefAppProtocol"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "notify" is an incompatible type
+        Type "(message: str, *, title: str = "", severity: SeverityLevel = "information", timeout: float | None = None, markup: bool = True) -> None" is not assignable to type "(message: str, *, title: str = "", severity: str = "information", timeout: float = 5) -> None"
+          Keyword parameter "severity" of type "str" is incompatible with type "SeverityLevel"
+            Type "str" is not assignable to type "SeverityLevel"
+    ... (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/test_characterization.py:414:17 - error: Argument of type "ChefChatApp" cannot be assigned to parameter "app" of type "ChefAppProtocol" in function "handle_layout_command"
+    "ChefChatApp" is incompatible with protocol "ChefAppProtocol"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "notify" is an incompatible type
+        Type "(message: str, *, title: str = "", severity: SeverityLevel = "information", timeout: float | None = None, markup: bool = True) -> None" is not assignable to type "(message: str, *, title: str = "", severity: str = "information", timeout: float = 5) -> None"
+          Keyword parameter "severity" of type "str" is incompatible with type "SeverityLevel"
+            Type "str" is not assignable to type "SeverityLevel"
+    ... (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/test_characterization.py:427:51 - error: Argument of type "ChefChatApp" cannot be assigned to parameter "app" of type "ChefAppProtocol" in function "show_mcp_status"
+    "ChefChatApp" is incompatible with protocol "ChefAppProtocol"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "ChefAppProtocol" is not assignable to "ChefChatApp"
+      "notify" is an incompatible type
+        Type "(message: str, *, title: str = "", severity: SeverityLevel = "information", timeout: float | None = None, markup: bool = True) -> None" is not assignable to type "(message: str, *, title: str = "", severity: str = "information", timeout: float = 5) -> None"
+          Keyword parameter "severity" of type "str" is incompatible with type "SeverityLevel"
+            Type "str" is not assignable to type "SeverityLevel"
+    ... (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/interface/test_characterization.py:428:13 - warning: Expression value is unused (reportUnusedExpression)
+/home/chef/chefchat/ChefChat/tests/interface/test_kitchen_footer.py
+  /home/chef/chefchat/ChefChat/tests/interface/test_kitchen_footer.py:83:24 - error: Cannot assign to attribute "query_one" for class "KitchenFooter"
+    One or more overloads of "query_one" is not assignable
+      Type "(selector: Unknown, widget_type: Unknown | None = None) -> MagicMock" is not assignable to type "(selector: str, expect_type: type[QueryType@query_one]) -> QueryType@query_one"
+        Parameter name mismatch: "expect_type" versus "widget_type" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/tests/interface/test_kitchen_footer.py:128:24 - error: Cannot assign to attribute "query_one" for class "KitchenFooter"
+    One or more overloads of "query_one" is not assignable
+      Type "(selector: Unknown, widget_type: Unknown | None = None) -> MagicMock" is not assignable to type "(selector: str, expect_type: type[QueryType@query_one]) -> QueryType@query_one"
+        Parameter name mismatch: "expect_type" versus "widget_type" (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/tests/interface/test_kitchen_footer.py:146:12 - error: Cannot access attribute "refresh_model" for class "KitchenFooter"
+    Attribute "refresh_model" is unknown (reportAttributeAccessIssue)
+/home/chef/chefchat/ChefChat/tests/kitchen/test_brigade.py
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_brigade.py:252:18 - error: Argument of type "Literal[3]" cannot be assigned to parameter "priority" of type "MessagePriority" in function "__init__"
+    "Literal[3]" is not assignable to "MessagePriority" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_brigade.py:260:18 - error: Argument of type "Literal[1]" cannot be assigned to parameter "priority" of type "MessagePriority" in function "__init__"
+    "Literal[1]" is not assignable to "MessagePriority" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_brigade.py:268:18 - error: Argument of type "Literal[2]" cannot be assigned to parameter "priority" of type "MessagePriority" in function "__init__"
+    "Literal[2]" is not assignable to "MessagePriority" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/kitchen/test_bus.py
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_bus.py:278:36 - error: Argument of type "(msg: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter "callback" of type "(ChefMessage) -> None" in function "subscribe"
+    Type "(msg: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(ChefMessage) -> None"
+      Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+        "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_bus.py:318:26 - error: Cannot assign to attribute "called" for class "FunctionType"
+    Attribute "called" is unknown (reportFunctionMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_bus.py:320:22 - error: Cannot assign to attribute "called" for class "FunctionType"
+    Attribute "called" is unknown (reportFunctionMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_bus.py:345:29 - error: Cannot access attribute "called" for class "FunctionType"
+    Attribute "called" is unknown (reportFunctionMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_bus.py:420:69 - error: Argument of type "None" cannot be assigned to parameter "payload" of type "dict[str, Any]" in function "__init__"
+    "None" is not assignable to "dict[str, Any]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/kitchen/test_bus.py:431:69 - error: Argument of type "Literal['not a dict']" cannot be assigned to parameter "payload" of type "dict[str, Any]" in function "__init__"
+    "Literal['not a dict']" is not assignable to "dict[str, Any]" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/manual_verification/test_sommelier_real.py
+  /home/chef/chefchat/ChefChat/tests/manual_verification/test_sommelier_real.py:23:26 - error: Argument of type "(message: ChefMessage) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter "callback" of type "(ChefMessage) -> None" in function "subscribe"
+    Type "(message: ChefMessage) -> CoroutineType[Any, Any, None]" is not assignable to type "(ChefMessage) -> None"
+      Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+        "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/manual_verification/test_sommelier_real.py:24:34 - error: Argument of type "(message: ChefMessage) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter "callback" of type "(ChefMessage) -> None" in function "subscribe"
+    Type "(message: ChefMessage) -> CoroutineType[Any, Any, None]" is not assignable to type "(ChefMessage) -> None"
+      Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+        "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/scripts/verify_fixes.py
+  /home/chef/chefchat/ChefChat/tests/scripts/verify_fixes.py:17:40 - error: "BusAction" is unknown import symbol (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/tests/scripts/verify_fixes.py:17:64 - error: "PayloadKey" is unknown import symbol (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/tests/scripts/verify_fixes.py:17:76 - error: "WhiskLoader" is unknown import symbol (reportAttributeAccessIssue)
+  /home/chef/chefchat/ChefChat/tests/scripts/verify_fixes.py:35:69 - error: Argument of type "None" cannot be assigned to parameter "payload" of type "dict[str, Any]" in function "__init__"
+    "None" is not assignable to "dict[str, Any]" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/scripts/verify_fixes.py:41:81 - error: Argument of type "list[str]" cannot be assigned to parameter "payload" of type "dict[str, Any]" in function "__init__"
+    "list[str]" is not assignable to "dict[str, Any]" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/security/test_command_injection.py
+  /home/chef/chefchat/ChefChat/tests/security/test_command_injection.py:25:13 - error: No parameter named "tool_paths" (reportCallIssue)
+/home/chef/chefchat/ChefChat/tests/test_agent_auto_compact.py
+  /home/chef/chefchat/ChefChat/tests/test_agent_auto_compact.py:32:59 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/test_agent_backend.py
+  /home/chef/chefchat/ChefChat/tests/test_agent_backend.py:19:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_backend.py:35:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_backend.py:55:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_backend.py:73:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/test_agent_manual_compact.py
+  /home/chef/chefchat/ChefChat/tests/test_agent_manual_compact.py:17:32 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_manual_compact.py:38:12 - error: Operator "in" not supported for types "Literal['Detailed summary of conversation.']" and "Content | None"
+    Operator "in" not supported for types "Literal['Detailed summary of conversation.']" and "None" (reportOperatorIssue)
+  /home/chef/chefchat/ChefChat/tests/test_agent_manual_compact.py:39:12 - error: Operator "in" not supported for types "Literal['Last request from user was: Task 2']" and "Content | None"
+    Operator "in" not supported for types "Literal['Last request from user was: Task 2']" and "None" (reportOperatorIssue)
+/home/chef/chefchat/ChefChat/tests/test_agent_stats.py
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:164:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:196:58 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:215:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:236:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:250:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:268:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:286:47 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:309:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:336:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:360:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:377:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:394:73 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:416:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:438:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:467:58 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:484:67 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:516:63 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:550:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:570:39 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:585:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:602:67 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:629:40 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:650:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:675:46 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:696:48 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_stats.py:706:48 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/test_agent_tool_call.py
+  /home/chef/chefchat/ChefChat/tests/test_agent_tool_call.py:63:17 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_tool_call.py:396:17 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_tool_call.py:425:17 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_agent_tool_call.py:465:17 - error: Argument of type "FakeBackend" cannot be assigned to parameter "backend" of type "BackendLike | None" in function "__init__"
+    Type "FakeBackend" is not assignable to type "BackendLike | None"
+      "FakeBackend" is incompatible with protocol "BackendLike"
+        "list_models" is not present
+      "FakeBackend" is not assignable to "None" (reportArgumentType)
+/home/chef/chefchat/ChefChat/tests/test_mode_system.py
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:371:41 - error: "lower" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:372:38 - error: "lower" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:585:46 - error: Argument of type "None" cannot be assigned to parameter "tool_manager" of type "ToolManager" in function "get_universal_system_prompt"
+    "None" is not assignable to "ToolManager" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:585:52 - error: Argument of type "MockConfig" cannot be assigned to parameter "config" of type "VibeConfig" in function "get_universal_system_prompt"
+    "MockConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:607:46 - error: Argument of type "None" cannot be assigned to parameter "tool_manager" of type "ToolManager" in function "get_universal_system_prompt"
+    "None" is not assignable to "ToolManager" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:607:52 - error: Argument of type "MockConfig" cannot be assigned to parameter "config" of type "VibeConfig" in function "get_universal_system_prompt"
+    "MockConfig" is not assignable to "VibeConfig" (reportArgumentType)
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:628:41 - error: "lower" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /home/chef/chefchat/ChefChat/tests/test_mode_system.py:629:38 - error: "lower" is not a known attribute of "None" (reportOptionalMemberAccess)
+493 errors, 4 warnings, 0 informations

@@ -39,6 +39,7 @@ from chefchat.modes import (
     WRITE_TOOLS,
     ModeAwareToolExecutor,
     ModeConfig,
+    ModeDescriptor,
     ModeManager,
     ModeState,
     ToolExecutorProtocol,
@@ -69,6 +70,7 @@ __all__ = [
     "ModeAwareToolExecutor",
     "ModeConfig",
     # Manager
+    "ModeDescriptor",
     "ModeManager",
     "ModeState",
     "ToolExecutorProtocol",

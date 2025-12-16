@@ -17,7 +17,6 @@ from chefchat.core.tools.base import ToolError
 from chefchat.core.tools.builtins.write_file import (
     WriteFile as CoreWriteFileTool,
     WriteFileArgs,
-    WriteFileConfig,
     WriteFileResult,
     WriteFileState,
 )
@@ -28,8 +27,7 @@ class AcpWriteFileState(WriteFileState, AcpToolState):
     pass
 
 
-class WriteFile(CoreWriteFileTool, BaseAcpTool[WriteFileArgs, WriteFileResult, WriteFileConfig, AcpWriteFileState]):
-    state: AcpWriteFileState
+class WriteFile(BaseAcpTool, CoreWriteFileTool):
     prompt_path = (
         CHEFCHAT_ROOT / "core" / "tools" / "builtins" / "prompts" / "write_file.md"
     )

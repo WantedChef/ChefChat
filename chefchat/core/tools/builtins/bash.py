@@ -183,12 +183,12 @@ class Bash(BaseTool[BashArgs, BashResult, BashToolConfig, BaseToolState]):
         """Check if command matches allowlist patterns."""
         return any(command.startswith(pattern) for pattern in self.config.allowlist)
 
-    def check_allowlist_denylist(self, args: BashArgs) -> ToolPermission | None:
+    def check_allowlist_denylist(self, args: BashArgs) -> ToolPermission:
         command_parts = re.split(r"(?:&&|\|\||;|\|)", args.command)
         command_parts = [part.strip() for part in command_parts if part.strip()]
 
         if not command_parts:
-            return None
+            return ToolPermission.ASK
 
         for part in command_parts:
             if self._is_denylisted(part):
@@ -199,7 +199,7 @@ class Bash(BaseTool[BashArgs, BashResult, BashToolConfig, BaseToolState]):
         if all(self._is_allowlisted(part) for part in command_parts):
             return ToolPermission.ALWAYS
 
-        return None
+        return ToolPermission.ASK
 
     @final
     def _build_timeout_error(self, command: str, timeout: int) -> ToolError:
@@ -239,6 +239,11 @@ class Bash(BaseTool[BashArgs, BashResult, BashToolConfig, BaseToolState]):
             stdout, stderr, returncode = await executor.execute(
                 command=args.command, timeout=timeout
             )
+
+            # Update the workdir if cd was used
+            new_workdir = executor.get_current_workdir()
+            if new_workdir != self.config.effective_workdir:
+                self.config.workdir = new_workdir
 
             # Truncate output if needed
             if len(stdout) > max_bytes:

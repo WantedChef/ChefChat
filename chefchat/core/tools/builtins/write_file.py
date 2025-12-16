@@ -88,7 +88,7 @@ class WriteFile(
     def get_status_text(cls) -> str:
         return "Writing file"
 
-    def check_allowlist_denylist(self, args: WriteFileArgs) -> ToolPermission | None:
+    def check_allowlist_denylist(self, args: WriteFileArgs) -> ToolPermission:
         import fnmatch
 
         file_path = Path(args.path).expanduser()
@@ -104,7 +104,7 @@ class WriteFile(
             if fnmatch.fnmatch(file_str, pattern):
                 return ToolPermission.ALWAYS
 
-        return None
+        return ToolPermission.ASK
 
     @final
     async def run(self, args: WriteFileArgs) -> WriteFileResult:

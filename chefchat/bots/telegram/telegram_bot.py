@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
-import fcntl
+import hashlib
 import importlib.metadata
+import json
 import logging
 import os
 from pathlib import Path
 import time
 from typing import Any
-
-# Telegram bot working directory
-TELEGRAM_WORKDIR = Path.home() / "chefchat_output_"
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, constants
 from telegram.ext import (
@@ -29,14 +26,34 @@ from telegram.ext import (
 from chefchat.bots.manager import BotManager
 from chefchat.bots.session import BotSession
 from chefchat.bots.telegram import fun_commands
+from chefchat.bots.telegram.approvals import ApprovalStore
 from chefchat.bots.telegram.cli_providers import CLI_PROVIDERS, CLIProviderManager
+from chefchat.bots.telegram.constants import (
+    APPROVAL_TTL_S,
+    CHEAP_MODEL_PRICE_THRESHOLD,
+    GIT_OUTPUT_MAX_LEN,
+    MAX_TELEGRAM_API_RETRIES,
+    MIN_COMMAND_ARGS_MINIAPP,
+    MIN_COMMAND_ARGS_MODEL_SELECT,
+    MIN_COMMAND_ARGS_SWITCH,
+    MODEL_MENU_BUTTONS_PER_ROW,
+    SESSION_IDLE_TTL_S,
+    SESSION_IDLE_WARNING_S,
+    TELEGRAM_API_RETRY_DELAY_S,
+    TELEGRAM_MESSAGE_TRUNCATE_LIMIT,
+    TELEGRAM_WORKDIR,
+)
 from chefchat.bots.telegram.handlers.admin import AdminHandlers
 from chefchat.bots.telegram.handlers.cli import CLIHandlers
 from chefchat.bots.telegram.handlers.core import CoreHandlers
+from chefchat.bots.telegram.handlers.context import ContextHandlers
 from chefchat.bots.telegram.handlers.models import ModelHandlers
 from chefchat.bots.telegram.handlers.policy import PolicyHandlers
 from chefchat.bots.telegram.handlers.tasks import TaskHandlers
 from chefchat.bots.telegram.handlers.terminal import TerminalHandlers
+from chefchat.bots.telegram.locks import FileLock
+from chefchat.bots.telegram.rate_limit import RateLimiter
+from chefchat.bots.telegram.sessions import SessionStore
 from chefchat.bots.telegram.task_manager import TaskManager
 from chefchat.core.config import VibeConfig
 from chefchat.core.tools.executor import SecureCommandExecutor
@@ -45,55 +62,28 @@ from chefchat.interface.services import ModelService
 
 logger = logging.getLogger(__name__)
 
-# Constants
-TELEGRAM_MESSAGE_TRUNCATE_LIMIT = 4000
-MIN_COMMAND_ARGS_MINIAPP = 2
-MIN_COMMAND_ARGS_SWITCH = 3
-MAX_TELEGRAM_API_RETRIES = 3
-TELEGRAM_API_RETRY_DELAY_S = 1.0
-MIN_COMMAND_ARGS_MODEL_SELECT = 2
-GIT_OUTPUT_MAX_LEN = 3000
-MODEL_MENU_BUTTONS_PER_ROW = 2
-CHEAP_MODEL_PRICE_THRESHOLD = 0.5
-# Idle and session controls
-SESSION_IDLE_WARNING_S = 45 * 60
-SESSION_IDLE_TTL_S = 60 * 60
-
-
 class TelegramBotService:
     def __init__(self, config: VibeConfig) -> None:
         self.config = config
         self.bot_manager = BotManager(config)
-        self.sessions: dict[int, BotSession] = {}
         self.TELEGRAM_WORKDIR = TELEGRAM_WORKDIR
-        self.MIN_COMMAND_ARGS_MINIAPP = MIN_COMMAND_ARGS_MINIAPP
-        self.MIN_COMMAND_ARGS_SWITCH = MIN_COMMAND_ARGS_SWITCH
-        self.MIN_COMMAND_ARGS_MODEL_SELECT = MIN_COMMAND_ARGS_MODEL_SELECT
-        self.GIT_OUTPUT_MAX_LEN = GIT_OUTPUT_MAX_LEN
+
         self.max_sessions_per_user = (
             int(os.getenv("CHEFCHAT_TELEGRAM_MAX_SESSIONS", "0")) or None
         )
-        self._user_session_counts: dict[str, int] = {}
         self.session_limit_override: bool = False
 
+        # Helper components
+        self.rate_limiter = RateLimiter(window_s=30.0, max_events=6)
+        self.approvals = ApprovalStore(ttl_s=APPROVAL_TTL_S)
+        self.sessions = SessionStore(
+            config,
+            self.bot_manager,
+            max_sessions_per_user=self.max_sessions_per_user,
+            session_limit_override=self.session_limit_override,
+        )
         self._chat_locks: dict[int, asyncio.Lock] = {}
-        self._last_activity: dict[int, float] = {}
 
-        # Basic per-user rate limiting (burst + rolling window)
-        self._rate_events: dict[str, deque[float]] = {}
-        self._rate_limit_window_s = 30.0
-        self._rate_limit_max_events = 6
-
-        # Cleanup settings
-        self._session_ttl_s = SESSION_IDLE_TTL_S
-        self._approval_ttl_s = 10.0 * 60.0  # 10 minutes
-
-        # Map short ID to full tool_call_id for callbacks
-        self.approval_map: dict[str, str] = {}
-        self._approval_chat_map: dict[str, int] = {}
-        self._approval_tool_map: dict[str, str] = {}
-        self._approval_created_at: dict[str, float] = {}
-        self._warned_idle: set[int] = set()
         self._version_file = (
             Path(os.getenv("CHEFCHAT_HOME", Path.home() / ".chefchat"))
             / "telegram_bot_version"
@@ -116,8 +106,7 @@ class TelegramBotService:
 
         # Ensure telegram working directory exists
         TELEGRAM_WORKDIR.mkdir(parents=True, exist_ok=True)
-        self._lock_path = TELEGRAM_WORKDIR / "telegram_bot.lock"
-        self._lock_handle: int | None = None
+        self._file_lock = FileLock(TELEGRAM_WORKDIR / "telegram_bot.lock")
 
         # Initialize terminal manager for interactive sessions
         from chefchat.bots.terminal import TerminalManager
@@ -143,71 +132,28 @@ class TelegramBotService:
         self.task_handlers = TaskHandlers(self)
         self.policy = PolicyHandlers(self)
         self.core = CoreHandlers(self)
+        self.context_handlers = ContextHandlers(self)
         self.admin = AdminHandlers(self)
         self.term_handlers = TerminalHandlers(self)
 
     def _acquire_lock(self) -> None:
-        if self._lock_handle is not None:
-            return
-
-        fd = os.open(str(self._lock_path), os.O_CREAT | os.O_RDWR, 0o600)
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            os.close(fd)
-            raise RuntimeError(
-                f"Telegram bot already running (lock busy): {self._lock_path}"
-            )
-
-        os.ftruncate(fd, 0)
-        os.write(fd, f"{os.getpid()}\n".encode())
-        os.fsync(fd)
-        self._lock_handle = fd
+        self._file_lock.acquire()
 
     def _release_lock(self) -> None:
-        if self._lock_handle is None:
-            return
-
-        try:
-            fcntl.flock(self._lock_handle, fcntl.LOCK_UN)
-        finally:
-            os.close(self._lock_handle)
-            self._lock_handle = None
+        self._file_lock.release()
 
     def _forget_session(self, chat_id: int) -> None:
-        session = self.sessions.pop(chat_id, None)
-        if session:
-            user_id = getattr(session, "user_id", None)
-            if user_id and user_id in self._user_session_counts:
-                self._user_session_counts[user_id] = max(
-                    0, self._user_session_counts[user_id] - 1
-                )
+        self.sessions.forget(chat_id)
         self._chat_locks.pop(chat_id, None)
-        self._last_activity.pop(chat_id, None)
-        self._warned_idle.discard(chat_id)
 
     def _get_session(self, chat_id: int, user_id_str: str) -> BotSession | None:
-        if chat_id not in self.sessions:
-            # Check allowlist
-            allowed = self.bot_manager.get_allowed_users("telegram")
-            if user_id_str not in allowed:
-                return None
+        from copy import deepcopy
 
-            if (
-                self.max_sessions_per_user is not None
-                and not self.session_limit_override
-            ):
-                current = self._user_session_counts.get(user_id_str, 0)
-                if current >= self.max_sessions_per_user:
-                    return None
-
-            # Create a modified config with telegram-specific working directory
-            from copy import deepcopy
-
+        def _factory() -> BotSession:
             telegram_config = deepcopy(self.config)
             telegram_config.workdir = TELEGRAM_WORKDIR
 
-            self.sessions[chat_id] = BotSession(
+            return BotSession(
                 telegram_config,
                 send_message=lambda text: self._send_message(chat_id, text),
                 update_message=self._update_message,
@@ -215,16 +161,22 @@ class TelegramBotService:
                     chat_id, t, a, i
                 ),
                 user_id=user_id_str,
+                chat_id=chat_id,  # Enable persistent memory per chat
                 tool_policy=self.tool_policies.get(chat_id, "dev"),
             )
-            self._user_session_counts[user_id_str] = (
-                self._user_session_counts.get(user_id_str, 0) + 1
-            )
+
+        session = self.sessions.get_or_create(
+            chat_id,
+            user_id_str,
+            factory=_factory,
+        )
+        if session:
             self.tool_policies.setdefault(chat_id, "dev")
-        return self.sessions[chat_id]
+            self._touch_activity(chat_id)
+        return session
 
     def _touch_activity(self, chat_id: int) -> None:
-        self._last_activity[chat_id] = time.monotonic()
+        self.sessions.touch(chat_id)
 
     def _chat_lock(self, chat_id: int) -> asyncio.Lock:
         if chat_id not in self._chat_locks:
@@ -232,14 +184,7 @@ class TelegramBotService:
         return self._chat_locks[chat_id]
 
     def _rate_limit_ok(self, user_id: str) -> bool:
-        now = time.monotonic()
-        q = self._rate_events.setdefault(user_id, deque())
-        while q and (now - q[0]) > self._rate_limit_window_s:
-            q.popleft()
-        if len(q) >= self._rate_limit_max_events:
-            return False
-        q.append(now)
-        return True
+        return self.rate_limiter.allow(user_id)
 
     async def _send_message(self, chat_id: int, text: str) -> Any:
         """Send a message with retry logic for transient failures."""
@@ -303,10 +248,7 @@ class TelegramBotService:
         self, chat_id: int, tool_name: str, args: dict[str, Any], tool_call_id: str
     ) -> Any:
         short_id = tool_call_id[:8]
-        self.approval_map[short_id] = tool_call_id
-        self._approval_created_at[short_id] = time.monotonic()
-        self._approval_chat_map[short_id] = chat_id
-        self._approval_tool_map[short_id] = tool_name
+        self.approvals.register(short_id, tool_call_id, chat_id, tool_name)
 
         keyboard = [
             [
@@ -359,12 +301,12 @@ class TelegramBotService:
             "help": self.help_command,
             "status": self.status_command,
             "stats": lambda u, c: fun_commands.stats_command(self, u, c),
-            "files": self.files_command,
-            "pwd": self.pwd_command,
-            "model": self.model_command,
-            "modelstatus": self.model_command,
-            "modellist": lambda u, c: self._handle_model_list(u, c),
-            "modelselect": lambda u, c: self._handle_model_select_prompt(u, c),
+            "files": self.core.files_command,
+            "pwd": self.core.pwd_command,
+            "model": self.models.model_command,
+            "modelstatus": self.models.model_command,
+            "modellist": lambda u, c: self.models._handle_model_list(u, c),
+            "modelselect": lambda u, c: self.models._handle_model_select_prompt(u, c),
             "chef": lambda u, c: fun_commands.chef_command(self, u, c),
             "wisdom": lambda u, c: fun_commands.wisdom_command(self, u, c),
             "roast": lambda u, c: fun_commands.roast_command(self, u, c),
@@ -392,7 +334,7 @@ class TelegramBotService:
             "devmode": lambda u, c: self._handle_botmode_shortcut(u, c, "dev"),
             "chatmode": lambda u, c: self._handle_botmode_shortcut(u, c, "chat"),
             "combimode": lambda u, c: self._handle_botmode_shortcut(u, c, "combo"),
-            "modelrefresh": self.model_refresh_command,
+            "modelrefresh": self.models.model_refresh_command,
             "term": self.term_handlers.term_command,
             "termstatus": self.term_handlers.termstatus_command,
             "termclose": self.term_handlers.termclose_command,
@@ -405,15 +347,9 @@ class TelegramBotService:
             "termnpm": lambda u, c: self.term_handlers.term_shortcut(u, c, "npm"),
             "termswitch": self.term_handlers.term_switch_command,
             "termupload": self.term_handlers.term_upload_command,
-            "context": self.context_command,
+            "context": self.context_handlers.context_command,
         }
 
-        # Check mode keyword
-        if message_text == "mode":
-            await self.mode_command(update, context)
-            return True
-
-        # Check mode switch keywords
         mode_keywords = {
             "plan": "PLAN",
             "normal": "NORMAL",
@@ -421,11 +357,16 @@ class TelegramBotService:
             "yolo": "YOLO",
             "architect": "ARCHITECT",
         }
+
+        # Check mode keyword
+        if message_text == "mode":
+            await self.mode_command(update, context)
+            return True
+
         if message_text in mode_keywords:
             await self._handle_mode_switch(update, context, mode_keywords[message_text])
             return True
 
-        # Check single-word command
         if message_text in keyword_handlers:
             logger.debug(
                 "dispatch: command %s -> %s",
@@ -458,8 +399,22 @@ class TelegramBotService:
                 await self._send_message(chat_id, output)
                 return True
 
+        # Direct git command without slash (e.g., "git clone ...")
+        if raw_text.lower().startswith("git "):
+            context.args = raw_text.split()[1:]
+            await self.admin.git_command(update, context)
+            return True
+
+        # Direct model command without slash (e.g., "model list" or "model select X")
+        if raw_text.lower().startswith("model "):
+            context.args = raw_text.split()[1:]
+            await self.models.model_command(update, context)
+            return True
+
         # Check active CLI session (AI providers like Gemini, Codex, OpenCode)
         if self.cli_manager.has_active_session(chat_id):
+            if not update.message or not update.message.text:
+                return True
             # Show processing message
             await self._send_message(chat_id, "⏳ Processing...")
             output = await self.cli_manager.execute_prompt(chat_id, update.message.text)
@@ -468,6 +423,8 @@ class TelegramBotService:
 
         # Check active terminal session
         if self.terminal_manager.has_active_session(chat_id):
+            if not update.message or not update.message.text:
+                return True
             output = self.terminal_manager.send_to_session(chat_id, update.message.text)
             await self._send_message(chat_id, output)
             return True
@@ -478,10 +435,12 @@ class TelegramBotService:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
-        if not user or not update.message or not update.message.text:
+        chat = update.effective_chat
+        message = update.message
+        if not user or not chat or not message or not message.text:
             return
 
-        chat_id = update.effective_chat.id
+        chat_id = chat.id
         user_id_str = str(user.id)
 
         if not self._rate_limit_ok(user_id_str):
@@ -498,8 +457,8 @@ class TelegramBotService:
         self._touch_activity(chat_id)
 
         # Check if message is a command keyword (without /)
-        message_text = update.message.text.strip().lower()
-        raw_text = update.message.text.strip()
+        message_text = message.text.strip().lower()
+        raw_text = message.text.strip()
 
         if await self._try_dispatch_text_command(
             update, context, chat_id, message_text, raw_text
@@ -510,7 +469,7 @@ class TelegramBotService:
         async def _run_locked() -> None:
             async with self._chat_lock(chat_id):
                 self._touch_activity(chat_id)
-                await session.handle_user_message(update.message.text)
+                await session.handle_user_message(message.text or "")
 
         asyncio.create_task(_run_locked())
 
@@ -523,6 +482,9 @@ class TelegramBotService:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         query = update.callback_query
+        if query is None:
+            return
+
         logger.debug(
             "dispatch: callback chat=%s data=%s",
             update.effective_chat.id if update.effective_chat else "?",
@@ -544,7 +506,8 @@ class TelegramBotService:
             return
 
         action, short_id = data.split(":")
-        tool_call_id = self.approval_map.get(short_id)
+        info = self.approvals.pop(short_id)
+        tool_call_id = info.tool_call_id if info else None
 
         if not tool_call_id:
             try:
@@ -553,7 +516,11 @@ class TelegramBotService:
                 pass
             return
 
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if chat is None:
+            return
+
+        chat_id = chat.id
         session = self.sessions.get(chat_id)
         if not session:
             return
@@ -580,16 +547,12 @@ class TelegramBotService:
 
         # Unblock the waiting tool approval in the session
         session.resolve_approval(tool_call_id, response, msg)
-        self._approval_chat_map.pop(short_id, None)
-        self._approval_tool_map.pop(short_id, None)
-        self._approval_created_at.pop(short_id, None)
-        self.approval_map.pop(short_id, None)
 
     async def clear_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
-        if not user or not update.effective_chat:
+        if not user or not update.effective_chat or not update.message:
             return
 
         session = self._get_session(update.effective_chat.id, str(user.id))
@@ -603,35 +566,7 @@ class TelegramBotService:
     async def context_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Manage conversation context."""
-        if not update.message:
-            return
-        args = [a.strip() for a in (context.args or []) if a.strip()]
-        sub = args[0].lower() if args else "status"
-        user = update.effective_user
-        if not user:
-            return
-
-        session = self._get_session(update.effective_chat.id, str(user.id))
-        if not session:
-            await self.start(update, context)
-            return
-
-        if sub == "clear":
-            await session.clear_history()
-            await update.message.reply_text("🧹 Context cleared.")
-            return
-
-        # Status
-        try:
-            history_len = len(session.agent.message_manager.messages)
-        except Exception:
-            history_len = 0
-        await update.message.reply_text(
-            f"🧠 Context status:\nMessages: {history_len}\n"
-            "Use `/context clear` to reset.",
-            parse_mode=constants.ParseMode.MARKDOWN,
-        )
+        await self.context_handlers.context_command(update, context)
 
     async def chefchat_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -706,6 +641,8 @@ class TelegramBotService:
         user = update.effective_user
         if not user or not update.effective_chat:
             return
+        if not update.message:
+            return
 
         chat_id = update.effective_chat.id
 
@@ -720,56 +657,12 @@ class TelegramBotService:
     async def files_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """List project files in current directory."""
-        user = update.effective_user
-        if not user:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        cwd = TELEGRAM_WORKDIR
-        files = []
-        try:
-            for item in sorted(cwd.iterdir())[:30]:  # Limit to 30 items
-                if item.name.startswith("."):
-                    continue
-                prefix = "📁" if item.is_dir() else "📄"
-                files.append(f"{prefix} {item.name}")
-        except Exception as e:
-            await update.message.reply_text(f"Error listing files: {e}")
-            return
-
-        if files:
-            file_list = "\n".join(files)
-            await update.message.reply_text(
-                f"📂 **Files in** `{cwd}`:\n\n```\n{file_list}\n```",
-                parse_mode=constants.ParseMode.MARKDOWN,
-            )
-        else:
-            await update.message.reply_text("No files found.")
+        await self.core.files_command(update, context)
 
     async def pwd_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Show current working directory."""
-        user = update.effective_user
-        if not user:
-            return
-
-        user_id_str = str(user.id)
-        allowed = self.bot_manager.get_allowed_users("telegram")
-        if user_id_str not in allowed:
-            await update.message.reply_text("Access denied.")
-            return
-
-        await update.message.reply_text(
-            f"📁 Current directory:\n`{TELEGRAM_WORKDIR}`",
-            parse_mode=constants.ParseMode.MARKDOWN,
-        )
+        await self.core.pwd_command(update, context)
 
     async def help_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -805,33 +698,56 @@ class TelegramBotService:
             await update.message.reply_text("Access denied.")
             return
 
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if chat is None:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = chat.id
         session = self.sessions.get(chat_id)
 
         if not session:
             await update.message.reply_text("No active session. Send a message first!")
             return
 
-        # Get current mode from agent's mode manager
-        current_mode = (
-            session.agent.mode_manager.current_mode.name
-            if hasattr(session.agent, "mode_manager")
-            else "NORMAL"
-        )
+        mode_manager = getattr(session.agent, "mode_manager", None)
+        if mode_manager is None:
+            await update.message.reply_text("Mode manager not available.")
+            return
 
-        mode_text = (
-            f"🎯 **Current Mode**: {current_mode}\n\n"
-            "**Available Modes:**\n"
-            "• plan - 📋 PLAN (read-only exploration)\n"
-            "• normal - ✋ NORMAL (safe development)\n"
-            "• auto - ⚡ AUTO (trusted automation)\n"
-            "• yolo - 🚀 YOLO (maximum speed)\n"
-            "• architect - 🏛️ ARCHITECT (high-level design)\n\n"
-            "Type a mode name to switch (e.g., `auto`)"
-        )
+        current = mode_manager.describe_mode()
+        descriptors = mode_manager.list_modes()
+
+        lines = [
+            f"🎯 **Current Mode**: {current.emoji} {current.name}",
+            f"🤖 Auto-Approve: {'ON' if current.auto_approve else 'OFF'}",
+            f"🔒 Read-only: {'YES' if current.read_only else 'NO'}",
+            "",
+            "**Available Modes:**",
+        ]
+
+        for desc in descriptors:
+            marker = "▶️" if desc.id == current.id else "  "
+            perms = []
+            if desc.read_only:
+                perms.append("🔒 Read-only")
+            if desc.auto_approve:
+                perms.append("🤖 Auto-approve")
+            if not perms:
+                perms.append("✋ Confirm each")
+            perm_str = " • ".join(perms)
+            tips = desc.tips[:2] if desc.tips else []
+            tips_str = "\n".join(f"   - {tip}" for tip in tips)
+            lines.append(f"{marker} {desc.emoji} **{desc.name}** — {desc.description}")
+            lines.append(f"   {perm_str}")
+            if tips_str:
+                lines.append(tips_str)
+            lines.append("")
+
+        lines.append("Type a mode name to switch (e.g., `auto`).")
 
         await update.message.reply_text(
-            mode_text, parse_mode=constants.ParseMode.MARKDOWN
+            "\n".join(lines), parse_mode=constants.ParseMode.MARKDOWN
         )
 
     async def _handle_mode_switch(
@@ -848,7 +764,12 @@ class TelegramBotService:
             await update.message.reply_text("Access denied.")
             return
 
-        chat_id = update.effective_chat.id
+        chat = update.effective_chat
+        if chat is None:
+            await update.message.reply_text("Access denied.")
+            return
+
+        chat_id = chat.id
         session = self.sessions.get(chat_id)
 
         if not session:
@@ -856,30 +777,19 @@ class TelegramBotService:
             return
 
         try:
-            # Switch mode via agent's mode manager
-            if hasattr(session.agent, "mode_manager"):
-                from chefchat.modes.types import VibeMode
-
-                mode_enum = VibeMode[mode_name]
-                session.agent.mode_manager.switch_mode(mode_enum)
-
-                mode_emojis = {
-                    "PLAN": "📋",
-                    "NORMAL": "✋",
-                    "AUTO": "⚡",
-                    "YOLO": "🚀",
-                    "ARCHITECT": "🏛️",
-                }
-
-                emoji = mode_emojis.get(mode_name, "🎯")
-                await update.message.reply_text(
-                    f"{emoji} **Switched to {mode_name} mode!**",
-                    parse_mode=constants.ParseMode.MARKDOWN,
-                )
-            else:
+            mode_manager = getattr(session.agent, "mode_manager", None)
+            if mode_manager is None:
                 await update.message.reply_text(
                     "Mode switching not available for this session."
                 )
+                return
+
+            new_mode = mode_manager.set_mode_from_name(mode_name)
+            desc = mode_manager.describe_mode(new_mode)
+            await update.message.reply_text(
+                f"{desc.emoji} **Switched to {desc.name} mode!**",
+                parse_mode=constants.ParseMode.MARKDOWN,
+            )
         except Exception as e:
             logger.exception("Failed to switch mode")
             await update.message.reply_text(f"❌ Failed to switch mode: {e}")
@@ -931,9 +841,13 @@ class TelegramBotService:
         """Send startup notification to allowed users."""
         allowed = self.bot_manager.get_allowed_users("telegram")
         version = self._get_version()
-        prev_version = self._read_version_file()
+        signature = self._compute_bot_signature()
+        prev_version, prev_sig = self._read_version_file()
         show_changelog = version is not None and prev_version != version
         changelog_text = self._get_changelog_snippet() if show_changelog else None
+        code_changed_without_bump = (
+            prev_sig is not None and prev_sig != signature and prev_version == version
+        )
 
         for user_id in allowed:
             try:
@@ -950,6 +864,12 @@ class TelegramBotService:
                                 if changelog_text
                                 else ""
                             )
+                            + (
+                                "\n\n⚠️ Bot code changed without version bump. "
+                                "Update version/changelog before shipping."
+                                if code_changed_without_bump
+                                else ""
+                            )
                         ),
                         parse_mode=constants.ParseMode.MARKDOWN,
                     )
@@ -957,7 +877,7 @@ class TelegramBotService:
                 logger.warning(f"Could not notify user {user_id}: {e}")
 
         if version:
-            self._write_version_file(version)
+            self._write_version_file(version, signature)
 
     def _get_version(self) -> str | None:
         try:
@@ -978,16 +898,35 @@ class TelegramBotService:
             pass
         return None
 
-    def _read_version_file(self) -> str | None:
-        try:
-            return self._version_file.read_text().strip()
-        except Exception:
-            return None
+    def _compute_bot_signature(self) -> str:
+        """Compute a hash of the telegram bot code to detect changes."""
+        root = Path(__file__).resolve().parent
+        paths = sorted(root.glob("**/*.py"))
+        h = hashlib.sha256()
+        for path in paths:
+            try:
+                h.update(path.read_bytes())
+            except Exception:
+                continue
+        return h.hexdigest()
 
-    def _write_version_file(self, version: str) -> None:
+    def _read_version_file(self) -> tuple[str | None, str | None]:
+        try:
+            raw = self._version_file.read_text().strip()
+            if not raw:
+                return None, None
+            if raw and not raw.startswith("{"):
+                return raw, None
+            data = json.loads(raw)
+            return data.get("version"), data.get("signature")
+        except Exception:
+            return None, None
+
+    def _write_version_file(self, version: str, signature: str) -> None:
         try:
             self._version_file.parent.mkdir(parents=True, exist_ok=True)
-            self._version_file.write_text(version)
+            payload = {"version": version, "signature": signature}
+            self._version_file.write_text(json.dumps(payload))
         except Exception:
             logger.debug("Failed to write version file", exc_info=True)
 
@@ -1001,6 +940,9 @@ class TelegramBotService:
 
     def _register_basic_handlers(self) -> None:
         """Register basic command handlers."""
+        app = self.application
+        if app is None:
+            raise RuntimeError("Application not initialized")
         handlers = [
             ("start", self.start),
             ("stop", self.stop_command),
@@ -1019,10 +961,13 @@ class TelegramBotService:
             ("context", self.context_command),
         ]
         for cmd, handler in handlers:
-            self.application.add_handler(CommandHandler(cmd, handler))
+            app.add_handler(CommandHandler(cmd, handler))
 
     def _register_fun_handlers(self) -> None:
         """Register fun/easter egg command handlers."""
+        app = self.application
+        if app is None:
+            raise RuntimeError("Application not initialized")
         fun_handlers = [
             ("chef", fun_commands.chef_command),
             ("wisdom", fun_commands.wisdom_command),
@@ -1033,30 +978,32 @@ class TelegramBotService:
         ]
         for cmd, func in fun_handlers:
             # Capture func in closure properly
-            self.application.add_handler(
-                CommandHandler(cmd, lambda u, c, f=func: f(self, u, c))
-            )
+            app.add_handler(CommandHandler(cmd, lambda u, c, f=func: f(self, u, c)))
 
     def _register_model_handlers(self) -> None:
         """Register model-related command handlers."""
-        self.application.add_handler(
+        app = self.application
+        if app is None:
+            raise RuntimeError("Application not initialized")
+        app.add_handler(
             CommandHandler(
                 "modellist", lambda u, c: self.models._handle_model_list(u, c)
             )
         )
-        self.application.add_handler(
+        app.add_handler(
             CommandHandler(
                 "modelselect",
                 lambda u, c: self.models._handle_model_select_prompt(u, c),
             )
         )
-        self.application.add_handler(CommandHandler("modelstatus", self.model_command))
-        self.application.add_handler(
-            CommandHandler("modelrefresh", self.model_refresh_command)
-        )
+        app.add_handler(CommandHandler("modelstatus", self.model_command))
+        app.add_handler(CommandHandler("modelrefresh", self.model_refresh_command))
 
     def _register_mode_handlers(self) -> None:
         """Register mode switch command handlers."""
+        app = self.application
+        if app is None:
+            raise RuntimeError("Application not initialized")
         mode_commands = [
             ("plan", "PLAN"),
             ("normal", "NORMAL"),
@@ -1065,7 +1012,7 @@ class TelegramBotService:
             ("architect", "ARCHITECT"),
         ]
         for cmd, mode in mode_commands:
-            self.application.add_handler(
+            app.add_handler(
                 CommandHandler(
                     cmd, lambda u, c, m=mode: self._handle_mode_switch(u, c, m)
                 )
@@ -1073,19 +1020,14 @@ class TelegramBotService:
 
     def _register_terminal_handlers(self) -> None:
         """Register terminal command handlers."""
-        self.application.add_handler(CommandHandler("term", self.term_command))
-        self.application.add_handler(
-            CommandHandler("termstatus", self.termstatus_command)
-        )
-        self.application.add_handler(
-            CommandHandler("termclose", self.termclose_command)
-        )
-        self.application.add_handler(
-            CommandHandler("termswitch", self.term_handlers.term_switch_command)
-        )
-        self.application.add_handler(
-            CommandHandler("termupload", self.term_handlers.term_upload_command)
-        )
+        app = self.application
+        if app is None:
+            raise RuntimeError("Application not initialized")
+        app.add_handler(CommandHandler("term", self.term_command))
+        app.add_handler(CommandHandler("termstatus", self.termstatus_command))
+        app.add_handler(CommandHandler("termclose", self.termclose_command))
+        app.add_handler(CommandHandler("termswitch", self.term_handlers.term_switch_command))
+        app.add_handler(CommandHandler("termupload", self.term_handlers.term_upload_command))
 
         # Terminal shortcut commands
         shortcuts = [
@@ -1096,10 +1038,8 @@ class TelegramBotService:
             ("termnpm", "npm"),
         ]
         for cmd, shell_cmd in shortcuts:
-            self.application.add_handler(
-                CommandHandler(
-                    cmd, lambda u, c, s=shell_cmd: self._term_shortcut(u, c, s)
-                )
+            app.add_handler(
+                CommandHandler(cmd, lambda u, c, s=shell_cmd: self._term_shortcut(u, c, s))
             )
 
     # =========================================================================
@@ -1172,24 +1112,20 @@ class TelegramBotService:
 
     def _register_cli_handlers(self) -> None:
         """Register CLI provider command handlers."""
-        self.application.add_handler(CommandHandler("cli", self.cli_command))
-        self.application.add_handler(CommandHandler("cliclose", self.cli_close_command))
-        self.application.add_handler(
-            CommandHandler("clistatus", self.cli_status_command)
-        )
-        self.application.add_handler(
-            CommandHandler("cliproviders", self.cli_providers_command)
-        )
-        self.application.add_handler(CommandHandler("clirun", self.cli_run_command))
-        self.application.add_handler(
-            CommandHandler("clihistory", self.cli_history_command)
-        )
-        self.application.add_handler(CommandHandler("clidiag", self.cli_diag_command))
-        self.application.add_handler(CommandHandler("clisetup", self.cli_setup_command))
-        self.application.add_handler(CommandHandler("cliretry", self.cli_retry_command))
-        self.application.add_handler(
-            CommandHandler("clicancel", self.cli_cancel_command)
-        )
+        app = self.application
+        if app is None:
+            raise RuntimeError("Application not initialized")
+
+        app.add_handler(CommandHandler("cli", self.cli_command))
+        app.add_handler(CommandHandler("cliclose", self.cli_close_command))
+        app.add_handler(CommandHandler("clistatus", self.cli_status_command))
+        app.add_handler(CommandHandler("cliproviders", self.cli_providers_command))
+        app.add_handler(CommandHandler("clirun", self.cli_run_command))
+        app.add_handler(CommandHandler("clihistory", self.cli_history_command))
+        app.add_handler(CommandHandler("clidiag", self.cli_diag_command))
+        app.add_handler(CommandHandler("clisetup", self.cli_setup_command))
+        app.add_handler(CommandHandler("cliretry", self.cli_retry_command))
+        app.add_handler(CommandHandler("clicancel", self.cli_cancel_command))
 
         # CLI provider shortcut commands
         cli_shortcuts = [
@@ -1198,23 +1134,20 @@ class TelegramBotService:
             ("cliopencode", "opencode"),
         ]
         for cmd, provider in cli_shortcuts:
-            self.application.add_handler(
-                CommandHandler(
-                    cmd, lambda u, c, p=provider: self._cli_shortcut(u, c, p)
-                )
+            app.add_handler(
+                CommandHandler(cmd, lambda u, c, p=provider: self._cli_shortcut(u, c, p))
             )
 
     def _register_message_handlers(self) -> None:
         """Register message and callback handlers."""
+        app = self.application
+        if app is None:
+            raise RuntimeError("Application not initialized")
         # Route unknown slash-commands into the normal chat pipeline
-        self.application.add_handler(
-            MessageHandler(filters.COMMAND, self.handle_message)
-        )
-        self.application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
-        )
-        self.application.add_handler(CallbackQueryHandler(self.handle_callback))
-        self.application.add_error_handler(self.error_handler)
+        app.add_handler(MessageHandler(filters.COMMAND, self.handle_message))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        app.add_handler(CallbackQueryHandler(self.handle_callback))
+        app.add_error_handler(self.error_handler)
 
     def _register_all_handlers(self) -> None:
         """Register all command, message, and callback handlers."""
@@ -1228,25 +1161,26 @@ class TelegramBotService:
 
     async def _shutdown_gracefully(self, started: bool, polling: bool) -> None:
         """Gracefully shutdown the application."""
+        app = self.application
         try:
-            if self.application is not None and polling:
-                await self.application.updater.stop()
+            if app is not None and polling:
+                await app.updater.stop()
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.warning("Telegram updater stop failed: %s", e)
 
         try:
-            if self.application is not None and started:
-                await self.application.stop()
+            if app is not None and started:
+                await app.stop()
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.warning("Telegram application stop failed: %s", e)
 
         try:
-            if self.application is not None:
-                await self.application.shutdown()
+            if app is not None:
+                await app.shutdown()
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -1279,10 +1213,13 @@ class TelegramBotService:
         started = False
         polling = False
         try:
-            await self.application.initialize()
-            await self.application.start()
+            app = self.application
+            if app is None:
+                raise RuntimeError("Application not initialized")
+            await app.initialize()
+            await app.start()
             started = True
-            await self.application.updater.start_polling(drop_pending_updates=True)
+            await app.updater.start_polling(drop_pending_updates=True)
             polling = True
 
             await self._notify_startup()
@@ -1297,53 +1234,39 @@ class TelegramBotService:
             await asyncio.sleep(30)
             now = time.monotonic()
 
-            expired_short_ids = [
-                short_id
-                for short_id, created in self._approval_created_at.items()
-                if (now - created) > self._approval_ttl_s
-            ]
-            for short_id in expired_short_ids:
-                self._approval_created_at.pop(short_id, None)
-                _ = self.approval_map.pop(short_id, None)
-                chat = self._approval_chat_map.pop(short_id, None)
-                tool = self._approval_tool_map.pop(short_id, None)
-                if chat and self.application:
+            for info in self.approvals.expire(now):
+                if self.application:
                     try:
                         await self.application.bot.send_message(
-                            chat_id=chat,
-                            text=f"⌛ Approval expired for {tool or 'tool'} (id {short_id}).",
+                            chat_id=info.chat_id,
+                            text=f"⌛ Approval expired for {info.tool_name or 'tool'} (id {info.short_id}).",
                         )
                     except Exception:
                         pass
 
             # Idle session warnings/cleanup
-            for chat_id, ts in list(self._last_activity.items()):
-                since = now - ts
-                if since > self._session_ttl_s:
-                    self._forget_session(chat_id)
-                    if self.application:
-                        try:
-                            await self.application.bot.send_message(
-                                chat_id=chat_id,
-                                text="⏻ Session closed after inactivity.",
-                            )
-                        except Exception:
-                            pass
-                    continue
-
-                if (
-                    since > SESSION_IDLE_WARNING_S
-                    and chat_id not in self._warned_idle
-                    and self.application
-                ):
-                    self._warned_idle.add(chat_id)
+            for chat_id in list(self.sessions.idle_sessions(SESSION_IDLE_TTL_S)):
+                self._forget_session(chat_id)
+                if self.application:
                     try:
                         await self.application.bot.send_message(
                             chat_id=chat_id,
-                            text="⚠️ Session idle. Will close soon if no activity.",
+                            text="⏻ Session closed after inactivity.",
                         )
                     except Exception:
                         pass
+
+            if self.application:
+                for chat_id in list(self.sessions.sessions.keys()):
+                    if self.sessions.warnable(chat_id, SESSION_IDLE_WARNING_S):
+                        self.sessions.mark_warned(chat_id)
+                        try:
+                            await self.application.bot.send_message(
+                                chat_id=chat_id,
+                                text="⚠️ Session idle. Will close soon if no activity.",
+                            )
+                        except Exception:
+                            pass
 
 
 async def run_telegram_bot(config: VibeConfig) -> None:

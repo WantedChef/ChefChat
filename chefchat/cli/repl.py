@@ -113,6 +113,7 @@ class ChefChatREPL:
         self.agent: Agent | None = None
         self._last_mode = initial_mode
         self._render_context = self._build_render_context()
+        self.config_service = None  # Placeholder; not used in REPL path
 
         # Setup keybindings
         self.kb = KeyBindings()
@@ -155,6 +156,7 @@ class ChefChatREPL:
             ("/clear", "Clear history"),
             ("/status", "Show status"),
             ("/stats", "Show statistics"),
+            ("/reload", "Reload configuration"),
             ("/git-setup", "Configure Git settings"),
             ("/telegram", "Manage Telegram bot"),
             ("/discord", "Manage Discord bot"),
@@ -519,6 +521,27 @@ Use `/model status` to see which model is currently active.
         if not model_alias:
             await self._model_show_help()
             return
+
+    async def _reload_config(self) -> None:
+        """Reload configuration from disk and refresh the agent."""
+        try:
+            from chefchat.core.config import VibeConfig, load_api_keys_from_env
+
+            load_api_keys_from_env()
+            new_config = VibeConfig.load()
+            self.config = new_config
+            self.model_service = ModelService(self.config)
+
+            # Re-initialize agent to apply new settings
+            await self._initialize_agent()
+
+            self.console.print(
+                f"[{COLORS['sage']}]✅ Configuration reloaded. Active model: {new_config.active_model}[/{COLORS['sage']}]"
+            )
+        except Exception as exc:
+            self.console.print(
+                f"[{COLORS['ember']}]❌ Reload failed: {exc}[/{COLORS['ember']}]"
+            )
 
         model = None
         target = model_alias.lower()

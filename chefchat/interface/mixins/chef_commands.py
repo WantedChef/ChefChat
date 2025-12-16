@@ -32,9 +32,11 @@ class ChefCommandsMixin:
     async def _show_modes(self) -> None:
         """Show available modes with current mode highlighted."""
         from chefchat.interface.widgets.ticket_rail import TicketRail
-        from chefchat.modes import MODE_CONFIGS, MODE_CYCLE_ORDER
+        from chefchat.modes import ModeManager
 
-        current = self._mode_manager.current_mode
+        manager: ModeManager = self._mode_manager
+        descriptors = manager.list_modes()
+        current = manager.current_mode
         lines = [
             "## 🔄 Available Modes",
             "",
@@ -42,11 +44,19 @@ class ChefCommandsMixin:
             "",
         ]
 
-        for mode in MODE_CYCLE_ORDER:
-            config = MODE_CONFIGS[mode]
+        for descriptor in descriptors:
+            mode = descriptor.id
             marker = "▶" if mode == current else " "
+            perms = []
+            if descriptor.read_only:
+                perms.append("🔒 Read-only")
+            if descriptor.auto_approve:
+                perms.append("🤖 Auto-approve")
+            if not perms:
+                perms.append("✋ Confirm each")
+            perm_str = " • ".join(perms)
             lines.append(
-                f"{marker} {config.emoji} **{mode.value.upper()}**: {config.description}"
+                f"{marker} {descriptor.emoji} **{descriptor.name}**: {descriptor.description} ({perm_str})"
             )
 
         lines.extend(["", "---", f"Current: **{current.value.upper()}**"])

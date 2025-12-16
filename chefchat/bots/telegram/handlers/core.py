@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from telegram import Update, constants
+from telegram.ext import ContextTypes
 
 if TYPE_CHECKING:
     from chefchat.bots.telegram.telegram_bot import TelegramBotService
@@ -14,7 +15,7 @@ class CoreHandlers:
     def __init__(self, svc: TelegramBotService) -> None:
         self.svc = svc
 
-    async def start(self, update: Update, context: object) -> None:
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
         if not user:
             return
@@ -35,7 +36,9 @@ class CoreHandlers:
                 parse_mode=constants.ParseMode.MARKDOWN,
             )
 
-    async def help_command(self, update: Update, context: object) -> None:
+    async def help_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         help_text = (
             "🤖 **ChefChat Bot Commands**\n\n"
             "💡 *Tip: Commands work with or without `/`*\n"
@@ -109,7 +112,9 @@ class CoreHandlers:
             help_text, parse_mode=constants.ParseMode.MARKDOWN
         )
 
-    async def status_command(self, update: Update, context: object) -> None:
+    async def status_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         user = update.effective_user
         if not user:
             return
@@ -148,4 +153,58 @@ class CoreHandlers:
         )
         await update.message.reply_text(
             status_text, parse_mode=constants.ParseMode.MARKDOWN
+        )
+
+    async def files_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """List project files in current directory."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.svc.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        cwd = self.svc.TELEGRAM_WORKDIR
+        files = []
+        try:
+            for item in sorted(cwd.iterdir())[:30]:  # Limit to 30 items
+                if item.name.startswith("."):
+                    continue
+                prefix = "📁" if item.is_dir() else "📄"
+                files.append(f"{prefix} {item.name}")
+        except Exception as e:
+            await update.message.reply_text(f"Error listing files: {e}")
+            return
+
+        if files:
+            file_list = "\n".join(files)
+            await update.message.reply_text(
+                f"📂 **Files in** `{cwd}`:\n\n```\n{file_list}\n```",
+                parse_mode=constants.ParseMode.MARKDOWN,
+            )
+        else:
+            await update.message.reply_text("No files found.")
+
+    async def pwd_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Show current working directory."""
+        user = update.effective_user
+        if not user or not update.message:
+            return
+
+        user_id_str = str(user.id)
+        allowed = self.svc.bot_manager.get_allowed_users("telegram")
+        if user_id_str not in allowed:
+            await update.message.reply_text("Access denied.")
+            return
+
+        await update.message.reply_text(
+            f"📁 Current directory:\n`{self.svc.TELEGRAM_WORKDIR}`",
+            parse_mode=constants.ParseMode.MARKDOWN,
         )

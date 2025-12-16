@@ -11,7 +11,7 @@ from textual.widgets import Static
 from textual.worker import Worker
 
 from chefchat.interface.constants import WHISK_FRAMES
-from chefchat.modes import MODE_CONFIGS, ModeManager
+from chefchat.modes import ModeManager
 
 if TYPE_CHECKING:
     pass
@@ -107,13 +107,12 @@ class KitchenFooter(Horizontal):
         self._mode_manager = mode_manager
 
     def compose(self) -> ComposeResult:
-        mode = self._mode_manager.current_mode
-        config = MODE_CONFIGS[mode]
-        auto = "ON" if self._mode_manager.auto_approve else "OFF"
-        auto_class = "auto-on" if self._mode_manager.auto_approve else "auto-off"
+        descriptor = self._mode_manager.describe_mode()
+        auto = "ON" if descriptor.auto_approve else "OFF"
+        auto_class = "auto-on" if descriptor.auto_approve else "auto-off"
 
         # Mode Section
-        yield Static(f"{config.emoji} {mode.value.upper()}", classes="footer-mode")
+        yield Static(f"{descriptor.emoji} {descriptor.name}", classes="footer-mode")
 
         # Status Section
         yield Static("Auto: ", classes="footer-label")
@@ -128,14 +127,13 @@ class KitchenFooter(Horizontal):
 
     def refresh_mode(self) -> None:
         """Refresh the footer display after a mode change."""
-        mode = self._mode_manager.current_mode
-        config = MODE_CONFIGS[mode]
-        auto = "ON" if self._mode_manager.auto_approve else "OFF"
+        descriptor = self._mode_manager.describe_mode()
+        auto = "ON" if descriptor.auto_approve else "OFF"
 
         try:
             # Update Mode
             self.query_one(".footer-mode", Static).update(
-                f"{config.emoji} {mode.value.upper()}"
+                f"{descriptor.emoji} {descriptor.name}"
             )
 
             # Update Auto Status

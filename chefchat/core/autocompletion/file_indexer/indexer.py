@@ -29,6 +29,7 @@ class FileIndexer:
         max_depth: int | None = None,
         parallel_walk: bool = True,
         max_workers: int | None = None,
+        always_enable_watcher: bool = False,
     ) -> None:
         self._lock = RLock()  # guards _store snapshot access and watcher callbacks.
         self._stats = FileIndexStats()
@@ -51,6 +52,7 @@ class FileIndexer:
         )  # coordinates updates to _active_rebuilds and _target_root.
         self._target_root: Path | None = None
         self._shutdown = False
+        self._always_enable_watcher = always_enable_watcher
 
     @property
     def stats(self) -> FileIndexStats:
@@ -91,7 +93,8 @@ class FileIndexer:
 
         # Under pytest we avoid starting watch threads; they can linger and
         # trigger noisy thread dumps / instability in CI.
-        if "PYTEST_CURRENT_TEST" not in os.environ:
+        # However, integration tests can override this.
+        if self._always_enable_watcher or "PYTEST_CURRENT_TEST" not in os.environ:
             self._watcher.start(resolved_root)
 
         with self._lock:  # ensure root reference is fresh before snapshotting

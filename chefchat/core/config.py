@@ -431,18 +431,18 @@ DEFAULT_MODELS = [
         features={"reasoning", "coding", "tool_use", "large_context"},
     ),
     ModelConfig(
-        name="codestral-2501",
+        name="codestral-latest",
         provider="mistral",
         alias="devstral-2512",
         input_price=0.4,
         output_price=2.0,
     ),
     ModelConfig(
-        name="devstral-2-25-12",
+        name="mistral-small-latest",
         provider="mistral",
         alias="devstral-2",
-        input_price=0.4,
-        output_price=2.0,
+        input_price=0.2,
+        output_price=0.6,
     ),
     ModelConfig(
         name="codestral-2501",

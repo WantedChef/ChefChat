@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from telegram import Update, constants
+from telegram.ext import ContextTypes
 
 if TYPE_CHECKING:
     from chefchat.bots.telegram.telegram_bot import TelegramBotService
@@ -16,7 +17,9 @@ class TerminalHandlers:
         self.svc = svc
         self.max_upload_bytes = 200 * 1024
 
-    async def term_command(self, update: Update, context: object) -> None:
+    async def term_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         user = update.effective_user
         if not user or not update.message:
             return
@@ -48,7 +51,9 @@ class TerminalHandlers:
             message, parse_mode=constants.ParseMode.MARKDOWN
         )
 
-    async def termstatus_command(self, update: Update, context: object) -> None:
+    async def termstatus_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         user = update.effective_user
         if not user or not update.message:
             return
@@ -64,7 +69,9 @@ class TerminalHandlers:
 
         await update.message.reply_text(status, parse_mode=constants.ParseMode.MARKDOWN)
 
-    async def termclose_command(self, update: Update, context: object) -> None:
+    async def termclose_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         user = update.effective_user
         if not user or not update.message:
             return
@@ -81,7 +88,7 @@ class TerminalHandlers:
         await update.message.reply_text(message)
 
     async def term_shortcut(
-        self, update: Update, context: object, command: str
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, command: str
     ) -> None:
         user = update.effective_user
         if not user or not update.message:
@@ -101,7 +108,7 @@ class TerminalHandlers:
         )
 
     async def term_switch_command(
-        self, update: Update, context: object
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Switch terminal CWD by restarting shell in a new path."""
         if not context.args:
@@ -119,7 +126,7 @@ class TerminalHandlers:
         await update.message.reply_text(msg, parse_mode=constants.ParseMode.MARKDOWN)
 
     async def term_upload_command(
-        self, update: Update, context: object
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Send a small file from the terminal cwd back to the user."""
         if not context.args:

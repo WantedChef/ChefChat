@@ -112,13 +112,71 @@ class OpenAIAdapter(APIAdapter):
 
         return payload
 
-    def build_headers(self, api_key: str | None = None) -> dict[str, str]:
+    def _adjust_for_groq_model(
+        self, payload: dict[str, Any], model_name: str
+    ) -> dict[str, Any]:
+        """Adjust request parameters for specific Groq models."""
+        if "llama-4-scout" in model_name or "llama-4-maverick" in model_name:
+            # Enable multimodal for Llama 4 models
+            if any("image" in str(msg) for msg in payload.get("messages", [])):
+                payload["modalities"] = ["text", "image"]
+
+        elif "kimi-k2" in model_name:
+            # Kimi K2 specific optimizations
+            payload["max_tokens"] = min(payload.get("max_tokens", 8192), 16384)
+
+        elif "gpt-oss" in model_name:
+            # Enable browser tools for GPT-OSS models
+            if not payload.get("tools"):
+                payload["tools"] = self._get_groq_browser_tools()
+
+        return payload
+
+    def _get_groq_browser_tools(self) -> list[dict[str, Any]]:
+        """Get Groq browser tools for compatible models."""
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "web_search",
+                    "description": "Search the web for current information",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Search query"}
+                        },
+                        "required": ["query"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "code_execution",
+                    "description": "Execute Python code",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "description": "Python code to execute",
+                            }
+                        },
+                        "required": ["code"],
+                    },
+                },
+            },
+        ]
+
+    def build_headers(
+        self, provider: ProviderConfig, api_key: str | None = None
+    ) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
         # Groq-specific optimizations
-        if self._provider.name == "groq":
+        if provider.name == "groq":
             headers["User-Agent"] = "ChefChat/1.0"
             headers["X-Request-Source"] = "chefchat"
 
@@ -152,7 +210,7 @@ class OpenAIAdapter(APIAdapter):
         if provider.name == "groq":
             payload = self._adjust_for_groq_model(payload, model_name)
 
-        headers = self.build_headers(api_key)
+        headers = self.build_headers(provider, api_key)
 
         body = json.dumps(payload).encode("utf-8")
 
@@ -524,62 +582,6 @@ class GenericBackend:
                 has_tools=False,
                 tool_choice=None,
             ) from e
-
-    def _adjust_for_groq_model(
-        self, payload: dict[str, Any], model_name: str
-    ) -> dict[str, Any]:
-        """Adjust request parameters for specific Groq models."""
-        if "llama-4-scout" in model_name or "llama-4-maverick" in model_name:
-            # Enable multimodal for Llama 4 models
-            if any("image" in str(msg) for msg in payload.get("messages", [])):
-                payload["modalities"] = ["text", "image"]
-
-        elif "kimi-k2" in model_name:
-            # Kimi K2 specific optimizations
-            payload["max_tokens"] = min(payload.get("max_tokens", 8192), 16384)
-
-        elif "gpt-oss" in model_name:
-            # Enable browser tools for GPT-OSS models
-            if not payload.get("tools"):
-                payload["tools"] = self._get_groq_browser_tools()
-
-        return payload
-
-    def _get_groq_browser_tools(self) -> list[dict[str, Any]]:
-        """Get Groq browser tools for compatible models."""
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": "web_search",
-                    "description": "Search the web for current information",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Search query"}
-                        },
-                        "required": ["query"],
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "code_execution",
-                    "description": "Execute Python code",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "code": {
-                                "type": "string",
-                                "description": "Python code to execute",
-                            }
-                        },
-                        "required": ["code"],
-                    },
-                },
-            },
-        ]
 
     async def close(self) -> None:
         if self._owns_client and self._client:

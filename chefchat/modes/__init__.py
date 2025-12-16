@@ -59,7 +59,7 @@ from chefchat.modes.prompts import get_system_prompt_modifier
 from chefchat.modes.security import is_write_bash_command, is_write_operation
 
 # Core types
-from chefchat.modes.types import ModeConfig, ModeState, VibeMode
+from chefchat.modes.types import ModeConfig, ModeDescriptor, ModeState, VibeMode
 
 __all__ = [  # noqa: RUF022
     # Constants
@@ -91,6 +91,7 @@ __all__ = [  # noqa: RUF022
     "is_write_bash_command",
     "is_write_operation",
     # Types
+    "ModeDescriptor",
     "ModeConfig",
     "ModeState",
     "VibeMode",

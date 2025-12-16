@@ -53,6 +53,33 @@ class ModeConfig:
     personality: str
 
 
+@dataclass(frozen=True)
+class ModeDescriptor:
+    """Serializable description of a mode for UI/API consumers."""
+
+    id: VibeMode
+    name: str
+    emoji: str
+    description: str
+    auto_approve: bool
+    read_only: bool
+    personality: str
+    tips: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert descriptor to a simple JSON-serializable dict."""
+        return {
+            "id": self.id.value,
+            "name": self.name,
+            "emoji": self.emoji,
+            "description": self.description,
+            "auto_approve": self.auto_approve,
+            "read_only": self.read_only,
+            "personality": self.personality,
+            "tips": list(self.tips),
+        }
+
+
 @dataclass
 class ModeState:
     """Tracks the current mode state and history.

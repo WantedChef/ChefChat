@@ -54,6 +54,10 @@ class CLIProvider:
     version_args: list[str] | None = field(default_factory=lambda: ["--version"])
     # Environment variables that typically unlock the provider
     env_keys: list[str] = field(default_factory=list)
+    # Default args appended before the prompt (e.g., auto-approve flags)
+    default_args: list[str] = field(default_factory=list)
+    # Optional env var name that provides additional args (space-delimited)
+    args_env_var: str | None = None
 
     def get_full_path(self) -> str | None:
         """Get full path to CLI binary, or None if not found."""
@@ -65,12 +69,29 @@ class CLIProvider:
         """Check if this CLI is installed and available."""
         return self.get_full_path() is not None
 
+    def _extra_args(self) -> list[str]:
+        """Return default args plus any provided via env var."""
+        args: list[str] = list(self.default_args)
+        if self.args_env_var:
+            env_val = os.getenv(self.args_env_var, "").strip()
+            if env_val:
+                args.extend(shlex.split(env_val))
+        return args
+
+    def build_argv(self, prompt: str) -> list[str]:
+        """Build argv list for subprocess execution."""
+        # Break template into parts and drop the {prompt} placeholder
+        template_parts = shlex.split(
+            self.exec_template.replace("{prompt}", "{prompt}")
+        )
+        base: list[str] = [p for p in template_parts if p != "{prompt}"]
+        base.extend(self._extra_args())
+        base.append(prompt)
+        return base
+
     def build_command(self, prompt: str) -> str:
-        """Build the command to execute with the given prompt."""
-        # Use shlex to properly escape the prompt
-        safe_prompt = shlex.quote(prompt)
-        cmd_str = self.exec_template.replace("{prompt}", safe_prompt)
-        return cmd_str
+        """Build a shell-safe command string (used mainly for logging)."""
+        return shlex.join(self.build_argv(prompt))
 
 
 # Available CLI providers with their one-shot execution commands
@@ -83,6 +104,9 @@ CLI_PROVIDERS: dict[str, CLIProvider] = {
         icon="✨",
         # Gemini uses positional argument for one-shot
         exec_template="gemini {prompt}",
+        # Auto-approve actions to avoid interactive prompts in Telegram
+        default_args=["--approval-mode", "yolo"],
+        args_env_var="GEMINI_CLI_ARGS",
         env_keys=["GEMINI_API_KEY", "GOOGLE_API_KEY"],
     ),
     "codex": CLIProvider(
@@ -185,6 +209,7 @@ class CLIProviderManager:
             available = provider.is_available()
             env_hits = [k for k in provider.env_keys if os.getenv(k)]
             version = await self._get_version(provider) if available else None
+            arg_parts = provider._extra_args()
 
             status = "✅" if available else "❌"
             lines.append(
@@ -203,6 +228,11 @@ class CLIProviderManager:
                 lines.append(f"   • Keys present: {hits}")
             elif provider.env_keys:
                 lines.append("   • Keys missing: " + ", ".join(provider.env_keys))
+            if arg_parts:
+                lines.append("   • Args: " + " ".join(arg_parts))
+            if provider.args_env_var:
+                env_state = "set" if os.getenv(provider.args_env_var) else "unset"
+                lines.append(f"   • {provider.args_env_var}: {env_state}")
 
         return "\n".join(lines)
 
@@ -253,12 +283,12 @@ class CLIProviderManager:
         if existing and not existing.done():
             return "⏳ Previous CLI request still running. Use /clicancel to stop it."
 
-        cmd = provider.build_command(prompt)
+        argv = provider.build_argv(prompt)
 
         try:
             task = asyncio.create_task(
                 self._run_cli_process(
-                    chat_id, provider_name, provider, cmd, cwd, prompt
+                    chat_id, provider_name, provider, argv, cwd, prompt
                 )
             )
             self.pending[chat_id] = task
@@ -276,7 +306,7 @@ class CLIProviderManager:
         chat_id: int,
         provider_key: str,
         provider: CLIProvider,
-        cmd: str,
+        argv: list[str],
         cwd: Path,
         prompt: str,
     ) -> str:
@@ -287,11 +317,12 @@ class CLIProviderManager:
                 "provider": provider_key,
                 "cwd": str(cwd),
                 "prompt_len": len(prompt),
+                "argv": argv,
             },
         )
         start = time.perf_counter()
-        process = await asyncio.create_subprocess_shell(
-            cmd,
+        process = await asyncio.create_subprocess_exec(
+            *argv,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=str(cwd),
@@ -397,12 +428,13 @@ class CLIProviderManager:
         if not self.history.get(chat_id):
             return "ℹ️ No CLI runs yet for this chat."
 
+        PROMPT_DISPLAY_LIMIT = 120
         lines = ["🗂️ Recent CLI runs (latest first):"]
         for entry in self.history[chat_id]:
             lines.append(
                 f"• {entry['provider']} in {entry['duration']} (truncated: {entry['truncated']})\n"
-                f"  Prompt: {entry['prompt'][:120]}"
-                + ("..." if len(entry["prompt"]) > 120 else "")
+                f"  Prompt: {entry['prompt'][:PROMPT_DISPLAY_LIMIT]}"
+                + ("..." if len(entry["prompt"]) > PROMPT_DISPLAY_LIMIT else "")
             )
         return "\n".join(lines)
 
@@ -427,6 +459,9 @@ class CLIProviderManager:
             "• gemini: `pip install google-gemini-cli`",
             "• codex: `pip install openai-codex-cli`",
             "• opencode: `pip install opencode-cli`",
+            "",
+            "Gemini runs with `--approval-mode yolo` to avoid interactive prompts.",
+            "Override flags via `GEMINI_CLI_ARGS`, e.g. `GEMINI_CLI_ARGS=\"--approval-mode auto_edit\"`.",
             "",
             "Set API keys:",
             "- Gemini: `GEMINI_API_KEY` or `GOOGLE_API_KEY`",
