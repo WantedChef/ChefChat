@@ -336,8 +336,12 @@ class TelegramBotService:
             "tasks": self.commands.task_command,
             "botmode": self.commands.botmode_command,
             "devmode": lambda u, c: self.commands.handle_botmode_shortcut(u, c, "dev"),
-            "chatmode": lambda u, c: self.commands.handle_botmode_shortcut(u, c, "chat"),
-            "combimode": lambda u, c: self.commands.handle_botmode_shortcut(u, c, "combo"),
+            "chatmode": lambda u, c: self.commands.handle_botmode_shortcut(
+                u, c, "chat"
+            ),
+            "combimode": lambda u, c: self.commands.handle_botmode_shortcut(
+                u, c, "combo"
+            ),
             "modelrefresh": self.commands.model_refresh_command,
             "term": self.commands.term_command,
             "termstatus": self.commands.termstatus_command,
@@ -785,9 +789,25 @@ class TelegramBotService:
     def _get_changelog_snippet(self) -> str:
         """Return short changelog for startup notification."""
         return (
-            "• Nieuwe default: `mistral-small`\n"
-            "• Providers: OpenCode Zen + NVIDIA toegevoegd\n"
-            "• `/model list` toont nu live provider catalogus"
+            "🚀 **Major Bot Infrastructure Update**\n\n"
+            "🔧 **Enhanced Bash Tool:**\n"
+            "• `cd` command now works with persistent directory state\n"
+            "• Expanded command whitelist with 50+ development tools\n"
+            "• Shell built-ins support (pushd, export, etc.)\n\n"
+            "🛡️ **Security & Session Management:**\n"
+            "• Rate limiting per user (configurable windows)\n"
+            "• Session limits with override capability\n"
+            "• Tool approval workflow with TTL expiration\n"
+            "• Enhanced input validation & sanitization\n\n"
+            "🤖 **Model Management:**\n"
+            "• 5 new FREE OpenCode models added\n"
+            "• Live model fetching from providers\n"
+            "• Model categorization (coding, reasoning, speed)\n"
+            "• Experimental models: alpha-gd4, big-pickle\n\n"
+            "📱 **UI Improvements:**\n"
+            "• Enhanced Discord bot with mode display\n"
+            "• Direct git commands (without slash)\n"
+            "• Better error messages and status cards"
         )
 
     def _register_basic_handlers(self) -> None:
@@ -848,7 +868,9 @@ class TelegramBotService:
             )
         )
         app.add_handler(CommandHandler("modelstatus", self.commands.model_command))
-        app.add_handler(CommandHandler("modelrefresh", self.commands.model_refresh_command))
+        app.add_handler(
+            CommandHandler("modelrefresh", self.commands.model_refresh_command)
+        )
 
     def _register_mode_handlers(self) -> None:
         """Register mode switch command handlers."""
@@ -870,12 +892,8 @@ class TelegramBotService:
         app.add_handler(CommandHandler("term", self.commands.term_command))
         app.add_handler(CommandHandler("termstatus", self.commands.termstatus_command))
         app.add_handler(CommandHandler("termclose", self.commands.termclose_command))
-        app.add_handler(
-            CommandHandler("termswitch", self.commands.term_switch_command)
-        )
-        app.add_handler(
-            CommandHandler("termupload", self.commands.term_upload_command)
-        )
+        app.add_handler(CommandHandler("termswitch", self.commands.term_switch_command))
+        app.add_handler(CommandHandler("termupload", self.commands.term_upload_command))
 
         # Terminal shortcut commands
         shortcuts = [
@@ -901,7 +919,9 @@ class TelegramBotService:
         app.add_handler(CommandHandler("cli", self.commands.cli_command))
         app.add_handler(CommandHandler("cliclose", self.commands.cli_close_command))
         app.add_handler(CommandHandler("clistatus", self.commands.cli_status_command))
-        app.add_handler(CommandHandler("cliproviders", self.commands.cli_providers_command))
+        app.add_handler(
+            CommandHandler("cliproviders", self.commands.cli_providers_command)
+        )
         app.add_handler(CommandHandler("clirun", self.commands.cli_run_command))
         app.add_handler(CommandHandler("clihistory", self.commands.cli_history_command))
         app.add_handler(CommandHandler("clidiag", self.commands.cli_diag_command))
