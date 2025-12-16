@@ -1,6 +1,6 @@
 [project]
 name = "chefchat"
-version = "1.0.6"
+version = "1.0.7"
 description = "The Michelin Star AI-Engineer CLI"
 readme = "README.md"
 requires-python = ">=3.12"

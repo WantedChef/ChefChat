@@ -124,7 +124,7 @@ class MistralMapper:
 
 
 class MistralBackend:
-    def __init__(self, provider: ProviderConfig, timeout: float = 720.0) -> None:
+    def __init__(self, provider: ProviderConfig, timeout: float = 60.0) -> None:
         self._client: mistralai.Mistral | None = None
         self._provider = provider
         self._mapper = MistralMapper()
@@ -194,7 +194,9 @@ class MistralBackend:
                         tool.function.parameters = {}
 
             prepared_messages = [self._mapper.prepare_message(msg) for msg in messages]
-            prepared_tools = [self._mapper.prepare_tool(tool) for tool in tools] if tools else None
+            prepared_tools = (
+                [self._mapper.prepare_tool(tool) for tool in tools] if tools else None
+            )
 
             response = await self._get_client().chat.complete_async(
                 model=model.name,
@@ -350,7 +352,9 @@ class MistralBackend:
 
         return total
 
-    async def list_models(self, *, extra_headers: dict[str, str] | None = None) -> list[str]:
+    async def list_models(
+        self, *, extra_headers: dict[str, str] | None = None
+    ) -> list[str]:
         """Fetch available models from the Mistral API."""
         try:
             client = self._get_client()

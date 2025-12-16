@@ -256,7 +256,7 @@ class GenericBackend:
         *,
         client: httpx.AsyncClient | None = None,
         provider: ProviderConfig,
-        timeout: float = 720.0,
+        timeout: float = 60.0,
     ) -> None:
         """Initialize the backend.
 

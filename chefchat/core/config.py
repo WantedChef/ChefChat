@@ -769,7 +769,7 @@ class VibeConfig(BaseSettings):
     color_enabled: bool = True
     emoji_enabled: bool = True
     ui_theme: str = "chef-dark"
-    auto_compact_threshold: int = 200_000
+    auto_compact_threshold: int = 50_000
     context_warnings: bool = False
     textual_theme: str = "textual-dark"
     instructions: str = ""
@@ -782,7 +782,7 @@ class VibeConfig(BaseSettings):
     file_indexer_parallel_walk: bool = True
     file_indexer_max_workers: int | None = 4
     enable_update_checks: bool = True
-    api_timeout: float = 720.0
+    api_timeout: float = 60.0
     providers: list[ProviderConfig] = Field(
         default_factory=lambda: list(DEFAULT_PROVIDERS)
     )
@@ -1026,7 +1026,7 @@ class VibeConfig(BaseSettings):
             "auto_compact_threshold" not in config
             or config["auto_compact_threshold"] == 100_000  # noqa: PLR2004
         ):
-            config["auto_compact_threshold"] = 200_000
+            config["auto_compact_threshold"] = 50_000
             needs_save = True
 
         if needs_save:

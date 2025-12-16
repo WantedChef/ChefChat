@@ -81,9 +81,7 @@ class CLIProvider:
     def build_argv(self, prompt: str) -> list[str]:
         """Build argv list for subprocess execution."""
         # Break template into parts and drop the {prompt} placeholder
-        template_parts = shlex.split(
-            self.exec_template.replace("{prompt}", "{prompt}")
-        )
+        template_parts = shlex.split(self.exec_template.replace("{prompt}", "{prompt}"))
         base: list[str] = [p for p in template_parts if p != "{prompt}"]
         base.extend(self._extra_args())
         base.append(prompt)
@@ -294,8 +292,15 @@ class CLIProviderManager:
             self.pending[chat_id] = task
             return await task
         except Exception as e:
-            logger.exception("CLI execution failed")
-            return f"❌ Error running {provider.name}: {e}"
+            from chefchat.bots.telegram.exceptions import (
+                classify_error,
+                get_user_friendly_message,
+            )
+
+            bot_error = classify_error(e)
+            logger.exception("CLI execution failed: %s", bot_error)
+            user_msg = get_user_friendly_message(bot_error)
+            return f"❌ {user_msg}"
         finally:
             task = self.pending.get(chat_id)
             if task and task.done():
@@ -461,7 +466,7 @@ class CLIProviderManager:
             "• opencode: `pip install opencode-cli`",
             "",
             "Gemini runs with `--approval-mode yolo` to avoid interactive prompts.",
-            "Override flags via `GEMINI_CLI_ARGS`, e.g. `GEMINI_CLI_ARGS=\"--approval-mode auto_edit\"`.",
+            'Override flags via `GEMINI_CLI_ARGS`, e.g. `GEMINI_CLI_ARGS="--approval-mode auto_edit"`.',
             "",
             "Set API keys:",
             "- Gemini: `GEMINI_API_KEY` or `GOOGLE_API_KEY`",

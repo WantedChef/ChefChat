@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Constants
-MAX_CONTEXT_MESSAGES = 50  # Max messages to keep in active context
+MAX_CONTEXT_MESSAGES = 20  # Max messages to keep in active context
 SUMMARY_TRIGGER_COUNT = 30  # Summarize when exceeding this count
 MEMORY_FILE_VERSION = 1
 
@@ -193,7 +193,7 @@ class ConversationMemory:
             self._extract_user_info(content)
 
         # Auto-save periodically
-        if len(self.entries) % 5 == 0:
+        if len(self.entries) % 20 == 0:
             self.save_to_disk()
 
         logger.debug(
